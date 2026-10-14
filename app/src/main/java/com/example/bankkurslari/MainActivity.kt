@@ -50,8 +50,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Directions
@@ -64,12 +67,15 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.TrendingDown
 import androidx.compose.material.icons.outlined.TrendingFlat
@@ -119,6 +125,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bankkurslari.ui.theme.BankKurslariTheme
@@ -138,11 +146,17 @@ import com.example.bankkurslari.ui.theme.VsInkSoft
 import com.example.bankkurslari.ui.theme.VsLine
 import com.example.bankkurslari.ui.theme.VsSurface
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.DelayedMapListener
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.XYTileSource
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
@@ -227,6 +241,8 @@ private data class RatesPayload(val cbu: CbuRate, val banks: List<BankRate>, val
 
 private data class Atm(val bank: String, val name: String, val lat: Double, val lng: Double)
 
+private data class OsmBranch(val bank: String, val name: String, val address: String?, val hours: String?, val lat: Double, val lng: Double)
+
 private enum class MapFilter { ALL, BRANCHES, ATMS }
 
 private data class HistoryPoint(val date: String, val rate: Double)
@@ -251,8 +267,8 @@ private data class Analytics(
 private enum class HomeTab(val icon: ImageVector) {
     HOME(Icons.Outlined.Home),
     CALC(Icons.Outlined.Calculate),
-    TREND(Icons.Outlined.ShowChart),
     BANKS(Icons.Outlined.SwapVert),
+    TREND(Icons.Outlined.ShowChart),
     MAP(Icons.Outlined.Map);
 
     fun label(s: AppStrings) = when (this) {
@@ -281,6 +297,7 @@ private fun ratesUrl(cur: Currency) = "$backendBase/api/rates/${cur.code.lowerca
 private fun analyticsUrl(cur: Currency) = "$backendBase/api/analytics/${cur.code.lowercase()}"
 private fun historyUrl(cur: Currency) = "$backendBase/api/history/${cur.code.lowercase()}"
 private val backendAtmsUrl = "$backendBase/api/atms"
+private val backendBranchesUrl = "$backendBase/api/branches"
 
 @Composable
 fun CurrencyTrackerApp(darkMode: Boolean, onToggleDark: () -> Unit, lang: Lang, onToggleLang: () -> Unit) {
@@ -301,20 +318,28 @@ fun CurrencyTrackerApp(darkMode: Boolean, onToggleDark: () -> Unit, lang: Lang, 
     }
     var atms by remember { mutableStateOf<List<Atm>>(emptyList()) }
     var atmsLoading by remember { mutableStateOf(false) }
+    var osmBranches by remember { mutableStateOf<List<OsmBranch>>(emptyList()) }
     var analytics by remember { mutableStateOf<Analytics?>(null) }
     var analyticsLoading by remember { mutableStateOf(false) }
+    var offline by remember { mutableStateOf(false) }
+    var favorites by remember { mutableStateOf(RateService.favorites(context)) }
     val scope = rememberCoroutineScope()
 
     fun refresh() {
         loading = true
         error = null
         scope.launch {
-            runCatching { fetchRates(currency) }.fold(
+            runCatching { fetchRates(context, currency) }.fold(
                 onSuccess = { p ->
                     if (p.banks.isEmpty()) error = s.noBankRates
-                    else payload = p
+                    else { payload = p; offline = false }
                 },
-                onFailure = { error = it.message ?: s.connectFail }
+                onFailure = {
+                    // No connection — fall back to the last cached rates if available.
+                    val cached = cachedRates(context, currency)
+                    if (cached != null && cached.banks.isNotEmpty()) { payload = cached; offline = true }
+                    else error = it.message ?: s.connectFail
+                }
             )
             loading = false
         }
@@ -323,11 +348,12 @@ fun CurrencyTrackerApp(darkMode: Boolean, onToggleDark: () -> Unit, lang: Lang, 
     // Reload rates whenever the selected currency changes (also runs on first launch).
     LaunchedEffect(currency) { refresh() }
 
-    // Lazily load ATM locations the first time the map tab is opened.
+    // Lazily load ATM + branch locations the first time the map tab is opened.
     LaunchedEffect(tab) {
         if (tab == HomeTab.MAP && atms.isEmpty() && !atmsLoading) {
             atmsLoading = true
-            atms = runCatching { fetchAtms() }.getOrDefault(emptyList())
+            atms = runCatching { fetchAtms(context) }.getOrDefault(emptyList())
+            if (osmBranches.isEmpty()) osmBranches = runCatching { fetchBranches(context) }.getOrDefault(emptyList())
             atmsLoading = false
         }
     }
@@ -375,8 +401,12 @@ fun CurrencyTrackerApp(darkMode: Boolean, onToggleDark: () -> Unit, lang: Lang, 
                             onToggleDark = onToggleDark,
                             lang = lang,
                             onToggleLang = onToggleLang,
+                            offline = offline,
+                            favorites = favorites,
+                            onToggleFavorite = { favorites = RateService.toggleFavorite(context, it) },
                             payload = p,
                             atms = atms,
+                            osmBranches = osmBranches,
                             atmsLoading = atmsLoading,
                             analytics = analytics,
                             analyticsLoading = analyticsLoading,
@@ -529,8 +559,12 @@ private fun SuccessScreen(
     onToggleDark: () -> Unit,
     lang: Lang,
     onToggleLang: () -> Unit,
+    offline: Boolean,
+    favorites: Set<String>,
+    onToggleFavorite: (String) -> Unit,
     payload: RatesPayload,
     atms: List<Atm>,
+    osmBranches: List<OsmBranch>,
     atmsLoading: Boolean,
     analytics: Analytics?,
     analyticsLoading: Boolean,
@@ -550,14 +584,18 @@ private fun SuccessScreen(
     val bestBuy = buyRates.maxByOrNull { it.buy!! }
     val bestSell = sellRates.minByOrNull { it.sell!! }
 
-    val visibleRates = remember(rates, query, sortMode) {
+    val visibleRates = remember(rates, query, sortMode, favorites) {
         rates
             .filter { query.isBlank() || it.bank.contains(query.trim(), ignoreCase = true) }
             .sortedWith(
-                when (sortMode) {
-                    SortMode.BUY -> compareByDescending { it.buy ?: Int.MIN_VALUE }
-                    SortMode.SELL -> compareBy { it.sell ?: Int.MAX_VALUE }
-                }
+                // Favorites first, then by the chosen sort mode.
+                compareByDescending<BankRate> { it.bank in favorites }
+                    .thenComparing(
+                        when (sortMode) {
+                            SortMode.BUY -> compareByDescending { it.buy ?: Int.MIN_VALUE }
+                            SortMode.SELL -> compareBy { it.sell ?: Int.MAX_VALUE }
+                        }
+                    )
             )
     }
 
@@ -566,8 +604,7 @@ private fun SuccessScreen(
         MapScreen(
             innerPadding = innerPadding,
             darkMode = darkMode,
-            lang = lang,
-            branches = rates,
+            branches = osmBranches,
             atms = atms,
             atmsLoading = atmsLoading
         )
@@ -579,7 +616,7 @@ private fun SuccessScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { TopBar(currency = currency, onCurrency = onCurrency, darkMode = darkMode, onToggleDark = onToggleDark, lang = lang, onToggleLang = onToggleLang, onRefresh = onRefresh) }
+        item { TopBar(currency = currency, onCurrency = onCurrency, darkMode = darkMode, onToggleDark = onToggleDark, lang = lang, onToggleLang = onToggleLang, offline = offline, onRefresh = onRefresh) }
         when (tab) {
             HomeTab.MAP -> Unit
             HomeTab.HOME -> {
@@ -616,7 +653,9 @@ private fun SuccessScreen(
                     BankRow(
                         rate = rate,
                         isBestBuy = bestBuy != null && rate.bank == bestBuy.bank,
-                        isBestSell = bestSell != null && rate.bank == bestSell.bank
+                        isBestSell = bestSell != null && rate.bank == bestSell.bank,
+                        favorite = rate.bank in favorites,
+                        onToggleFavorite = { onToggleFavorite(rate.bank) }
                     )
                 }
                 if (visibleRates.isEmpty()) {
@@ -635,19 +674,19 @@ private fun AnalyticsSection(currency: Currency, lang: Lang, analytics: Analytic
     val s = LocalStrings.current
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Outlined.ShowChart, null, tint = VsEmerald, modifier = Modifier.size(20.dp))
-            Text(s.analyticsTitle(currency.displayName(lang)), color = VsInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Icon(Icons.Outlined.ShowChart, null, tint = VsEmerald, modifier = Modifier.size(22.dp))
+            Text(s.analyticsTitle(currency.displayName(lang)), color = VsInk, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
         }
 
         when {
             loading && analytics == null -> {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(12.dp)) {
                     CircularProgressIndicator(color = VsEmerald, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                    Text(s.analyticsLoading, color = VsInkSoft, fontSize = 13.sp)
+                    Text(s.analyticsLoading, color = VsInkSoft, fontSize = 14.sp)
                 }
             }
-            analytics == null -> Text(s.analyticsUnavailable, color = VsInkSoft, fontSize = 13.sp)
-            !analytics.enoughData -> Text(s.analyticsNoHistory, color = VsInkSoft, fontSize = 13.sp)
+            analytics == null -> Text(s.analyticsUnavailable, color = VsInkSoft, fontSize = 14.sp)
+            !analytics.enoughData -> Text(s.analyticsNoHistory, color = VsInkSoft, fontSize = 14.sp)
             else -> {
                 RecommendationCard(analytics)
                 AnalyticsStatsRow(currency, analytics)
@@ -680,11 +719,11 @@ private fun RecommendationCard(a: Analytics) {
                 Icon(icon, null, tint = accent, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(title, color = VsInk, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                Text(title, color = VsInk, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(s.forecastNext(a.forecastPct.formatPct()), color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
-        Text(sellLine, color = VsInk, fontSize = 13.sp)
+        Text(sellLine, color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         Text(buyLine, color = VsInkSoft, fontSize = 13.sp)
     }
 }
@@ -692,23 +731,60 @@ private fun RecommendationCard(a: Analytics) {
 @Composable
 private fun AnalyticsStatsRow(currency: Currency, a: Analytics) {
     val s = LocalStrings.current
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatTile(s.statCurrent, a.current.formatRate(), "UZS", VsInk, Modifier.weight(1f))
-        StatTile(s.statWeekly, a.weekChangePct.formatPct(), s.statChange, if (a.weekChangePct >= 0) VsEmeraldDeep else VsDanger, Modifier.weight(1f))
-        StatTile(s.statForecast, a.forecastRate.formatRate(), s.statSevenDays, VsIndigo, Modifier.weight(1f))
+    Row(
+        modifier = Modifier.height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        StatTile(s.statCurrent, a.current.formatRate(), "UZS", VsInk, Modifier.weight(1f).fillMaxHeight())
+        StatTile(s.statWeekly, a.weekChangePct.formatPct(), s.statChange, if (a.weekChangePct >= 0) VsEmeraldDeep else VsDanger, Modifier.weight(1f).fillMaxHeight())
+        StatTile(s.statForecast, a.forecastRate.formatRate(), s.statSevenDays, VsIndigo, Modifier.weight(1f).fillMaxHeight())
     }
+}
+
+/** Wraps a card so a long-press briefly scales it up (and reveals full text) for ~4s. */
+@Composable
+private fun HoldZoomCard(modifier: Modifier = Modifier, cornerRadius: Dp = 16.dp, content: @Composable (zoomed: Boolean) -> Unit) {
+    var zoomed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val scale by animateFloatAsState(if (zoomed) 1.14f else 1f, tween(220), label = "holdzoom")
+    val shape = RoundedCornerShape(cornerRadius)
+    Box(
+        modifier = modifier
+            .zIndex(if (zoomed) 1f else 0f)
+            .graphicsLayer {
+                scaleX = scale; scaleY = scale
+                shadowElevation = if (zoomed) 24f else 0f
+                this.shape = shape
+                clip = true
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(onLongPress = {
+                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    zoomed = true
+                    scope.launch { delay(1500); zoomed = false }
+                })
+            }
+    ) { content(zoomed) }
 }
 
 @Composable
 private fun StatTile(label: String, value: String, hint: String, accent: Color, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)).background(VsSurface)
-            .border(1.dp, VsLine, RoundedCornerShape(16.dp)).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Text(label, color = VsInkSoft, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-        Text(value, color = accent, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(hint, color = VsInkSoft, fontSize = 10.sp)
+    HoldZoomCard(modifier, cornerRadius = 16.dp) { zoomed ->
+        Column(
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(VsSurface)
+                .border(1.dp, VsLine, RoundedCornerShape(16.dp)).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(label, color = VsInkSoft, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                value, color = accent, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                maxLines = if (zoomed) 3 else 1, softWrap = zoomed,
+                overflow = if (zoomed) TextOverflow.Clip else TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.weight(1f))
+            Text(hint, color = VsInkSoft, fontSize = 11.sp, maxLines = if (zoomed) 2 else 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -745,27 +821,27 @@ private fun HistoryChartCard(currency: Currency, lang: Lang, points: List<Histor
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${s.tabTrend} • ${rangeChipLabel(rangeDays, s)}", color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("${s.tabTrend} • ${rangeChipLabel(rangeDays, s)}", color = VsInk, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(
-                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(VsEmeraldSoft)
+                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(VsEmeraldSoft)
                     .clickable { expanded = true },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.OpenInFull, s.zoomHint, tint = VsEmeraldDeep, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.OpenInFull, s.zoomHint, tint = VsEmeraldDeep, modifier = Modifier.size(18.dp))
             }
         }
 
         LineChart(
             window = window, minRate = minRate, maxRate = maxRate,
             selectedIndex = null, lineColor = VsEmerald,
-            modifier = Modifier.fillMaxWidth().height(150.dp)
+            modifier = Modifier.fillMaxWidth().height(160.dp)
                 .pointerInput(Unit) { detectTapGestures { expanded = true } }
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(window.firstOrNull()?.date?.let { formatShortDate(it) } ?: "", color = VsInkSoft, fontSize = 10.sp)
-            Text("min ${minRate.formatRate()} • max ${maxRate.formatRate()}", color = VsInkSoft, fontSize = 10.sp)
-            Text(window.lastOrNull()?.date?.let { formatShortDate(it) } ?: "", color = VsInkSoft, fontSize = 10.sp)
+            Text(window.firstOrNull()?.date?.let { formatShortDate(it) } ?: "", color = VsInkSoft, fontSize = 12.sp)
+            Text("min ${minRate.formatRate()} • max ${maxRate.formatRate()}", color = VsInkSoft, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(window.lastOrNull()?.date?.let { formatShortDate(it) } ?: "", color = VsInkSoft, fontSize = 12.sp)
         }
 
         Row(
@@ -792,7 +868,7 @@ private fun RangeChip(label: String, active: Boolean, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        Text(label, color = if (active) VsSurface else VsInkSoft, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = if (active) VsSurface else VsInkSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -918,8 +994,8 @@ private fun PriceChart(
     val textArgb = VsInkSoft.toArgb()
     val crossArgb = VsInk.toArgb()
     val pillArgb = VsEmerald.toArgb()
-    val rightPad = with(LocalDensity.current) { 58.dp.toPx() }
-    val bottomPad = with(LocalDensity.current) { 22.dp.toPx() }
+    val rightPad = with(LocalDensity.current) { 68.dp.toPx() }
+    val bottomPad = with(LocalDensity.current) { 26.dp.toPx() }
 
     Canvas(
         modifier = modifier
@@ -948,7 +1024,7 @@ private fun PriceChart(
         val stepX = plotW / (window.size - 1)
 
         val labelPaint = android.graphics.Paint().apply {
-            color = textArgb; isAntiAlias = true; textSize = 10.sp.toPx(); textAlign = android.graphics.Paint.Align.LEFT
+            color = textArgb; isAntiAlias = true; textSize = 12.sp.toPx(); textAlign = android.graphics.Paint.Align.LEFT; isFakeBoldText = true
         }
 
         // Horizontal price grid + right-axis labels.
@@ -988,13 +1064,13 @@ private fun PriceChart(
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
             )
             val pill = android.graphics.Paint().apply {
-                color = android.graphics.Color.WHITE; isAntiAlias = true; textSize = 10.sp.toPx()
+                color = android.graphics.Color.WHITE; isAntiAlias = true; textSize = 12.sp.toPx()
                 textAlign = android.graphics.Paint.Align.CENTER; isFakeBoldText = true
             }
             drawContext.canvas.nativeCanvas.drawText(window[idx].rate.formatRate(), plotW + rightPad / 2, py + 4f, pill)
             // Time label at the bottom.
             val timePaint = android.graphics.Paint().apply {
-                color = textArgb; isAntiAlias = true; textSize = 10.sp.toPx(); textAlign = android.graphics.Paint.Align.CENTER
+                color = textArgb; isAntiAlias = true; textSize = 12.sp.toPx(); textAlign = android.graphics.Paint.Align.CENTER
             }
             drawContext.canvas.nativeCanvas.drawText(formatShortDate(window[idx].date), px.coerceIn(20f, plotW - 20f), size.height - 4f, timePaint)
         }
@@ -1023,14 +1099,17 @@ private fun SeasonalityCard(a: Analytics) {
             .border(1.dp, VsLine, RoundedCornerShape(20.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(s.seasonTitle, color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SeasonBucket(s.seasonStart, "1–10", a.seasonality.start, a.bestRisePeriod == "start", Modifier.weight(1f))
-            SeasonBucket(s.seasonMid, "11–20", a.seasonality.mid, a.bestRisePeriod == "mid", Modifier.weight(1f))
-            SeasonBucket(s.seasonEnd, "21–31", a.seasonality.end, a.bestRisePeriod == "end", Modifier.weight(1f))
+        Text(s.seasonTitle, color = VsInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier.height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SeasonBucket(s.seasonStart, "1–10", a.seasonality.start, a.bestRisePeriod == "start", Modifier.weight(1f).fillMaxHeight())
+            SeasonBucket(s.seasonMid, "11–20", a.seasonality.mid, a.bestRisePeriod == "mid", Modifier.weight(1f).fillMaxHeight())
+            SeasonBucket(s.seasonEnd, "21–31", a.seasonality.end, a.bestRisePeriod == "end", Modifier.weight(1f).fillMaxHeight())
         }
         val bestLabel = when (a.bestRisePeriod) { "start" -> s.periodStart; "mid" -> s.periodMid; else -> s.periodEnd }
-        Text(s.bestRiseSentence(bestLabel), color = VsInkSoft, fontSize = 12.sp)
+        Text(s.bestRiseSentence(bestLabel), color = VsInkSoft, fontSize = 13.sp)
     }
 }
 
@@ -1038,17 +1117,19 @@ private fun SeasonalityCard(a: Analytics) {
 private fun SeasonBucket(title: String, days: String, avgChange: Double, best: Boolean, modifier: Modifier = Modifier) {
     val up = avgChange >= 0
     val accent = if (up) VsEmeraldDeep else VsDanger
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(14.dp))
-            .background(if (best) VsEmeraldSoft else VsBg)
-            .border(1.dp, if (best) VsEmerald.copy(alpha = 0.4f) else VsLine, RoundedCornerShape(14.dp))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(title, color = VsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(days, color = VsInkSoft, fontSize = 10.sp)
-        Text("${if (up) "▲" else "▼"} ${avgChange.formatSigned()}", color = accent, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+    HoldZoomCard(modifier, cornerRadius = 14.dp) { zoomed ->
+        Column(
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
+                .background(if (best) VsEmeraldSoft else VsBg)
+                .border(1.dp, if (best) VsEmerald.copy(alpha = 0.4f) else VsLine, RoundedCornerShape(14.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(title, color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = if (zoomed) 2 else 1, overflow = TextOverflow.Ellipsis)
+            Text(days, color = VsInkSoft, fontSize = 11.sp)
+            Text("${if (up) "▲" else "▼"} ${avgChange.formatSigned()}", color = accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+        }
     }
 }
 
@@ -1057,6 +1138,7 @@ private fun SeasonBucket(title: String, days: String, avgChange: Double, best: B
 private data class MapPlace(
     val name: String,
     val address: String?,
+    val hours: String?,
     val isAtm: Boolean,
     val lat: Double,
     val lng: Double
@@ -1073,8 +1155,7 @@ private fun hasLocationPermission(context: android.content.Context) =
 private fun MapScreen(
     innerPadding: PaddingValues,
     darkMode: Boolean,
-    lang: Lang,
-    branches: List<BankRate>,
+    branches: List<OsmBranch>,
     atms: List<Atm>,
     atmsLoading: Boolean
 ) {
@@ -1087,6 +1168,8 @@ private fun MapScreen(
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var hasLocation by remember { mutableStateOf(hasLocationPermission(context)) }
     var locOverlay by remember { mutableStateOf<MyLocationNewOverlay?>(null) }
+    // Only render markers inside the current viewport (dataset is thousands of points).
+    var bbox by remember { mutableStateOf<BoundingBox?>(null) }
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasLocation = granted
@@ -1096,14 +1179,24 @@ private fun MapScreen(
 
     val branchArgb = VsEmerald.toArgb()
     val atmArgb = VsIndigo.toArgb()
-    val branchPin = remember(branchArgb) { pinDrawable(context, branchArgb) }
-    val atmPin = remember(atmArgb) { pinDrawable(context, atmArgb) }
+    val clusterArgb = VsEmeraldDeep.toArgb()
+    val branchPin = remember(branchArgb) { pinDrawable(context, branchArgb, 1f) }
+    val atmPin = remember(atmArgb) { pinDrawable(context, atmArgb, 1f) }
+    // Enlarged pins for the currently selected place.
+    val branchPinBig = remember(branchArgb) { pinDrawable(context, branchArgb, 1.6f) }
+    val atmPinBig = remember(atmArgb) { pinDrawable(context, atmArgb, 1.6f) }
 
     val branchPlaces = remember(branches) {
-        branches.mapNotNull { b -> b.branch?.let { MapPlace(b.bank, it.address, false, it.lat, it.lng) } }
+        branches.map { MapPlace(it.name, it.address, it.hours, false, it.lat, it.lng) }
     }
-    val atmPlaces = remember(atms) { atms.map { MapPlace(it.name, null, true, it.lat, it.lng) } }
+    val atmPlaces = remember(atms) { atms.map { MapPlace(it.name, null, null, true, it.lat, it.lng) } }
     val onSelect: (MapPlace) -> Unit = { selected = it }
+
+    // Smoothly recenter on the selected place so it's clear which one was tapped.
+    LaunchedEffect(selected) {
+        val p = selected
+        if (p != null) mapView?.controller?.animateTo(GeoPoint(p.lat, p.lng))
+    }
 
     // Create the my-location overlay once the map exists and permission is granted.
     LaunchedEffect(mapView, hasLocation) {
@@ -1141,6 +1234,12 @@ private fun MapScreen(
                     maxZoomLevel = esriMaxZoom(darkMode).toDouble()
                     controller.setZoom(12.0)
                     controller.setCenter(GeoPoint(41.311, 69.279))
+                    // Update the viewport box as the user pans/zooms so we only render visible pins.
+                    addMapListener(DelayedMapListener(object : MapListener {
+                        override fun onScroll(e: ScrollEvent?): Boolean { bbox = boundingBox; return true }
+                        override fun onZoom(e: ZoomEvent?): Boolean { bbox = boundingBox; return true }
+                    }, 140))
+                    post { bbox = boundingBox }
                     mapView = this
                 }
             },
@@ -1148,8 +1247,52 @@ private fun MapScreen(
                 map.setTileSource(esriTiles(darkMode))
                 map.maxZoomLevel = esriMaxZoom(darkMode).toDouble()
                 map.overlays.clear()
-                if (filter != MapFilter.ATMS) branchPlaces.forEach { map.overlays.add(placeMarker(map, it, branchPin, onSelect)) }
-                if (filter != MapFilter.BRANCHES) atmPlaces.forEach { map.overlays.add(placeMarker(map, it, atmPin, onSelect)) }
+                val sel = selected
+                val b = bbox
+                fun isSel(p: MapPlace) = sel != null && p.lat == sel.lat && p.lng == sel.lng && p.isAtm == sel.isAtm
+                fun visible(list: List<MapPlace>) =
+                    if (b == null) emptyList() else list.filter { b.contains(it.lat, it.lng) }
+
+                val shown = buildList {
+                    if (filter != MapFilter.ATMS) addAll(visible(branchPlaces))
+                    if (filter != MapFilter.BRANCHES) addAll(visible(atmPlaces))
+                }.filterNot { isSel(it) }
+
+                val zoom = map.zoomLevelDouble
+                if (zoom >= 14.0 || shown.size <= 50) {
+                    // Few enough / zoomed in → individual pins.
+                    shown.take(500).forEach {
+                        map.overlays.add(placeMarker(map, it, if (it.isAtm) atmPin else branchPin, onSelect))
+                    }
+                } else {
+                    // Cluster into grid cells; each multi-point cell becomes a count bubble.
+                    val widthDeg = ((b?.let { it.lonEast - it.lonWest } ?: 0.1)).let { if (it <= 0) 0.1 else it }
+                    val cell = (widthDeg / 7.0).coerceAtLeast(0.0008)
+                    val cells = HashMap<Long, MutableList<MapPlace>>()
+                    shown.forEach { p ->
+                        val gx = kotlin.math.floor(p.lng / cell).toInt()
+                        val gy = kotlin.math.floor(p.lat / cell).toInt()
+                        val key = (gx.toLong() shl 32) xor (gy.toLong() and 0xffffffffL)
+                        cells.getOrPut(key) { mutableListOf() }.add(p)
+                    }
+                    cells.values.forEach { group ->
+                        if (group.size == 1) {
+                            val p = group[0]
+                            map.overlays.add(placeMarker(map, p, if (p.isAtm) atmPin else branchPin, onSelect))
+                        } else {
+                            val clat = group.sumOf { it.lat } / group.size
+                            val clng = group.sumOf { it.lng } / group.size
+                            map.overlays.add(clusterMarker(map, clat, clng, group.size, clusterArgb, context) {
+                                map.controller.animateTo(GeoPoint(clat, clng))
+                                map.controller.setZoom(zoom + 2.0)
+                            })
+                        }
+                    }
+                }
+                if (sel != null) {
+                    val bigPin = if (sel.isAtm) atmPinBig else branchPinBig
+                    map.overlays.add(placeMarker(map, sel, bigPin, onSelect))
+                }
                 locOverlay?.let { map.overlays.add(it) }
                 map.invalidate()
             },
@@ -1179,48 +1322,89 @@ private fun MapScreen(
                 expanded = filterOpen,
                 onDismissRequest = { filterOpen = false },
                 containerColor = VsSurface,
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    MapFilter.entries.forEach { f ->
-                        SortChip(filterLabel(f, s), f == filter) { filter = f; filterOpen = false }
-                    }
+                MapFilter.entries.forEach { f ->
+                    val active = f == filter
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                filterLabel(f, s),
+                                color = if (active) VsEmeraldDeep else VsInk,
+                                fontSize = 14.sp,
+                                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (active) Icons.Outlined.Check else Icons.Outlined.FilterList,
+                                null,
+                                tint = if (active) VsEmeraldDeep else VsInkSoft,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        onClick = { filter = f; filterOpen = false }
+                    )
                 }
             }
         }
 
-        // My-location button.
-        Box(
+        // Right-side action buttons: nearest + my-location.
+        Column(
             modifier = Modifier.align(Alignment.BottomEnd)
-                .padding(end = 18.dp, bottom = innerPadding.calculateBottomPadding() + 20.dp)
-                .size(52.dp).clip(CircleShape).background(VsSurface)
-                .border(1.dp, VsLine, CircleShape)
-                .clickable {
-                    val gp = locOverlay?.myLocation
-                    if (gp != null) {
-                        mapView?.controller?.animateTo(gp)
-                        mapView?.controller?.setZoom(15.0)
-                    } else if (!hasLocation) {
-                        permLauncher.launch(FINE_LOCATION)
-                    }
-                },
-            contentAlignment = Alignment.Center
+                .padding(end = 18.dp, bottom = innerPadding.calculateBottomPadding() + 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(Icons.Outlined.MyLocation, contentDescription = s.myLocation, tint = VsEmerald, modifier = Modifier.size(24.dp))
+            // Jump to the nearest place of the current filter.
+            Box(
+                modifier = Modifier.size(52.dp).clip(CircleShape).background(VsEmerald)
+                    .clickable {
+                        val gp = locOverlay?.myLocation
+                        if (gp == null) { if (!hasLocation) permLauncher.launch(FINE_LOCATION); return@clickable }
+                        val pool = buildList {
+                            if (filter != MapFilter.ATMS) addAll(branchPlaces)
+                            if (filter != MapFilter.BRANCHES) addAll(atmPlaces)
+                        }
+                        val nearest = pool.minByOrNull { distanceMeters(gp.latitude, gp.longitude, it.lat, it.lng) }
+                        if (nearest != null) {
+                            selected = nearest
+                            mapView?.controller?.setZoom(16.0)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.NearMe, contentDescription = s.nearMe, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
+            Box(
+                modifier = Modifier.size(52.dp).clip(CircleShape).background(VsSurface)
+                    .border(1.dp, VsLine, CircleShape)
+                    .clickable {
+                        val gp = locOverlay?.myLocation
+                        if (gp != null) {
+                            mapView?.controller?.animateTo(gp)
+                            mapView?.controller?.setZoom(15.0)
+                        } else if (!hasLocation) {
+                            permLauncher.launch(FINE_LOCATION)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.MyLocation, contentDescription = s.myLocation, tint = VsEmerald, modifier = Modifier.size(24.dp))
+            }
         }
     }
 
     selected?.let { place ->
-        PlaceSheet(place = place, onDismiss = { selected = null })
+        val loc = locOverlay?.myLocation
+        val distance = loc?.let { distanceMeters(it.latitude, it.longitude, place.lat, place.lng) }
+        PlaceSheet(place = place, distanceMeters = distance, onDismiss = { selected = null })
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlaceSheet(place: MapPlace, onDismiss: () -> Unit) {
+private fun PlaceSheet(place: MapPlace, distanceMeters: Double?, onDismiss: () -> Unit) {
     val s = LocalStrings.current
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState()
@@ -1236,8 +1420,17 @@ private fun PlaceSheet(place: MapPlace, onDismiss: () -> Unit) {
                 }
                 Text(
                     if (place.isAtm) s.atmMarker else s.branchMarker,
-                    color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold
+                    color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
                 )
+                if (distanceMeters != null) {
+                    Row(
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(VsEmeraldSoft).padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Outlined.NearMe, null, tint = VsEmeraldDeep, modifier = Modifier.size(13.dp))
+                        Text(formatDistance(distanceMeters), color = VsEmeraldDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             Text(place.name, color = VsInk, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
             place.address?.let {
@@ -1247,7 +1440,10 @@ private fun PlaceSheet(place: MapPlace, onDismiss: () -> Unit) {
                 Icon(Icons.Outlined.Schedule, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
                 Column {
                     Text(s.hoursLabel, color = VsInkSoft, fontSize = 11.sp)
-                    Text(if (place.isAtm) s.atmHours else s.bankHours, color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        place.hours ?: if (place.isAtm) s.atmHours else s.bankHours,
+                        color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
             Row(
@@ -1298,10 +1494,14 @@ private fun esriTiles(dark: Boolean): XYTileSource {
     }
 }
 
-private fun pinDrawable(context: android.content.Context, argb: Int): Drawable {
+private fun pinDrawable(context: android.content.Context, argb: Int, scale: Float): Drawable {
     val d = ContextCompat.getDrawable(context, R.drawable.ic_map_pin)!!.mutate()
     DrawableCompat.setTint(d, argb)
-    return d
+    if (scale == 1f) return d
+    val density = context.resources.displayMetrics.density
+    val w = (d.intrinsicWidth * scale).toInt().coerceAtLeast((20 * density).toInt())
+    val h = (d.intrinsicHeight * scale).toInt().coerceAtLeast((28 * density).toInt())
+    return android.graphics.drawable.BitmapDrawable(context.resources, d.toBitmap(w, h))
 }
 
 private fun placeMarker(map: MapView, place: MapPlace, markerIcon: Drawable, onSelect: (MapPlace) -> Unit): Marker =
@@ -1313,10 +1513,53 @@ private fun placeMarker(map: MapView, place: MapPlace, markerIcon: Drawable, onS
         setOnMarkerClickListener { _, _ -> onSelect(place); true }
     }
 
+private fun clusterMarker(map: MapView, lat: Double, lng: Double, count: Int, argb: Int, context: android.content.Context, onTap: () -> Unit): Marker =
+    Marker(map).apply {
+        position = GeoPoint(lat, lng)
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        icon = clusterBitmap(context, count, argb)
+        setInfoWindow(null)
+        setOnMarkerClickListener { _, _ -> onTap(); true }
+    }
+
+private fun clusterBitmap(context: android.content.Context, count: Int, argb: Int): Drawable {
+    val d = context.resources.displayMetrics.density
+    val label = if (count > 999) "999+" else count.toString()
+    val size = ((28 + label.length * 6) * d).toInt()
+    val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.color = (0x33 shl 24) or (argb and 0xFFFFFF)
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+    paint.color = argb
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4 * d, paint)
+    paint.color = android.graphics.Color.WHITE
+    paint.textSize = 13 * d
+    paint.textAlign = android.graphics.Paint.Align.CENTER
+    paint.isFakeBoldText = true
+    val y = size / 2f - (paint.descent() + paint.ascent()) / 2
+    canvas.drawText(label, size / 2f, y, paint)
+    return android.graphics.drawable.BitmapDrawable(context.resources, bmp)
+}
+
+/** Haversine distance in metres. */
+private fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val r = 6_371_000.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = kotlin.math.sin(dLat / 2).let { it * it } +
+        kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+        kotlin.math.sin(dLon / 2).let { it * it }
+    return r * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+}
+
+private fun formatDistance(meters: Double): String =
+    if (meters < 1000) "${meters.toInt()} m" else "${(meters / 100).toInt() / 10.0} km"
+
 /* ---------- Top bar ---------- */
 
 @Composable
-private fun TopBar(currency: Currency, onCurrency: (Currency) -> Unit, darkMode: Boolean, onToggleDark: () -> Unit, lang: Lang, onToggleLang: () -> Unit, onRefresh: () -> Unit) {
+private fun TopBar(currency: Currency, onCurrency: (Currency) -> Unit, darkMode: Boolean, onToggleDark: () -> Unit, lang: Lang, onToggleLang: () -> Unit, offline: Boolean, onRefresh: () -> Unit) {
     val s = LocalStrings.current
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -1332,7 +1575,7 @@ private fun TopBar(currency: Currency, onCurrency: (Currency) -> Unit, darkMode:
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("ValyutaStat", color = VsInk, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                Text("Qulay Kurs", color = VsInk, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 Text(s.subtitle(currency.displayName(lang)), color = VsInkSoft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             // Language toggle (UZ / RU).
@@ -1361,13 +1604,13 @@ private fun TopBar(currency: Currency, onCurrency: (Currency) -> Unit, darkMode:
             Spacer(Modifier.width(8.dp))
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(50)).background(VsEmeraldSoft)
+                    .clip(RoundedCornerShape(50)).background(if (offline) VsIndigoSoft else VsEmeraldSoft)
                     .clickable(onClick = onRefresh).padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(VsEmerald))
-                Text(s.live, color = VsEmeraldDeep, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Icon(Icons.Outlined.Refresh, null, tint = VsEmeraldDeep, modifier = Modifier.size(15.dp))
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (offline) VsInkSoft else VsEmerald))
+                Text(if (offline) s.offline else s.live, color = if (offline) VsInkSoft else VsEmeraldDeep, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Outlined.Refresh, null, tint = if (offline) VsInkSoft else VsEmeraldDeep, modifier = Modifier.size(15.dp))
             }
         }
         CurrencyChips(currency = currency, onCurrency = onCurrency)
@@ -1446,29 +1689,38 @@ private fun SummaryRow(currency: Currency, lang: Lang, bestBuy: BankRate?, bestS
         modifier = Modifier.height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SummaryCard(s.bestBuyTitle, s.sellHint(name), bestBuy?.buy.formatUzs(), bestBuy?.bank ?: "—", VsEmerald, VsEmeraldSoft, Modifier.weight(1f).fillMaxHeight())
-        SummaryCard(s.bestSellTitle, s.buyHint(name), bestSell?.sell.formatUzs(), bestSell?.bank ?: "—", VsIndigo, VsIndigoSoft, Modifier.weight(1f).fillMaxHeight())
+        SummaryCard(Icons.Outlined.ArrowDownward, s.bestBuyTitle, s.sellHint(name), bestBuy?.buy.formatUzs(), bestBuy?.bank ?: "—", Modifier.weight(1f).fillMaxHeight())
+        SummaryCard(Icons.Outlined.ArrowUpward, s.bestSellTitle, s.buyHint(name), bestSell?.sell.formatUzs(), bestSell?.bank ?: "—", Modifier.weight(1f).fillMaxHeight())
     }
 }
 
 @Composable
-private fun SummaryCard(title: String, hint: String, value: String, bank: String, accent: Color, soft: Color, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(20.dp)).background(VsSurface)
-            .border(1.dp, VsLine, RoundedCornerShape(20.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(Modifier.clip(RoundedCornerShape(8.dp)).background(soft).padding(horizontal = 8.dp, vertical = 4.dp)) {
-            Text(title, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+private fun SummaryCard(icon: ImageVector, title: String, hint: String, value: String, bank: String, modifier: Modifier = Modifier) {
+    HoldZoomCard(modifier, cornerRadius = 20.dp) { zoomed ->
+        Column(
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(VsSurface)
+                .border(1.dp, VsLine, RoundedCornerShape(20.dp)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(VsEmeraldSoft), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = VsEmeraldDeep, modifier = Modifier.size(20.dp))
+                }
+                Text(
+                    title, color = VsInkSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(value, color = VsInk, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Spacer(Modifier.width(4.dp))
+                Text(LocalStrings.current.som, color = VsInkSoft, fontSize = 12.sp, modifier = Modifier.padding(bottom = 3.dp))
+            }
+            Text(bank, color = VsInk, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = if (zoomed) 3 else 1, overflow = TextOverflow.Ellipsis)
+            Text(hint, color = VsInkSoft, fontSize = 11.sp, maxLines = if (zoomed) 2 else 1, overflow = TextOverflow.Ellipsis)
         }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, color = VsInk, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Spacer(Modifier.width(4.dp))
-            Text(LocalStrings.current.som, color = VsInkSoft, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
-        }
-        Text(bank, color = VsInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.weight(1f))
-        Text(hint, color = VsInkSoft, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1490,22 +1742,21 @@ private fun ConverterCard(
     val amount = amountText.toLongOrNull() ?: 0L
     val sellUsd = mode == ConvertMode.SELL_USD
     val bestBuy = buyRates.maxByOrNull { it.buy!! }
-    val worstBuy = buyRates.minByOrNull { it.buy!! }
     val bestSell = sellRates.minByOrNull { it.sell!! }
-    val worstSell = sellRates.maxByOrNull { it.sell!! }
 
     val bestOut: String
     val savings: String
     val bestBank: String
     if (sellUsd) {
-        val b = bestBuy?.buy; val w = worstBuy?.buy
+        // Savings vs the typical (median) bank, not the extreme worst — avoids misleading numbers.
+        val b = bestBuy?.buy; val med = medianInt(buyRates.mapNotNull { it.buy })
         bestOut = if (b != null) "${(amount * b).formatUzsL()} ${s.som}" else "—"
-        savings = if (b != null && w != null) "${(amount * (b - w)).formatUzsL()} ${s.som}" else "—"
+        savings = if (b != null && med != null) "${(amount * (b - med).coerceAtLeast(0.0)).toLong().formatUzsL()} ${s.som}" else "—"
         bestBank = bestBuy?.bank ?: "—"
     } else {
-        val b = bestSell?.sell; val w = worstSell?.sell
+        val b = bestSell?.sell; val med = medianInt(sellRates.mapNotNull { it.sell })
         bestOut = if (b != null) "${(amount.toDouble() / b).formatUsd()} ${currency.symbol}" else "—"
-        savings = if (b != null && w != null) "${(amount.toDouble() / b - amount.toDouble() / w).formatUsd()} ${currency.symbol}" else "—"
+        savings = if (b != null && med != null) "${(amount.toDouble() / b - amount.toDouble() / med).coerceAtLeast(0.0).formatUsd()} ${currency.symbol}" else "—"
         bestBank = bestSell?.bank ?: "—"
     }
 
@@ -1575,6 +1826,7 @@ private data class ProfitItem(
     val bank: String,
     val outLabel: String,
     val profitLabel: String,
+    val positive: Boolean,
     val branch: Branch?
 )
 
@@ -1594,30 +1846,36 @@ private fun ProfitRankingSection(
     val amount = amountText.toLongOrNull() ?: 0L
     val sellUsd = mode == ConvertMode.SELL_USD
 
+    var expanded by remember { mutableStateOf(false) }
+
     val ranked: List<ProfitItem> = remember(amountText, mode, buyRates, sellRates, currency, som) {
         if (sellUsd) {
             val sorted = buyRates.sortedByDescending { it.buy!! }
-            val worst = sorted.lastOrNull()?.buy ?: 0
+            val med = medianInt(sorted.map { it.buy!! }) ?: 0.0
             sorted.mapIndexed { i, r ->
+                val diff = amount * (r.buy!! - med)
                 ProfitItem(
                     rank = i + 1,
                     bank = r.bank,
-                    outLabel = "${(amount * r.buy!!).formatUzsL()} $som",
-                    profitLabel = "+${(amount * (r.buy - worst)).formatUzsL()} $som",
+                    outLabel = "${(amount * r.buy).formatUzsL()} $som",
+                    profitLabel = "${if (diff >= 0) "+" else "−"}${kotlin.math.abs(diff).toLong().formatUzsL()} $som",
+                    positive = diff >= 0,
                     branch = r.branch
                 )
             }
         } else {
             val sorted = sellRates.sortedBy { it.sell!! }
-            val worst = sorted.lastOrNull()?.sell ?: 1
+            val med = medianInt(sorted.map { it.sell!! }) ?: 1.0
             sorted.mapIndexed { i, r ->
                 val got = amount.toDouble() / r.sell!!
-                val worstGot = amount.toDouble() / worst
+                val medGot = amount.toDouble() / med
+                val diff = got - medGot
                 ProfitItem(
                     rank = i + 1,
                     bank = r.bank,
                     outLabel = "${got.formatUsd()} $symbol",
-                    profitLabel = "+${(got - worstGot).formatUsd()} $symbol",
+                    profitLabel = "${if (diff >= 0) "+" else "−"}${kotlin.math.abs(diff).formatUsd()} $symbol",
+                    positive = diff >= 0,
                     branch = r.branch
                 )
             }
@@ -1626,14 +1884,35 @@ private fun ProfitRankingSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Outlined.EmojiEvents, null, tint = VsAmber, modifier = Modifier.size(20.dp))
-            Text(s.profitTitle, color = VsInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Icon(Icons.Outlined.EmojiEvents, null, tint = VsEmeraldDeep, modifier = Modifier.size(20.dp))
+            Text(s.profitTitle, color = VsInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
         Text(
             if (sellUsd) s.profitSell(name) else s.profitBuy(name),
             color = VsInkSoft, fontSize = 12.sp
         )
-        ranked.take(5).forEach { ProfitRow(it) }
+
+        val shown = if (expanded) ranked else ranked.take(5)
+        shown.forEach { ProfitRow(it) }
+
+        // Always keep the lowest bank visible as a reference, even when collapsed.
+        val worst = ranked.lastOrNull()
+        if (!expanded && worst != null && ranked.size > 5) {
+            Text(s.worstLabel, color = VsInkSoft, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
+            ProfitRow(worst)
+        }
+
+        if (ranked.size > 5) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                    .border(1.dp, VsLine, RoundedCornerShape(14.dp))
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 11.dp),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(if (expanded) s.showLess else s.showMore(ranked.size - 5), color = VsEmeraldDeep, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -1662,11 +1941,11 @@ private fun ProfitRow(item: ProfitItem) {
             item.branch?.let { Text(it.address, color = VsInkSoft, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(item.profitLabel, color = VsEmeraldDeep, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+            Text(item.profitLabel, color = if (item.positive) VsEmeraldDeep else VsDanger, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             item.branch?.let { b ->
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(50)).background(VsIndigo)
+                        .clip(RoundedCornerShape(50)).background(VsEmerald)
                         .clickable { openNavigation(context, b, item.bank) }
                         .padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1680,15 +1959,10 @@ private fun ProfitRow(item: ProfitItem) {
 }
 
 private fun openNavigation(context: android.content.Context, branch: Branch, bankName: String) {
-    // Opens Google Maps navigation from the user's current location — no Maps API key required.
-    val navIntent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${branch.lat},${branch.lng}"))
-        .apply { setPackage("com.google.android.apps.maps") }
-    val webIntent = Intent(
-        Intent.ACTION_VIEW,
-        Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${branch.lat},${branch.lng}")
-    )
-    runCatching { context.startActivity(navIntent) }
-        .onFailure { runCatching { context.startActivity(webIntent) } }
+    // geo: intent without a package → Android shows the app chooser (Google Maps, Yandex, Waze…).
+    val uri = Uri.parse("geo:${branch.lat},${branch.lng}?q=${branch.lat},${branch.lng}(${Uri.encode(bankName)})")
+    val intent = Intent(Intent.ACTION_VIEW, uri)
+    runCatching { context.startActivity(Intent.createChooser(intent, bankName)) }
 }
 
 /* ---------- Bank list ---------- */
@@ -1734,37 +2008,39 @@ private fun SortChip(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-private val avatarColors = listOf(
-    Color(0xFF0E9F6E), Color(0xFF4F46E5), Color(0xFFE5484D), Color(0xFFF59E0B),
-    Color(0xFF0EA5E9), Color(0xFF8B5CF6), Color(0xFF14B8A6), Color(0xFFEC4899)
-)
-
 @Composable
-private fun BankRow(rate: BankRate, isBestBuy: Boolean, isBestSell: Boolean) {
+private fun BankRow(rate: BankRate, isBestBuy: Boolean, isBestSell: Boolean, favorite: Boolean, onToggleFavorite: () -> Unit) {
     val s = LocalStrings.current
-    val avatarColor = avatarColors[(rate.bank.hashCode() and 0x7FFFFFFF) % avatarColors.size]
     val context = LocalContext.current
     Row(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(VsSurface)
-            .border(1.dp, VsLine, RoundedCornerShape(18.dp)).padding(14.dp),
+            .border(1.dp, if (favorite) VsEmerald.copy(alpha = 0.5f) else VsLine, RoundedCornerShape(18.dp)).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
-            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(avatarColor.copy(alpha = 0.14f)),
+            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(VsEmeraldSoft),
             contentAlignment = Alignment.Center
         ) {
-            Text(rate.bank.take(2).uppercase(), color = avatarColor, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+            Text(rate.bank.take(2).uppercase(), color = VsEmeraldDeep, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(rate.bank, color = VsInk, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(rate.bank, color = VsInk, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Icon(
+                    if (favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    contentDescription = null,
+                    tint = if (favorite) VsEmeraldDeep else VsInkSoft,
+                    modifier = Modifier.size(18.dp).clickable { onToggleFavorite() }
+                )
+            }
             if (rate.branch != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     modifier = Modifier.clickable { openNavigation(context, rate.branch, rate.bank) }
                 ) {
-                    Icon(Icons.Outlined.Place, null, tint = VsIndigo, modifier = Modifier.size(12.dp))
-                    Text(s.route, color = VsIndigo, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                    Icon(Icons.Outlined.Place, null, tint = VsEmeraldDeep, modifier = Modifier.size(12.dp))
+                    Text(s.route, color = VsEmeraldDeep, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                     rate.spread?.let { Text(s.spreadShort(it), color = VsInkSoft, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) }
                 }
             } else {
@@ -1772,24 +2048,22 @@ private fun BankRow(rate: BankRate, isBestBuy: Boolean, isBestSell: Boolean) {
             }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            RateLine(s.colBuy, rate.buy, isBestBuy, VsEmerald, VsEmeraldSoft)
-            RateLine(s.colSell, rate.sell, isBestSell, VsIndigo, VsIndigoSoft)
+            RateLine(Icons.Outlined.ArrowDownward, s.colBuy, rate.buy, isBestBuy)
+            RateLine(Icons.Outlined.ArrowUpward, s.colSell, rate.sell, isBestSell)
         }
     }
 }
 
 @Composable
-private fun RateLine(label: String, value: Int?, best: Boolean, accent: Color, soft: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            (if (best) "★ " else "") + label,
-            color = if (best) accent else VsInkSoft, fontSize = 10.sp, maxLines = 1, softWrap = false
-        )
+private fun RateLine(icon: ImageVector, label: String, value: Int?, best: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(icon, null, tint = VsInkSoft, modifier = Modifier.size(13.dp))
+        Text(label, color = VsInkSoft, fontSize = 11.sp, maxLines = 1, softWrap = false)
         Text(
             value.formatUzs(),
-            color = if (best) accent else VsInk, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+            color = if (best) VsEmeraldDeep else VsInk, fontWeight = if (best) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 16.sp,
             maxLines = 1, softWrap = false,
-            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (best) soft else Color.Transparent).padding(horizontal = 7.dp, vertical = 3.dp)
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (best) VsEmeraldSoft else Color.Transparent).padding(horizontal = 7.dp, vertical = 3.dp)
         )
     }
 }
@@ -1810,6 +2084,14 @@ private fun Int?.formatUzs(): String =
     if (this == null) "—" else DecimalFormat("#,###").format(this).replace(",", " ")
 
 private fun Long.formatUzsL(): String = DecimalFormat("#,###").format(this).replace(",", " ")
+
+// Median of a list of rates — a robust "typical bank" baseline, immune to outliers.
+private fun medianInt(values: List<Int>): Double? {
+    if (values.isEmpty()) return null
+    val sorted = values.sorted()
+    val mid = sorted.size / 2
+    return if (sorted.size % 2 == 1) sorted[mid].toDouble() else (sorted[mid - 1] + sorted[mid]) / 2.0
+}
 
 private fun Double.formatUsd(): String =
     DecimalFormat("#,##0.00").format(this).replace(",", "X").replace(".", ",").replace("X", " ")
@@ -1833,21 +2115,15 @@ private fun String.formatUpdatedAt(): String {
 
 /* ---------- network ---------- */
 
-private suspend fun fetchRates(cur: Currency): RatesPayload = withContext(Dispatchers.IO) {
-    val connection = (URL(ratesUrl(cur)).openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = 5000
-        readTimeout = 15000
-    }
-    try {
-        val code = connection.responseCode
-        if (code !in 200..299) throw IllegalStateException("HTTP $code")
-        val body = connection.inputStream.bufferedReader().use { it.readText() }
-        parseRatesPayload(body)
-    } finally {
-        connection.disconnect()
-    }
+private suspend fun fetchRates(context: android.content.Context, cur: Currency): RatesPayload = withContext(Dispatchers.IO) {
+    val body = httpGet(ratesUrl(cur), 15000)
+    RateService.saveCache(context, "rates_${cur.code}", body) // keep last good copy for offline
+    parseRatesPayload(body)
 }
+
+/** Parse the last cached rates for offline display, or null if none saved. */
+private fun cachedRates(context: android.content.Context, cur: Currency): RatesPayload? =
+    RateService.loadCache(context, "rates_${cur.code}")?.let { runCatching { parseRatesPayload(it) }.getOrNull() }
 
 private fun parseRatesPayload(body: String): RatesPayload {
     val root = JSONObject(body)
@@ -1881,19 +2157,13 @@ private fun parseRatesPayload(body: String): RatesPayload {
     )
 }
 
-private suspend fun fetchAtms(): List<Atm> = withContext(Dispatchers.IO) {
-    val connection = (URL(backendAtmsUrl).openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = 5000
-        readTimeout = 20000
-    }
+private suspend fun fetchAtms(context: android.content.Context): List<Atm> = withContext(Dispatchers.IO) {
     try {
-        val code = connection.responseCode
-        if (code !in 200..299) throw IllegalStateException("HTTP $code")
-        val body = connection.inputStream.bufferedReader().use { it.readText() }
+        val body = httpGet(backendAtmsUrl, 20000)
+        RateService.saveCache(context, "atms", body)
         parseAtms(body)
-    } finally {
-        connection.disconnect()
+    } catch (e: Exception) {
+        RateService.loadCache(context, "atms")?.let { runCatching { parseAtms(it) }.getOrNull() } ?: emptyList()
     }
 }
 
@@ -1909,6 +2179,33 @@ private fun parseAtms(body: String): List<Atm> {
                 Atm(
                     bank = item.optString("bank").ifEmpty { "Bankomat" },
                     name = item.optString("name").ifEmpty { "Bankomat" },
+                    lat = lat,
+                    lng = lng
+                )
+            )
+        }
+    }
+}
+
+private suspend fun fetchBranches(context: android.content.Context): List<OsmBranch> = withContext(Dispatchers.IO) {
+    val body = try {
+        httpGet(backendBranchesUrl, 20000).also { RateService.saveCache(context, "branches", it) }
+    } catch (e: Exception) {
+        RateService.loadCache(context, "branches") ?: return@withContext emptyList()
+    }
+    val arr = JSONObject(body).getJSONArray("branches")
+    buildList {
+        for (index in 0 until arr.length()) {
+            val item = arr.getJSONObject(index)
+            val lat = item.optDouble("lat", Double.NaN)
+            val lng = item.optDouble("lng", Double.NaN)
+            if (lat.isNaN() || lng.isNaN()) continue
+            add(
+                OsmBranch(
+                    bank = item.optString("bank").ifEmpty { "Bank" },
+                    name = item.optString("name").ifEmpty { "Bank" },
+                    address = if (item.isNull("address")) null else item.optString("address").ifEmpty { null },
+                    hours = if (item.isNull("hours")) null else item.optString("hours").ifEmpty { null },
                     lat = lat,
                     lng = lng
                 )
@@ -1990,7 +2287,8 @@ fun CurrencyTrackerPreview() {
         SuccessScreen(
             innerPadding = PaddingValues(0.dp), tab = HomeTab.HOME, currency = Currency.USD, onCurrency = {},
             darkMode = false, onToggleDark = {}, lang = Lang.UZ, onToggleLang = {},
-            payload = demo, atms = emptyList(), atmsLoading = false,
+            offline = false, favorites = emptySet(), onToggleFavorite = {},
+            payload = demo, atms = emptyList(), osmBranches = emptyList(), atmsLoading = false,
             analytics = null, analyticsLoading = false,
             amountText = "100", onAmount = {},
             query = "", onQuery = {}, sortMode = SortMode.BUY, onSort = {},
