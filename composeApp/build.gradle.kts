@@ -22,14 +22,19 @@ kotlin {
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
         optIn.addAll(
-            "kotlinx.cinterop.BetaInteropApi",
-            "kotlinx.cinterop.ExperimentalForeignApi",
             "kotlin.time.ExperimentalTime",
             "androidx.compose.material3.ExperimentalMaterial3Api"
         )
     }
 
     sourceSets {
+        // cinterop markers exist only on Kotlin/Native; opt in on every iOS source set (they must agree).
+        matching { it.name.startsWith("ios") }.configureEach {
+            languageSettings {
+                optIn("kotlinx.cinterop.BetaInteropApi")
+                optIn("kotlinx.cinterop.ExperimentalForeignApi")
+            }
+        }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

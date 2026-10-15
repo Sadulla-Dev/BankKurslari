@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -64,6 +65,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         private const val ONE_TIME_NAME = "rate_now"
 
         fun ensureChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return // no channels before Android 8
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Kurs yangilanishlari",
@@ -74,6 +76,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         }
 
         fun ensureAlertChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val uz = RateService.language() != "ru"
             val channel = NotificationChannel(
                 ALERT_CHANNEL_ID,
@@ -139,7 +142,11 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()
-            NotificationManagerCompat.from(context).notify(("alert_" + a.id).hashCode(), n)
+            // canNotify() was checked above; the permission can still be revoked in between.
+            try {
+                NotificationManagerCompat.from(context).notify(("alert_" + a.id).hashCode(), n)
+            } catch (_: SecurityException) {
+            }
         }
 
         /** Enqueue a one-off refresh (used on app start and by the widget). */
