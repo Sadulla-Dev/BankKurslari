@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Backend deps
+backend/node_modules
+/.idea/deviceManager.xml

@@ -36,41 +36,39 @@ data class VsPalette(
 )
 
 val LightVsPalette = VsPalette(
-    bg = Color(0xFFF3F4F6),
-    surface = Color(0xFFFFFFFF),
-    ink = Color(0xFF14161B),
-    inkSoft = Color(0xFF6B7280),
-    line = Color(0xFFEBEDF0),
-    emerald = Color(0xFF0E9F6E),
-    emeraldDeep = Color(0xFF0A7A54),
-    emeraldSoft = Color(0xFFE6F6EF),
-    // "Secondary" is now a strong neutral, not a competing hue — buy/sell differ by icon + label.
-    indigo = Color(0xFF374151),
-    indigoSoft = Color(0xFFEEF1F4),
-    danger = Color(0xFFE5484D),
-    amber = Color(0xFF0E9F6E),
-    heroTop = Color(0xFF0B3B36),
-    heroMid = Color(0xFF117A5E),
-    heroBot = Color(0xFF17A77E)
+    bg = Color(0xFFFFFFFF),
+    surface = Color(0xFFF5F6F7),
+    ink = Color(0xFF0E1113),
+    inkSoft = Color(0xFF565E64),
+    line = Color(0xFFE3E6E8),
+    emerald = Color(0xFF0A7F56),        // accent: best result / primary action / selected
+    emeraldDeep = Color(0xFF0A7F56),
+    emeraldSoft = Color(0xFFE8F3EE),    // subtle selected fill only, never a card background
+    indigo = Color(0xFF565E64),
+    indigoSoft = Color(0xFFF5F6F7),
+    danger = Color(0xFFB3261E),         // worse than reference only
+    amber = Color(0xFF8A5A00),          // warn: stale data
+    heroTop = Color(0xFF0A7F56),
+    heroMid = Color(0xFF0A7F56),
+    heroBot = Color(0xFF0A7F56)
 )
 
 val DarkVsPalette = VsPalette(
-    bg = Color(0xFF0D1117),
-    surface = Color(0xFF161B22),
-    ink = Color(0xFFE6EDF3),
-    inkSoft = Color(0xFF9DA7B3),
-    line = Color(0xFF273040),
-    emerald = Color(0xFF2BD39A),
-    emeraldDeep = Color(0xFF59E3B4),
-    emeraldSoft = Color(0xFF14342A),
-    // Neutral secondary for dark theme.
-    indigo = Color(0xFFAEB7C2),
-    indigoSoft = Color(0xFF222A36),
-    danger = Color(0xFFFF6B6B),
-    amber = Color(0xFF2BD39A),
-    heroTop = Color(0xFF0A2E2A),
-    heroMid = Color(0xFF0F5C47),
-    heroBot = Color(0xFF138A68)
+    bg = Color(0xFF0E1113),
+    surface = Color(0xFF171B1E),
+    ink = Color(0xFFF2F4F5),
+    inkSoft = Color(0xFFA3ACB2),
+    line = Color(0xFF262C30),
+    emerald = Color(0xFF3DD6A0),
+    emeraldDeep = Color(0xFF3DD6A0),
+    emeraldSoft = Color(0xFF12281F),
+    indigo = Color(0xFFA3ACB2),
+    indigoSoft = Color(0xFF171B1E),
+    danger = Color(0xFFFF8A80),
+    amber = Color(0xFFF2C14E),
+    heroTop = Color(0xFF3DD6A0),
+    heroMid = Color(0xFF3DD6A0),
+    heroBot = Color(0xFF3DD6A0)
 )
 
 val LocalVsPalette = staticCompositionLocalOf { LightVsPalette }
