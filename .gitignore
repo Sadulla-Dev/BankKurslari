@@ -19,3 +19,6 @@ backend/node_modules
 /.idea/deviceManager.xml
 build/
 .kotlin/
+
+# Backend history disk cache (rebuilt from cbu.uz)
+backend/data/history-*.json

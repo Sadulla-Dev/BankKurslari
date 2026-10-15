@@ -260,11 +260,7 @@ fun CurrencyTrackerApp(
                             analyticsLoading = analyticsLoading,
                             tickers = tickersView,
                             offline = offline,
-                            direction = direction,
-                            onDirection = {
-                                direction = it
-                                appStore().putString("direction", if (it == ConvertMode.BUY_USD) "buy" else "sell")
-                            },
+                            amount = amountText.filter { it.isDigit() }.toDoubleOrNull() ?: 0.0,
                             onOpenSettings = { showSettings = true }
                         )
                     }

@@ -1,17 +1,7 @@
 package com.example.bankkurslari
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,29 +32,14 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -76,15 +51,6 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.number
-import kotlinx.datetime.todayIn
-import kotlin.time.Clock
 import com.example.bankkurslari.ui.theme.VsAmber
 import com.example.bankkurslari.ui.theme.VsBg
 import com.example.bankkurslari.ui.theme.VsEmerald
@@ -94,12 +60,10 @@ import com.example.bankkurslari.ui.theme.VsLine
 import com.example.bankkurslari.ui.theme.VsSurface
 import com.example.bankkurslari.ui.theme.VsType
 import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.log10
-import kotlin.math.pow
-import kotlin.math.roundToInt
-import kotlin.math.roundToLong
+import kotlin.time.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 
 private const val UNIT_UZ = "soʻm"
 private const val UNIT_RU = "сум"
@@ -116,27 +80,21 @@ fun TarixScreen(
     analyticsLoading: Boolean,
     tickers: Map<Currency, TickerData>,
     offline: Boolean,
-    direction: ConvertMode,
-    onDirection: (ConvertMode) -> Unit,
+    amount: Double,
     onOpenSettings: () -> Unit
 ) {
     val ru = lang == Lang.RU
     val unit = if (ru) UNIT_RU else UNIT_UZ
-    var rangeDays by rememberSaveable { mutableIntStateOf(30) }
     var alerts by remember { mutableStateOf(Alerts.load()) }
     var showAdd by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
-    var selIndex by remember { mutableStateOf<Int?>(null) }
 
     val cur = payload.cbu.rate
-    val todayEpoch = remember { epochDay(todayIso()) }
     val tickerHistory = tickers[currency]?.history.orEmpty()
     val series = remember(analytics, cur, tickerHistory) {
         buildSeries(analytics?.points.orEmpty(), cur, todayIso()).ifEmpty { buildSeries(tickerHistory, cur, todayIso()) }
     }
 
-    val window = remember(series, rangeDays) { windowOf(series, rangeDays, todayEpoch) }
-    val hasChart = window.size >= 2
 
     Column(
         modifier = Modifier
@@ -149,50 +107,14 @@ fun TarixScreen(
     ) {
         // Ticker header (same as Kurs): the selected card already carries today's CBU rate and day change.
         TickerBar(
-            currency = currency, onCurrency = { selIndex = null; onCurrency(it) }, tickers = tickers,
+            currency = currency, onCurrency = onCurrency, tickers = tickers,
             updatedAt = payload.updatedAt, offline = offline, onOpenSettings = onOpenSettings
         )
-        val periodDelta = if (hasChart) periodDeltaText(window, cur, rangeDays, todayEpoch, ru) else null
-        Row(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-            Text(if (ru) "История курса ЦБ" else "MB kursi tarixi", style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f).alignByBaseline())
-            AnimatedContent(periodDelta, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) }, label = "pd", modifier = Modifier.alignByBaseline()) { t ->
-                if (t != null) Text(t, style = VsType.BodyMedium, color = VsInk)
-            }
-        }
-
-        // Range selector sits directly on the chart it controls.
-        val ranges = listOf(7 to (if (ru) "7д" else "7k"), 30 to (if (ru) "30д" else "30k"), 90 to (if (ru) "90д" else "90k"), 365 to (if (ru) "1г" else "1y"))
-        Segmented(
-            options = ranges.map { it.second },
-            selected = ranges.indexOfFirst { it.first == rangeDays }.coerceAtLeast(0),
-            onSelect = { selIndex = null; rangeDays = ranges[it].first },
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-            height = 40.dp
-        )
-        if (hasChart) {
-            val band = remember(series, todayEpoch) { bandOf(series, 30, todayEpoch) }
-            HistoryChart(
-                window = window,
-                band = band,
-                today = cur,
-                days = rangeDays,
-                selIndex = selIndex,
-                onSelect = { selIndex = it },
-                description = chartDescription(window, rangeDays, unit, ru),
-                unit = unit
-            )
-            // Readout: min / max by default, the touched point while scrubbing (long-press + drag on the chart).
-            val lo = window.minBy { it.rate }
-            val hi = window.maxBy { it.rate }
-            val dateFmt: (String) -> String = { if (rangeDays > 90) formatShortDate(it) + "." + it.substring(2, 4) else formatShortDate(it) }
-            Text(
-                "min ${lo.rate.roundToInt().formatUzs()} (${dateFmt(lo.date)})  ·  max ${hi.rate.roundToInt().formatUzs()} (${dateFmt(hi.date)})  ·  " +
-                    (if (ru) "коснитесь графика" else "grafikka teging"),
-                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
-            )
+        if (series.size >= 2) {
+            InteractiveHistory(series = series, today = cur, currency = currency, amount = amount, ru = ru, unit = unit)
         } else {
             Box(
-                modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT_DP.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface),
+                modifier = Modifier.padding(top = 24.dp).fillMaxWidth().height(240.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -204,14 +126,6 @@ fun TarixScreen(
                 )
             }
         }
-
-        SectionDivider()
-
-        // Daily change calendar: facts only, coloured from the user's side (sell / buy).
-        ChangeCalendar(
-            series = series, currency = currency, sell = direction == ConvertMode.SELL_USD,
-            ru = ru, unit = unit, onDirection = onDirection
-        )
 
         SectionDivider()
 
@@ -556,189 +470,6 @@ private val ThousandsTransformation = VisualTransformation { input ->
 
 /* ---------------- chart ---------------- */
 
-private const val CHART_HEIGHT_DP = 220
-
-@Composable
-private fun HistoryChart(
-    window: List<HistoryPoint>,
-    band: Pair<Double, Double>?,
-    today: Double,
-    days: Int,
-    selIndex: Int?,
-    onSelect: (Int?) -> Unit,
-    description: String,
-    unit: String
-) {
-    val density = LocalDensity.current
-    val haptic = LocalHapticFeedback.current
-    val ink = VsInk
-    val inkSoft = VsInkSoft
-    val line = VsLine
-    val bg = VsBg
-    val accent = VsEmerald
-    val bandColor = VsSurface
-    val leftPx = with(density) { 52.dp.toPx() }
-    val rightPx = with(density) { 8.dp.toPx() }
-    val topPx = with(density) { 8.dp.toPx() }
-    val bottomPx = with(density) { 24.dp.toPx() }
-    val textPx = with(density) { 13.sp.toPx() }
-
-    val t = remember(window) { window.map { epochDay(it.date).toDouble() } }
-    // Line draws in left -> right whenever the range (window) changes.
-    val reveal = remember { Animatable(0f) }
-    LaunchedEffect(window) {
-        reveal.snapTo(0f)
-        reveal.animateTo(1f, tween(600, easing = Motion.Decelerate))
-    }
-    // Crosshair fades in/out instead of popping.
-    var lastSel by remember { mutableStateOf<Int?>(null) }
-    if (selIndex != null) lastSel = selIndex
-    val selA by animateFloatAsState(if (selIndex != null) 1f else 0f, tween(Motion.SHORT), label = "selA")
-    // A light tick for every day the finger crosses.
-    LaunchedEffect(selIndex) { if (selIndex != null) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
-
-    val lo0 = window.minOf { it.rate }
-    val hi0 = window.maxOf { it.rate }
-    val pad = if (hi0 - lo0 < 1e-6) hi0 * 0.01 else (hi0 - lo0) * 0.08
-    val yMin = lo0 - pad
-    val yMax = hi0 + pad
-    val ticks = remember(window) { niceTicks(yMin, yMax) }
-    val t0 = t.first()
-    val t1 = t.last()
-
-    fun xOf(w: Float, tv: Double) = leftPx + ((tv - t0) / (t1 - t0).coerceAtLeast(1.0)).toFloat() * (w - leftPx - rightPx)
-    fun yOf(h: Float, v: Double) = topPx + (1f - ((v - yMin) / (yMax - yMin)).toFloat()) * (h - topPx - bottomPx)
-
-    val measurer = rememberTextMeasurer()
-    val axisStyle = TextStyle(fontSize = 13.sp, color = inkSoft, fontFeatureSettings = "tnum")
-    val bubbleStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(CHART_HEIGHT_DP.dp)
-            .semantics { contentDescription = description }
-            // Scrub: touch shows the value immediately; horizontal drag moves it; lifting the finger hides it.
-            .pointerInput(window) {
-                fun nearest(x: Float): Int {
-                    var best = 0
-                    var bd = Float.MAX_VALUE
-                    for (i in t.indices) {
-                        val d = abs(xOf(size.width.toFloat(), t[i]) - x)
-                        if (d < bd) { bd = d; best = i }
-                    }
-                    return best
-                }
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    onSelect(nearest(down.position.x))
-                    var pointer = down.id
-                    while (true) {
-                        val ev = awaitPointerEvent()
-                        val ch = ev.changes.firstOrNull { it.id == pointer } ?: break
-                        if (!ch.pressed) break
-                        val dx = ch.position.x - ch.previousPosition.x
-                        val dy = ch.position.y - ch.previousPosition.y
-                        // Mostly-horizontal movement belongs to the chart; vertical goes to the page scroll.
-                        if (abs(dx) >= abs(dy)) ch.consume()
-                        onSelect(nearest(ch.position.x))
-                        pointer = ch.id
-                    }
-                    onSelect(null)
-                }
-            }
-    ) {
-        val w = size.width
-        val h = size.height
-        val hair = 1.dp.toPx()
-
-        // 30-day min–max band (clipped to the visible value range)
-        if (band != null) {
-            val top = yOf(h, minOf(band.second, yMax))
-            val bot = yOf(h, maxOf(band.first, yMin))
-            if (bot > top) drawRect(bandColor, topLeft = Offset(leftPx, top), size = androidx.compose.ui.geometry.Size(w - leftPx - rightPx, bot - top))
-        }
-
-        // y grid + tick labels
-        ticks.forEach { v ->
-            val y = yOf(h, v)
-            drawLine(line, Offset(leftPx, y), Offset(w - rightPx, y), strokeWidth = hair)
-            drawTextAt(measurer, v.roundToLong().formatUzsL(), leftPx - 8.dp.toPx(), y + textPx * 0.35f, axisStyle, TextAnchor.RIGHT)
-        }
-        drawLine(line, Offset(leftPx, h - bottomPx), Offset(w - rightPx, h - bottomPx), strokeWidth = hair)
-
-        // x labels
-        for (k in 0..3) {
-            val tv = t0 + (t1 - t0) * k / 3.0
-            val x = xOf(w, tv)
-            val anchor = when (k) { 0 -> TextAnchor.LEFT; 3 -> TextAnchor.RIGHT; else -> TextAnchor.CENTER }
-            drawTextAt(measurer, dayLabel(tv.toLong(), days > 90), if (k == 0) leftPx else x, h - 4.dp.toPx(), axisStyle, anchor)
-        }
-
-        // today's level: dashed
-        val ty = yOf(h, today)
-        drawLine(
-            inkSoft, Offset(leftPx, ty), Offset(w - rightPx, ty), strokeWidth = hair,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
-        )
-
-        // series + soft area under it
-        val path = Path()
-        window.forEachIndexed { i, p ->
-            val x = xOf(w, t[i]); val y = yOf(h, p.rate)
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        val area = Path().apply {
-            addPath(path)
-            lineTo(xOf(w, t.last()), h - bottomPx)
-            lineTo(xOf(w, t.first()), h - bottomPx)
-            close()
-        }
-        val p = reveal.value
-        clipRect(right = leftPx + (w - leftPx) * p) {
-            drawPath(area, Brush.verticalGradient(listOf(accent.copy(alpha = 0.18f), accent.copy(alpha = 0f)), startY = topPx, endY = h - bottomPx))
-            drawPath(path, ink, style = Stroke(width = 1.75.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        }
-
-        // today dot (last point) appears once the line reaches it
-        val lx = xOf(w, t.last()); val ly = yOf(h, window.last().rate)
-        val dotA = ((p - 0.85f) / 0.15f).coerceIn(0f, 1f)
-        drawCircle(bg, radius = 6.dp.toPx() * dotA, center = Offset(lx, ly))
-        drawCircle(accent, radius = 4.dp.toPx() * dotA, center = Offset(lx, ly))
-
-        // crosshair + bubble: date · rate · difference to today
-        val si = lastSel
-        if (si != null && si in window.indices && selA > 0f) {
-            val sx = xOf(w, t[si]); val sy = yOf(h, window[si].rate)
-            drawLine(inkSoft.copy(alpha = selA), Offset(sx, topPx), Offset(sx, h - bottomPx), strokeWidth = hair)
-            drawCircle(bg.copy(alpha = selA), radius = 7.dp.toPx(), center = Offset(sx, sy))
-            drawCircle(ink.copy(alpha = selA), radius = 4.5.dp.toPx(), center = Offset(sx, sy))
-
-            val pt = window[si]
-            val diff = today - pt.rate
-            val l1 = "${formatFullDate(pt.date)}  ${pt.rate.formatRate()} $unit"
-            val l2 = if (si == window.lastIndex) null else
-                (if (unit == UNIT_RU) "→ сегодня " else "→ bugun ") + (if (diff >= 0) "+" else "−") + fmtSom(diff, today) + " $unit"
-            val padB = 8.dp.toPx()
-            val lineH = textPx * 1.3f
-            val bw = maxOf(measurer.widthOf(l1, bubbleStyle), l2?.let { measurer.widthOf(it, axisStyle) } ?: 0f) + padB * 2
-            val bh = lineH * (if (l2 == null) 1 else 2) + padB * 1.5f
-            val bx = (sx - bw / 2).coerceIn(leftPx, w - rightPx - bw)
-            val above = sy - bh - 12.dp.toPx() > topPx
-            val by = if (above) sy - bh - 12.dp.toPx() else sy + 12.dp.toPx()
-            drawRoundRect(
-                ink.copy(alpha = 0.92f * selA), topLeft = Offset(bx, by),
-                size = androidx.compose.ui.geometry.Size(bw, bh),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
-            )
-            drawTextAt(measurer, l1, bx + padB, by + padB * 0.75f + textPx, bubbleStyle.copy(color = bg.copy(alpha = selA)))
-            if (l2 != null) {
-                drawTextAt(measurer, l2, bx + padB, by + padB * 0.75f + textPx + lineH, axisStyle.copy(color = bg.copy(alpha = 0.75f * selA)))
-            }
-        }
-    }
-}
-
 /* ---------------- data helpers ---------------- */
 
 
@@ -746,13 +477,6 @@ fun epochDay(iso: String): Long =
     runCatching { LocalDate.parse(iso.take(10)).toEpochDays() }.getOrDefault(0L)
 
 private fun todayIso(): String = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
-
-/** "dd.MM" or, with [withYear], "dd.MM.yy". */
-private fun dayLabel(epochDay: Long, withYear: Boolean): String {
-    val d = LocalDate.fromEpochDays(epochDay.toInt())
-    val dm = "${d.day.toString().padStart(2, '0')}.${d.month.number.toString().padStart(2, '0')}"
-    return if (withYear) "$dm.${(d.year % 100).toString().padStart(2, '0')}" else dm
-}
 
 /** History points + today's official rate as the last point; empty when the points do not belong to [cur]. */
 private fun buildSeries(points: List<HistoryPoint>, cur: Double, todayIso: String): List<HistoryPoint> {
@@ -766,64 +490,6 @@ private fun buildSeries(points: List<HistoryPoint>, cur: Double, todayIso: Strin
         last.date.take(10) < todayIso -> sorted + HistoryPoint(todayIso, cur)
         else -> sorted
     }
-}
-
-private fun windowOf(series: List<HistoryPoint>, days: Int, todayEpoch: Long): List<HistoryPoint> {
-    if (series.isEmpty()) return series
-    val w = series.filter { epochDay(it.date) >= todayEpoch - days }
-    return if (w.size >= 2) w else series.takeLast(2)
-}
-
-private fun bandOf(series: List<HistoryPoint>, days: Int, todayEpoch: Long): Pair<Double, Double>? {
-    val w = series.filter { epochDay(it.date) >= todayEpoch - days }
-    if (w.size < 2) return null
-    return w.minOf { it.rate } to w.maxOf { it.rate }
-}
-
-private fun periodLabel(days: Int, ru: Boolean): String = when (days) {
-    365 -> if (ru) "1 год" else "1 yil"
-    else -> if (ru) "$days дн." else "$days kun"
-}
-
-private fun periodDeltaText(window: List<HistoryPoint>, cur: Double, days: Int, todayEpoch: Long, ru: Boolean): String? {
-    val first = window.first()
-    if (first.rate <= 0) return null
-    val span = (todayEpoch - epochDay(first.date)).toInt()
-    // Name the real period if history does not reach back as far as requested.
-    val label = if (span >= days * 0.85) periodLabel(days, ru) else periodLabel(span.coerceAtLeast(1), ru).let { if (span >= 365) periodLabel(365, ru) else it }
-    val pct = (cur - first.rate) / first.rate * 100.0
-    val arrow = when { abs(pct) < 0.005 -> "–"; pct > 0 -> "▲"; else -> "▼" }
-    return "$arrow ${abs(pct).fixed(2)}% · $label"
-}
-
-private fun dayDeltaText(diff: Double, unit: String, ru: Boolean): String? {
-    if (abs(diff) < 0.005) return null
-    val v = if (abs(diff) >= 1) diff.roundToInt().toDouble().formatSigned() else diff.formatSigned()
-    return "$v $unit · ${if (ru) "вчера" else "kecha"}"
-}
-
-private fun chartDescription(window: List<HistoryPoint>, days: Int, unit: String, ru: Boolean): String {
-    val lo = window.minBy { it.rate }; val hi = window.maxBy { it.rate }
-    return (if (ru) "График курса ЦБ за ${periodLabel(days, ru)}. " else "MB kursi grafigi, ${periodLabel(days, ru)}. ") +
-        "min ${lo.rate.roundToInt().formatUzs()} ${formatFullDate(lo.date)}, max ${hi.rate.roundToInt().formatUzs()} ${formatFullDate(hi.date)} $unit"
-}
-
-private fun niceTicks(lo: Double, hi: Double): List<Double> {
-    fun ticksFor(parts: Double): List<Double> {
-        val raw = (hi - lo) / parts
-        if (raw <= 0) return emptyList()
-        val mag = 10.0.pow(floor(log10(raw)))
-        val norm = raw / mag
-        val step = mag * when { norm <= 1 -> 1.0; norm <= 2 -> 2.0; norm <= 5 -> 5.0; else -> 10.0 }
-        val out = mutableListOf<Double>()
-        var v = ceil(lo / step) * step
-        while (v <= hi + 1e-9) { out += v; v += step }
-        return out
-    }
-    var t = ticksFor(3.0)
-    if (t.size > 4) t = ticksFor(2.0)
-    if (t.size < 2) t = listOf(lo, hi)
-    return t
 }
 
 fun formatShortDate(iso: String): String {

@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import express from "express";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -23,10 +23,13 @@ const cbuByDateUrl = (cur, date) => `https://cbu.uz/uz/arkhiv-kursov-valyut/json
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 15 * 60 * 1000);
 const ATM_CACHE_TTL_MS = Number(process.env.ATM_CACHE_TTL_MS || 24 * 60 * 60 * 1000);
 const HISTORY_TTL_MS = Number(process.env.HISTORY_TTL_MS || 12 * 60 * 60 * 1000);
-// How far back history goes (~5 years) and how finely it is sampled per age band.
-const HISTORY_DAYS = Number(process.env.HISTORY_DAYS || 1825);
+// How far back history goes and how finely it is sampled per age band.
+const HISTORY_START = process.env.HISTORY_START || "2009-01-01";
 const RECENT_DAILY_DAYS = Number(process.env.RECENT_DAILY_DAYS || 60); // last 60 days: daily
 const WEEKLY_UNTIL_DAYS = Number(process.env.WEEKLY_UNTIL_DAYS || 730); // up to 2y: weekly
+const BIWEEKLY_UNTIL_DAYS = Number(process.env.BIWEEKLY_UNTIL_DAYS || 1830); // up to 5y: every 2 weeks; older: monthly
+// Past CBU rates never change: keep them on disk so a restart only fetches what is missing.
+const HISTORY_DISK_FRESH_DAYS = 7; // re-fetch the last week (late corrections), trust older stored values
 const OVERPASS_URL = process.env.OVERPASS_URL || "https://overpass-api.de/api/interpreter";
 // Yandex Places (organization search) API — set YANDEX_PLACES_KEY to get full branch coverage.
 const YANDEX_PLACES_KEY = process.env.YANDEX_PLACES_KEY || "";
@@ -172,7 +175,14 @@ app.listen(PORT, () => {
   // Warm caches at boot so client requests always hit ready payloads.
   refreshAllRates();
   setInterval(refreshAllRates, CACHE_TTL_MS).unref();
-  getHistory("USD").then((p) => console.log(`USD history warmed: ${p.length} points`)).catch((e) => console.error("History warm failed:", e.message));
+  // Warm every currency one after another (cold start fetches years of CBU data; disk cache makes later starts fast).
+  (async () => {
+    for (const cur of SUPPORTED) {
+      await getHistory(cur)
+        .then((p) => console.log(`${cur} history warmed: ${p.length} points`))
+        .catch((e) => console.error(`${cur} history warm failed:`, e.message));
+    }
+  })();
   getAtms().then((a) => console.log(`ATM cache warmed: ${a.length}`)).catch((e) => console.error("ATM warm failed:", e.message));
   getBranches().then((b) => console.log(`Branch cache warmed: ${b.length}`)).catch((e) => console.error("Branch warm failed:", e.message));
   setInterval(() => getAtms({ force: true }).catch(() => {}), ATM_CACHE_TTL_MS).unref();
@@ -348,24 +358,38 @@ async function getHistory(cur, { force = false } = {}) {
   }
 
   const dates = historySampleDates();
-  const points = [];
+  const stored = await loadHistoryDisk(cur);
+  const freshFrom = new Date(Date.now() - HISTORY_DISK_FRESH_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const missing = dates.filter((d) => d >= freshFrom || !Number.isFinite(stored[d]));
   // Fetch in small concurrent batches to stay polite to cbu.uz.
   const BATCH = 8;
-  for (let i = 0; i < dates.length; i += BATCH) {
-    const slice = dates.slice(i, i + BATCH);
-    const results = await Promise.all(
-      slice.map((date) =>
-        fetchCbuRateOn(cur, date).catch(() => null)
-      )
-    );
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const slice = missing.slice(i, i + BATCH);
+    const results = await Promise.all(slice.map((date) => fetchCbuRateOn(cur, date).catch(() => null)));
     results.forEach((rate, idx) => {
-      if (Number.isFinite(rate)) points.push({ date: slice[idx], rate });
+      if (Number.isFinite(rate)) stored[slice[idx]] = rate;
     });
   }
+  await saveHistoryDisk(cur, stored).catch((e) => console.error(`History save failed (${cur}):`, e.message));
 
+  const points = dates.filter((d) => Number.isFinite(stored[d])).map((date) => ({ date, rate: stored[date] }));
   points.sort((a, b) => (a.date < b.date ? -1 : 1));
   historyCache.set(cur, { cachedAt: Date.now(), points });
   return points;
+}
+
+const historyFile = (cur) => join(DATA_DIR, `history-${cur}.json`);
+
+async function loadHistoryDisk(cur) {
+  try {
+    return JSON.parse(await readFile(historyFile(cur), "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function saveHistoryDisk(cur, map) {
+  await writeFile(historyFile(cur), JSON.stringify(map));
 }
 
 async function fetchCbuRateOn(cur, date) {
@@ -381,15 +405,17 @@ function historySampleDates() {
   const DAY = 24 * 60 * 60 * 1000;
   const today = new Date();
   const set = new Set();
+  const historyDays = Math.floor((today.getTime() - Date.parse(HISTORY_START)) / DAY);
   const add = (daysAgo) => {
-    if (daysAgo < 0 || daysAgo > HISTORY_DAYS) return;
+    if (daysAgo < 0 || daysAgo > historyDays) return;
     set.add(new Date(today.getTime() - daysAgo * DAY).toISOString().slice(0, 10));
   };
 
   for (let d = 0; d < RECENT_DAILY_DAYS; d++) add(d);
   for (let d = RECENT_DAILY_DAYS; d <= WEEKLY_UNTIL_DAYS; d += 7) add(d);
-  for (let d = WEEKLY_UNTIL_DAYS; d <= HISTORY_DAYS; d += 30) add(d);
-  add(HISTORY_DAYS);
+  for (let d = WEEKLY_UNTIL_DAYS; d <= BIWEEKLY_UNTIL_DAYS; d += 14) add(d);
+  for (let d = BIWEEKLY_UNTIL_DAYS; d <= historyDays; d += 30) add(d);
+  add(historyDays);
 
   return [...set].sort(); // ISO strings sort chronologically
 }

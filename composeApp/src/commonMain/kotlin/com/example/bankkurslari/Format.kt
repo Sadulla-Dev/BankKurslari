@@ -51,3 +51,7 @@ fun String.formatUpdatedAt(): String {
     val timePart = substringAfter('T', missingDelimiterValue = "")
     return if (timePart.isEmpty()) this else timePart.take(5)
 }
+
+/** Whole so'm for big-unit currencies (USD/EUR), two decimals for RUB-scale rates. */
+fun fmtSom(v: Double, rate: Double): String =
+    if (rate >= 1000) kotlin.math.abs(v).roundToLong().formatUzsL() else kotlin.math.abs(v).fixed(2)

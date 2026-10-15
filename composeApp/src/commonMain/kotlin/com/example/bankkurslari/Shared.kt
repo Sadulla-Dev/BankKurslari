@@ -103,8 +103,10 @@ fun Segmented(
     ) {
         val w = cellWidth ?: (maxWidth / options.size)
         val x by animateDpAsState(w * selected.coerceIn(0, options.lastIndex), Motion.slide(), label = "thumb")
+        // selected = -1: nothing matches (e.g. a custom chart zoom) -> thumb fades out.
+        val thumbA by animateFloatAsState(if (selected in options.indices) 1f else 0f, tween(Motion.SHORT), label = "thumbA")
         Box(
-            Modifier.offset(x = x).width(w).fillMaxHeight()
+            Modifier.offset(x = x).width(w).fillMaxHeight().graphicsLayer { alpha = thumbA }
                 .clip(RoundedCornerShape(10.dp)).background(VsBg)
                 .border(1.dp, VsLine, RoundedCornerShape(10.dp))
         )
