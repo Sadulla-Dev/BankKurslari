@@ -20,7 +20,10 @@ kotlin {
     }
 
     compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
         optIn.addAll(
+            "kotlinx.cinterop.BetaInteropApi",
+            "kotlinx.cinterop.ExperimentalForeignApi",
             "kotlin.time.ExperimentalTime",
             "androidx.compose.material3.ExperimentalMaterial3Api"
         )

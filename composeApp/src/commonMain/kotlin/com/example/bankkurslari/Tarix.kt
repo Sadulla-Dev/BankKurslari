@@ -743,7 +743,7 @@ private fun HistoryChart(
 
 
 fun epochDay(iso: String): Long =
-    runCatching { LocalDate.parse(iso.take(10)).toEpochDays().toLong() }.getOrDefault(0L)
+    runCatching { LocalDate.parse(iso.take(10)).toEpochDays() }.getOrDefault(0L)
 
 private fun todayIso(): String = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
 

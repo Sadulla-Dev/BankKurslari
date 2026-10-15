@@ -489,7 +489,7 @@ fun KursScreen(
                 }
             } else if (stale12) {
                 item(key = "stale") {
-                    val h = ageH!!.toInt()
+                    val h = ageH.toInt()
                     KBanner(Icons.Outlined.Schedule, VsAmber,
                         if (ru) "Данные обновлены $h ч назад" else "Maʻlumot $h soat oldin yangilangan",
                         Modifier.animateItem())
