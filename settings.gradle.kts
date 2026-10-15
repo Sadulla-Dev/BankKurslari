@@ -23,5 +23,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Bank kurslari"
-include(":app")
+include(":composeApp")
+include(":androidApp")
  

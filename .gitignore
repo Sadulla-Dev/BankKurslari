@@ -17,3 +17,5 @@ local.properties
 # Backend deps
 backend/node_modules
 /.idea/deviceManager.xml
+build/
+.kotlin/
