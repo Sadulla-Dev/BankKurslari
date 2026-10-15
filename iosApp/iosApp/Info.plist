@@ -6,6 +6,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Eng yaqin bank filiallarigacha masofani koʻrsatish uchun. / Чтобы показать расстояние до ближайших отделений банков.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Kurslarni lokal tarmoqdagi serverdan olish uchun. / Чтобы получать курсы с сервера в локальной сети.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- The backend runs over plain HTTP on the local network (see SERVER_BASE in Models.kt). -->

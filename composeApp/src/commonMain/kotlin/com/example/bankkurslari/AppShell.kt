@@ -99,10 +99,14 @@ fun CurrencyTrackerApp(
     val scope = rememberCoroutineScope()
     val saveable = rememberSaveableStateHolder()
     // Ticker cards: CBU rate + 30-day history for every currency. Cache first, then network in background.
-    var tickers by remember {
-        mutableStateOf(Currency.entries.associateWith { c -> TickerData(cachedRates(c)?.cbu, cachedHistory(c)) })
-    }
+    var tickers by remember { mutableStateOf(Currency.entries.associateWith { TickerData(null, emptyList()) }) }
     LaunchedEffect(Unit) {
+        // Cache first (off the main thread), then the network.
+        Currency.entries.forEach { c ->
+            val cbu = cachedRates(c)?.cbu
+            val hist = cachedHistory(c)
+            tickers = tickers + (c to TickerData(tickers[c]?.cbu ?: cbu, tickers[c]?.history?.ifEmpty { null } ?: hist))
+        }
         Currency.entries.forEach { c ->
             launch {
                 runCatching { fetchRates(c) }.getOrNull()?.let { r ->

@@ -75,6 +75,9 @@ import com.example.bankkurslari.ui.theme.VsInkSoft
 import com.example.bankkurslari.ui.theme.VsLine
 import com.example.bankkurslari.ui.theme.VsSurface
 import com.example.bankkurslari.ui.theme.VsType
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
@@ -129,7 +132,10 @@ fun MapScreen(
         rankBanks(payload.banks, direction, amount, userLocation, branches)
     }
     val best = remember(ranked, direction) { mapBestRate(ranked, direction) }
-    val allPins = remember(ranked, branches, userLocation, best) { mapBuildPins(ranked, branches, userLocation, best) }
+    // Thousands of branches: build pins off the main thread.
+    val allPins by produceState(emptyList<MapPin>(), ranked, branches, userLocation, best) {
+        value = withContext(Dispatchers.Default) { mapBuildPins(ranked, branches, userLocation, best) }
+    }
     val atmPins = remember(atms, userLocation) {
         atms.mapIndexed { i, a ->
             MapPin("a$i", MapPinKind.ATM, a.lat, a.lng, a.name.ifBlank { a.bank }, null, null, bankKey(a.bank),

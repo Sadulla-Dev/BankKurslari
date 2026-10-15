@@ -9,7 +9,17 @@ import platform.CoreLocation.CLLocationManagerDelegateProtocol
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
+import platform.Foundation.NSCachesDirectory
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSLock
+import platform.Foundation.NSSearchPathForDirectoriesInDomains
+import platform.Foundation.NSString
+import platform.Foundation.NSTemporaryDirectory
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.NSUserDomainMask
+import platform.Foundation.create
+import platform.Foundation.stringWithContentsOfFile
+import platform.Foundation.writeToFile
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIActivityViewController
@@ -46,6 +56,24 @@ private class DefaultsStore(private val d: NSUserDefaults) : KeyValueStore {
 private val store: KeyValueStore by lazy { DefaultsStore(NSUserDefaults.standardUserDefaults) }
 
 actual fun appStore(): KeyValueStore = store
+
+private val cacheDirPath: String by lazy {
+    val base = (NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, true).firstOrNull() as? String) ?: NSTemporaryDirectory()
+    val dir = "$base/cache-json"
+    NSFileManager.defaultManager.createDirectoryAtPath(dir, withIntermediateDirectories = true, attributes = null, error = null)
+    // One-time cleanup: older builds kept large JSON under "cache_*" keys in NSUserDefaults.
+    val d = NSUserDefaults.standardUserDefaults
+    d.dictionaryRepresentation().keys.filterIsInstance<String>().filter { it.startsWith("cache_") }.forEach { d.removeObjectForKey(it) }
+    dir
+}
+
+actual fun readCacheFile(name: String): String? =
+    NSString.stringWithContentsOfFile("$cacheDirPath/$name", encoding = NSUTF8StringEncoding, error = null)
+
+actual fun writeCacheFile(name: String, text: String) {
+    // atomically = true: written to a temp file and moved into place.
+    NSString.create(string = text).writeToFile("$cacheDirPath/$name", atomically = true, encoding = NSUTF8StringEncoding, error = null)
+}
 
 actual class PlatformLock actual constructor() {
     private val lock = NSLock()

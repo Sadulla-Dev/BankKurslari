@@ -58,6 +58,23 @@ private fun kmBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): D
 
 private class Cand(val lat: Double, val lng: Double, val address: String?, val hours: String?)
 
+/**
+ * Branches grouped by normalised bank name. Matching a bank to its branches then compares against the few dozen
+ * distinct names instead of every branch, and the per-bank result is memoised. Built once per branch list.
+ */
+private class BranchIndex(val source: List<OsmBranch>) {
+    private val byKey: Map<String, List<OsmBranch>> = source.groupBy { bankKey(it.bank) }
+    private val memo = HashMap<String, List<OsmBranch>>()
+    fun forBank(bk: String): List<OsmBranch> =
+        memo.getOrPut(bk) { byKey.entries.filter { keysMatch(bk, it.key) }.flatMap { it.value } }
+}
+
+private var branchIndex: BranchIndex? = null
+
+/** Reuses the index while the app holds the same branch list instance. */
+private fun branchIndexFor(list: List<OsmBranch>): BranchIndex =
+    branchIndex?.takeIf { it.source === list } ?: BranchIndex(list).also { branchIndex = it }
+
 fun rankBanks(
     banks: List<BankRate>,
     direction: ConvertMode,
@@ -69,7 +86,7 @@ fun rankBanks(
 ): List<RankedBank> {
     val sell = direction == ConvertMode.SELL_USD
     val orderAmount = if (amount > 0) amount else 1.0
-    val osmKeyed = osmBranches.map { bankKey(it.bank) to it }
+    val index = branchIndexFor(osmBranches)
 
     class Row(val item: RankedBank, val sortValue: Double)
 
@@ -78,7 +95,7 @@ fun rankBanks(
         if (per <= 0) return@mapNotNull null
         val bk = bankKey(r.bank)
         val cands = ArrayList<Cand>()
-        for ((k, ob) in osmKeyed) if (keysMatch(bk, k)) cands += Cand(ob.lat, ob.lng, ob.address, ob.hours)
+        for (ob in index.forBank(bk)) cands += Cand(ob.lat, ob.lng, ob.address, ob.hours)
         r.branch?.let { cands += Cand(it.lat, it.lng, it.address, null) }
 
         val chosen: Cand?

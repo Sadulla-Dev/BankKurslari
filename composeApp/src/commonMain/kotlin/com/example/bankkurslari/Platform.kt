@@ -21,6 +21,14 @@ interface KeyValueStore {
 
 expect fun appStore(): KeyValueStore
 
+/**
+ * Large JSON payloads (rates, branches, ATMs, history) live in plain files, not in [KeyValueStore]:
+ * SharedPreferences / NSUserDefaults rewrite and reload the whole store, which blocked the UI for seconds.
+ */
+expect fun readCacheFile(name: String): String?
+
+expect fun writeCacheFile(name: String, text: String)
+
 /** Mutual exclusion for read-modify-write of stored data (UI vs background worker). */
 expect class PlatformLock() {
     fun <T> withLock(block: () -> T): T

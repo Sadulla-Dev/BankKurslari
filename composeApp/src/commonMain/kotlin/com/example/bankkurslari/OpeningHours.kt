@@ -57,8 +57,22 @@ private fun parseSpans(rest: String): List<HoursSpan>? {
     return spans
 }
 
-/** Returns null when the text cannot be understood (caller treats hours as unknown). */
+private val hoursMemo = HashMap<String, HoursSchedule?>()
+private val hoursLock = PlatformLock() // used from the UI thread and from background pin building
+
+/** Returns null when the text cannot be understood (caller treats hours as unknown). Memoised: thousands of branches
+ *  share a handful of distinct schedule strings. */
 fun parseHours(raw: String?): HoursSchedule? {
+    val key = raw?.trim().orEmpty()
+    if (key.isEmpty()) return null
+    val hit = hoursLock.withLock { if (hoursMemo.containsKey(key)) Result.success(hoursMemo[key]) else null }
+    if (hit != null) return hit.getOrNull()
+    val parsed = parseHoursUncached(key)
+    hoursLock.withLock { if (hoursMemo.size < 4096) hoursMemo[key] = parsed }
+    return parsed
+}
+
+private fun parseHoursUncached(raw: String?): HoursSchedule? {
     val text = raw?.trim().orEmpty()
     if (text.isEmpty()) return null
     val days = arrayOfNulls<List<HoursSpan>>(7)
@@ -97,8 +111,18 @@ private fun hhmm(minutes: Int): String {
  * when closed = today's next opening time "09:00" (null if it will not open again today).
  * Unknown / unparseable hours -> known=false, open=true.
  */
-fun openState(hours: String?): OpenState =
-    openState(hours, Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()))
+private val localZone by lazy { TimeZone.currentSystemDefault() }
+
+/** "Now" in local time, refreshed at most once a second (openState is called for every bank and branch). */
+private var nowCache: Pair<Long, LocalDateTime>? = null
+
+private fun localNow(): LocalDateTime {
+    val ms = Clock.System.now().toEpochMilliseconds()
+    nowCache?.let { (at, v) -> if (ms - at < 1000) return v } // a stale read from another thread is harmless
+    return Clock.System.now().toLocalDateTime(localZone).also { nowCache = ms to it }
+}
+
+fun openState(hours: String?): OpenState = openState(hours, localNow())
 
 fun openState(hours: String?, now: LocalDateTime): OpenState {
     val sch = parseHours(hours) ?: return OpenState(false, true, null)

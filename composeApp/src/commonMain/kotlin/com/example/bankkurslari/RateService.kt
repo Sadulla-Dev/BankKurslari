@@ -127,10 +127,10 @@ object RateService {
         return cur
     }
 
-    // --- Generic JSON cache (offline support) ---
-    fun saveCache(key: String, json: String) = prefs.putString("cache_$key", json)
+    // --- Generic JSON cache (offline support): files, see [writeCacheFile] ---
+    fun saveCache(key: String, json: String) = writeCacheFile("$key.json", json)
 
-    fun loadCache(key: String): String? = prefs.getString("cache_$key")
+    fun loadCache(key: String): String? = readCacheFile("$key.json")
 
     /** NaN when never stored. */
     fun lastRate(currency: String): Double = prefs.getDouble(lastRateKey(currency)) ?: Double.NaN

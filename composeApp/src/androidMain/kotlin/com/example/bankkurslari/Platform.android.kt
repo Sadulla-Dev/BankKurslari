@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.core.content.ContextCompat
+import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -50,10 +51,30 @@ private class PrefsStore(private val p: SharedPreferences) : KeyValueStore {
 }
 
 private val store: KeyValueStore by lazy {
-    PrefsStore(AndroidPlatform.context.getSharedPreferences("valyutastat", Context.MODE_PRIVATE))
+    val p = AndroidPlatform.context.getSharedPreferences("valyutastat", Context.MODE_PRIVATE)
+    // One-time cleanup: older versions kept megabytes of JSON under "cache_*" keys here.
+    val stale = p.all.keys.filter { it.startsWith("cache_") }
+    if (stale.isNotEmpty()) p.edit().apply { stale.forEach { remove(it) } }.apply()
+    PrefsStore(p)
 }
 
 actual fun appStore(): KeyValueStore = store
+
+private val cacheDir: File by lazy {
+    File(AndroidPlatform.context.filesDir, "cache-json").apply { mkdirs() }
+}
+
+actual fun readCacheFile(name: String): String? =
+    runCatching { File(cacheDir, name).takeIf { it.exists() }?.readText() }.getOrNull()
+
+actual fun writeCacheFile(name: String, text: String) {
+    // Write to a temp file and rename, so a reader never sees half a file.
+    runCatching {
+        val tmp = File(cacheDir, "$name.tmp")
+        tmp.writeText(text)
+        tmp.renameTo(File(cacheDir, name))
+    }
+}
 
 actual class PlatformLock actual constructor() {
     private val lock = ReentrantLock()

@@ -187,11 +187,13 @@ private fun kSpokenKm(km: Double, ru: Boolean): String {
     }
 }
 
+private val FRACTION_RE = Regex("""\.\d+""")
+
 /** Parses payload.updatedAt (ISO-like) to epoch millis, or null. Offset-less times are local. */
 fun kParseMillis(updatedAt: String?): Long? {
     if (updatedAt.isNullOrBlank()) return null
     runCatching { return Instant.parse(updatedAt).toEpochMilliseconds() }
-    val clean = updatedAt.replace(Regex("""\.\d+"""), "")
+    val clean = updatedAt.replace(FRACTION_RE, "")
     for (text in listOf(clean.take(19), clean.take(16))) {
         val ldt = runCatching { LocalDateTime.parse(text) }.getOrNull() ?: continue
         return ldt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()

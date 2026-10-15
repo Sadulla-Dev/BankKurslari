@@ -6,6 +6,8 @@ import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -55,8 +57,12 @@ suspend fun httpGet(url: String, readTimeoutMs: Long): String {
 
 /* ---------- rates ---------- */
 
-fun cachedRates(cur: Currency): RatesPayload? =
+/* Parsing and cache I/O run on Dispatchers.Default: the branch/ATM payloads are ~0.5 MB each, and on iOS doing that
+   on the main thread blocks taps for seconds. */
+
+suspend fun cachedRates(cur: Currency): RatesPayload? = withContext(Dispatchers.Default) {
     RateService.loadCache("rates_${cur.code}")?.let { runCatching { parseRatesPayload(it) }.getOrNull() }
+}
 
 fun parseRatesPayload(body: String): RatesPayload {
     val root = parseJsonObject(body)
@@ -81,15 +87,15 @@ fun parseRatesPayload(body: String): RatesPayload {
     )
 }
 
-suspend fun fetchRates(cur: Currency): RatesPayload {
+suspend fun fetchRates(cur: Currency): RatesPayload = withContext(Dispatchers.Default) {
     val body = httpGet(ratesUrl(cur), 15_000)
     RateService.saveCache("rates_${cur.code}", body) // keep last good copy for offline
-    return parseRatesPayload(body)
+    parseRatesPayload(body)
 }
 
 /* ---------- ATMs / branches ---------- */
 
-suspend fun fetchAtms(): List<Atm> =
+suspend fun fetchAtms(): List<Atm> = withContext(Dispatchers.Default) {
     try {
         val body = httpGet(backendAtmsUrl, 20_000)
         RateService.saveCache("atms", body)
@@ -97,6 +103,7 @@ suspend fun fetchAtms(): List<Atm> =
     } catch (e: Exception) {
         RateService.loadCache("atms")?.let { runCatching { parseAtms(it) }.getOrNull() } ?: emptyList()
     }
+}
 
 fun parseAtms(body: String): List<Atm> =
     (parseJsonObject(body).arr("atms") ?: JsonArray(emptyList())).objects().mapNotNull { item ->
@@ -109,13 +116,13 @@ fun parseAtms(body: String): List<Atm> =
         )
     }
 
-suspend fun fetchBranches(): List<OsmBranch> {
+suspend fun fetchBranches(): List<OsmBranch> = withContext(Dispatchers.Default) {
     val body = try {
         httpGet(backendBranchesUrl, 20_000).also { RateService.saveCache("branches", it) }
     } catch (e: Exception) {
-        RateService.loadCache("branches") ?: return emptyList()
+        RateService.loadCache("branches") ?: return@withContext emptyList()
     }
-    return (parseJsonObject(body).arr("branches") ?: JsonArray(emptyList())).objects().mapNotNull { item ->
+    (parseJsonObject(body).arr("branches") ?: JsonArray(emptyList())).objects().mapNotNull { item ->
         val lat = item.dbl("lat") ?: return@mapNotNull null
         val lng = item.dbl("lng") ?: return@mapNotNull null
         OsmBranch(
@@ -140,12 +147,13 @@ fun parseHistoryPoints(body: String): List<HistoryPoint> =
     }.sortedBy { it.date }
 
 /** Cache first: a cold backend request can take ~30 s. */
-fun cachedHistory(cur: Currency): List<HistoryPoint> =
+suspend fun cachedHistory(cur: Currency): List<HistoryPoint> = withContext(Dispatchers.Default) {
     RateService.loadCache("history_${cur.code}")?.let { runCatching { parseHistoryPoints(it) }.getOrNull() }.orEmpty()
+}
 
-suspend fun fetchHistory(cur: Currency): List<HistoryPoint> {
+suspend fun fetchHistory(cur: Currency): List<HistoryPoint> = withContext(Dispatchers.Default) {
     val body = httpGet(historyUrl(cur), 45_000)
     RateService.saveCache("history_${cur.code}", body)
-    return parseHistoryPoints(body)
+    parseHistoryPoints(body)
 }
 
