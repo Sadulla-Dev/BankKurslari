@@ -186,10 +186,12 @@ actual fun BankMapView(
                         val group = spec.cluster
                         when {
                             group != null -> {
-                                val n = group.maxOf { it.lat }; val s = group.minOf { it.lat }
-                                val e = group.maxOf { it.lng }; val w = group.minOf { it.lng }
-                                if (n - s < 1e-4 && e - w < 1e-4) map.controller.animateTo(GeoPoint(spec.lat, spec.lng), zoom + 2.0, 500L)
-                                else map.zoomToBoundingBox(BoundingBox(n, e, s, w), true, (64 * dens).toInt())
+                                val open = clusterTapTarget(group, zoom)
+                                if (open != null) tapPin(open) else {
+                                    val n = group.maxOf { it.lat }; val s = group.minOf { it.lat }
+                                    val e = group.maxOf { it.lng }; val w = group.minOf { it.lng }
+                                    map.zoomToBoundingBox(BoundingBox(n, e, s, w), true, (64 * dens).toInt())
+                                }
                             }
                             spec.pin != null -> tapPin(spec.pin)
                         }

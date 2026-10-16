@@ -57,6 +57,12 @@ private val store: KeyValueStore by lazy { DefaultsStore(NSUserDefaults.standard
 
 actual fun appStore(): KeyValueStore = store
 
+/** NSLog's varargs do not bridge Kotlin strings (passing one as %@ crashes), so the text goes in as the format itself. */
+actual fun debugLog(msg: String) {
+    platform.Foundation.NSLog("QK " + msg.replace("%", "%%"))
+    println("QK $msg")
+}
+
 private val cacheDirPath: String by lazy {
     val base = (NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, true).firstOrNull() as? String) ?: NSTemporaryDirectory()
     val dir = "$base/cache-json"

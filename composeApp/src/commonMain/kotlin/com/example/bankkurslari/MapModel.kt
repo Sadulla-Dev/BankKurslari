@@ -267,6 +267,15 @@ fun buildMarkerSpecs(
     return out
 }
 
+/**
+ * What tapping a cluster does: zoom in while that can still split it, otherwise open its best pin.
+ * Branches in one building never split (same coordinates), and past street level a further zoom only looks broken.
+ */
+fun clusterTapTarget(group: List<MapPin>, zoom: Double): MapPin? {
+    val sameSpot = group.maxOf { it.lat } - group.minOf { it.lat } < 1e-4 && group.maxOf { it.lng } - group.minOf { it.lng } < 1e-4
+    return if (sameSpot || zoom >= 16.5) group.first() else null
+}
+
 /* ---------- marker images (one renderer for both platforms) ---------- */
 
 /** Colours for marker images; taken from the theme at composition time. */

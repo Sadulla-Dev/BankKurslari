@@ -65,4 +65,7 @@ object PlatformHooks {
     var onAlertsChanged: () -> Unit = {}
 }
 
+/** Diagnostics to the device console (Logcat / Xcode console), tag "QK". */
+expect fun debugLog(msg: String)
+
 fun nowMillis(): Long = Clock.System.now().toEpochMilliseconds()

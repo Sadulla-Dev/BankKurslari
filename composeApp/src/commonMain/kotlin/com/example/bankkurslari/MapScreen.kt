@@ -109,7 +109,8 @@ fun MapScreen(
     var listMode by remember { mutableStateOf(false) }
     var legendOpen by remember { mutableStateOf(true) }
     var labelMode by remember {
-        mutableStateOf(MapLabel.entries.firstOrNull { it.name == appStore().getString("map_label") } ?: MapLabel.RATE)
+        // Every visit starts with bank name + rate; the switch only changes the current visit.
+        mutableStateOf(MapLabel.BOTH)
     }
     var bankSel by remember { mutableStateOf<String?>(null) }       // bankKey
     var bankMenu by remember { mutableStateOf(false) }
@@ -178,6 +179,7 @@ fun MapScreen(
     }
 
     val onPinTap: (MapPin) -> Unit = { p ->
+        debugLog("onPinTap id=${p.id} kind=${p.kind} hasRate=${p.rb != null}")
         selectedId = p.id
         if (p.kind == MapPinKind.PRICED && p.rb != null) { sheetBank = p.rb; infoPin = null } else { infoPin = p; sheetBank = null }
         map?.animateTo(p.lat, p.lng)
@@ -321,7 +323,6 @@ fun MapScreen(
                     selected = labelMode.ordinal,
                     onSelect = {
                         labelMode = MapLabel.entries[it]
-                        appStore().putString("map_label", labelMode.name)
                     },
                     cellWidth = 76.dp,
                     height = 40.dp

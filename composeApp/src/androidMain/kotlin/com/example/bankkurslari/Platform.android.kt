@@ -60,6 +60,8 @@ private val store: KeyValueStore by lazy {
 
 actual fun appStore(): KeyValueStore = store
 
+actual fun debugLog(msg: String) { android.util.Log.d("QK", msg) }
+
 private val cacheDir: File by lazy {
     File(AndroidPlatform.context.filesDir, "cache-json").apply { mkdirs() }
 }

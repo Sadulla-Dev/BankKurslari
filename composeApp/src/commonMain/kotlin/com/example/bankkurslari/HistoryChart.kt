@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -237,21 +238,26 @@ fun InteractiveHistory(
     val leftPx = (ticks.maxOfOrNull { measurer.widthOf(tickText(it), axisStyle) } ?: 0f) + with(density) { 12.dp.toPx() }
 
     val desc = (if (ru) "График курса ЦБ, " else "MB kursi grafigi, ") + periodText
+    // The gesture coroutine outlives recompositions: read the current slice and axis width, not the first ones.
+    val liveFrom by rememberUpdatedState(from)
+    val liveTo by rememberUpdatedState(to)
+    val liveLeft by rememberUpdatedState(leftPx)
     Canvas(
         Modifier
             .fillMaxWidth()
             .height(CHART_H)
             .semantics { contentDescription = desc }
             .pointerInput(series, mult) {
-                fun plotW() = size.width - leftPx - rightPx
+                fun plotW() = size.width - liveLeft - rightPx
                 fun nearest(x: Float): Int {
-                    val tv = vp.start + ((x - leftPx) / plotW()).coerceIn(0f, 1f) * vp.span
-                    var best = from; var bd = Double.MAX_VALUE
-                    for (i in from..to) { val d = abs(t[i] - tv); if (d < bd) { bd = d; best = i } }
+                    val tv = vp.start + ((x - liveLeft) / plotW()).coerceIn(0f, 1f) * vp.span
+                    var best = liveFrom; var bd = Double.MAX_VALUE
+                    for (i in liveFrom..liveTo) { val d = abs(t[i] - tv); if (d < bd) { bd = d; best = i } }
                     return best
                 }
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    debugLog("chart down x=${down.position.x} w=${size.width} left=$liveLeft from=$liveFrom to=$liveTo span=${vp.span}")
                     stopAnim()
                     var transforming = false
                     sel = nearest(down.position.x)
@@ -263,7 +269,7 @@ fun InteractiveHistory(
                             // Two fingers: pinch-zoom around the centroid + pan.
                             if (!transforming) { transforming = true; sel = null; markInteracted() }
                             val c = ev.calculateCentroid()
-                            val anchor = ((c.x - leftPx) / plotW()).coerceIn(0f, 1f)
+                            val anchor = ((c.x - liveLeft) / plotW()).coerceIn(0f, 1f)
                             vp.transform(ev.calculateZoom(), anchor, ev.calculatePan().x / plotW())
                             ev.changes.forEach { it.consume() }
                         } else if (transforming) {
@@ -278,8 +284,10 @@ fun InteractiveHistory(
                             // Mostly-horizontal movement belongs to the chart; vertical goes to the page scroll.
                             if (abs(dx) >= abs(dy)) ch.consume()
                             sel = nearest(ch.position.x)
+                            debugLog("chart move x=${ch.position.x} sel=$sel")
                         }
                     }
+                    debugLog("chart up")
                     sel = null
                 }
             }

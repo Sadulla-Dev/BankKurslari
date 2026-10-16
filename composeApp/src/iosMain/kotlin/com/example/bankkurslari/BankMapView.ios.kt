@@ -30,7 +30,11 @@ import platform.MapKit.MKCoordinateRegionMake
 import platform.MapKit.MKCoordinateSpanMake
 import platform.MapKit.MKMapView
 import platform.MapKit.MKMapViewDelegateProtocol
+import kotlinx.cinterop.ObjCAction
+import platform.CoreGraphics.CGRectContainsPoint
+import platform.Foundation.NSSelectorFromString
 import platform.UIKit.UIImage
+import platform.UIKit.UITapGestureRecognizer
 import platform.UIKit.UIUserInterfaceStyle
 import platform.darwin.NSObject
 import kotlin.math.cos
@@ -132,6 +136,7 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
         v.annotation = a
         v.image = a.image
         v.canShowCallout = false
+        v.setEnabled(false) // selection is handled by onMapTap
         val h = a.image?.size?.useContents { height } ?: 0.0
         v.centerOffset = if (a.spec.anchorBottom) CGPointMake(0.0, -h / 2) else CGPointMake(0.0, 0.0)
         // Later specs (better pins, the selected one) get a higher priority so they draw on top.
@@ -139,20 +144,38 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
         return v
     }
 
-    override fun mapView(mapView: MKMapView, didSelectAnnotationView: MKAnnotationView) {
-        val a = didSelectAnnotationView.annotation as? PinAnnotation ?: return
-        mapView.deselectAnnotation(a, animated = false)
+    /** Pin tap: open the pin; cluster tap: zoom in, or open its best pin when it cannot split further. */
+    private fun handleTap(mapView: MKMapView, a: PinAnnotation) {
+        debugLog("map tap: kind=${a.spec.kind} cluster=${a.spec.cluster?.size} pin=${a.spec.pin?.id} zoom=${mapView.zoomLevel()}")
         val group = a.spec.cluster
         when {
             group != null -> {
-                val n = group.maxOf { it.lat }; val s = group.minOf { it.lat }
-                val e = group.maxOf { it.lng }; val w = group.minOf { it.lng }
-                val ctl = MapKitController(mapView)
-                if (n - s < 1e-4 && e - w < 1e-4) ctl.animateTo(a.spec.lat, a.spec.lng, mapView.zoomLevel() + 2.0)
-                else ctl.fitBounds(n, e, s, w, 64, true)
+                val open = clusterTapTarget(group, mapView.zoomLevel())
+                if (open != null) onPinTap(open) else {
+                    val n = group.maxOf { it.lat }; val s = group.minOf { it.lat }
+                    val e = group.maxOf { it.lng }; val w = group.minOf { it.lng }
+                    MapKitController(mapView).fitBounds(n, e, s, w, 64, true)
+                }
             }
             a.spec.pin != null -> onPinTap(a.spec.pin)
         }
+    }
+
+    /**
+     * Our own hit test. MapKit's annotation selection did not fire for the label pins on device, so taps are
+     * resolved here: the topmost pin whose image (incl. its 48 dp touch padding) contains the point wins.
+     */
+    @ObjCAction
+    fun onMapTap(sender: UITapGestureRecognizer) {
+        val mapView = map ?: return
+        val pt = sender.locationInView(mapView)
+        val hit = mapView.annotations.filterIsInstance<PinAnnotation>()
+            .filter { a ->
+                val v = mapView.viewForAnnotation(a) ?: return@filter false
+                CGRectContainsPoint(v.convertRect(v.bounds, toView = mapView), pt)
+            }
+            .maxByOrNull { it.order }
+        if (hit != null) handleTap(mapView, hit)
     }
 
     override fun mapView(mapView: MKMapView, regionDidChangeAnimated: Boolean) = refresh(force = false)
@@ -191,6 +214,12 @@ actual fun BankMapView(
         factory = {
             MKMapView().apply {
                 delegate = state
+                // Single tap on a pin, without waiting for MapKit's double-tap-to-zoom.
+                addGestureRecognizer(
+                    UITapGestureRecognizer(target = state, action = NSSelectorFromString("onMapTap:")).apply {
+                        cancelsTouchesInView = false
+                    }
+                )
                 setRegion(
                     MKCoordinateRegionMake(CLLocationCoordinate2DMake(41.311, 69.279), MKCoordinateSpanMake(0.35, 0.35)),
                     animated = false
