@@ -6,7 +6,19 @@ import * as cheerio from "cheerio";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-async function get(url, { method = "GET", headers = {}, body, timeout = 25000 } = {}) {
+// Retries network errors / timeouts twice (not HTTP errors such as 403).
+async function get(url, opts = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await getOnce(url, opts);
+    } catch (error) {
+      if (attempt >= 2 || String(error?.message).startsWith("HTTP ")) throw error;
+      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+    }
+  }
+}
+
+async function getOnce(url, { method = "GET", headers = {}, body, timeout = 25000 } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
   try {
@@ -84,12 +96,15 @@ function rangeLabel(days) {
 /** Best effort; returns null when days or times cannot be read (the app then shows "hours unknown"). */
 export function normalizeHours(raw) {
   if (raw == null) return null;
-  const text = Array.isArray(raw) ? raw.join("; ") : String(raw);
+  // Cyrillic "а" typed inside Latin words ("Jumа") breaks day matching.
+  const text = (Array.isArray(raw) ? raw.join("; ") : String(raw)).replace(/(?<=[a-z])а|а(?=[a-z])/gi, "a");
   if (!text.trim()) return null;
+  if (!TIME_RE.test(text) && /uzluksiz/i.test(text)) return "24/7";
   if (/круглосуточ|24\s*\/\s*7|kecha-kunduz/i.test(text)) return "24/7";
 
   // Split into rules at line breaks / semicolons; "lunch" lines are ignored.
-  const parts = text.split(/[\n;|]+/).map((p) => p.trim()).filter((p) => p && !/обед|tushlik|перерыв/i.test(p));
+  // "Du-Ju 09:00-18:00, Tushlik 13:00-14:00": the lunch clause becomes its own (ignored) part.
+  const parts = text.replace(/,\s*(?=tushlik|обед|перерыв)/gi, ";").split(/[\n;|]+/).map((p) => p.trim()).filter((p) => p && !/обед|tushlik|перерыв/i.test(p));
   const rules = [];
   let offDays = null;
   for (const p of parts) {
@@ -253,6 +268,70 @@ const importers = {
     return out;
   }
 };
+
+const unescape = (h) => String(h || "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+Object.assign(importers, {
+  async "Garant bank"() {
+    const j = await getJson("https://garantbank.uz/uz/office-list");
+    return (j.allPins || []).filter((x) => ["office", "cku", "kiosk"].includes(x.type))
+      .map((x) => item("Garant bank", x.name, x.address, `${x.workDays || ""} ${x.workHours || ""}`, x.coords?.lat, x.coords?.lng, "garantbank.uz"));
+  },
+
+  async "Turon bank"() {
+    // section_id 3181 service centres, 3840 service offices (3184 = ATMs).
+    const j = await getJson("https://turonbank.uz/uz/branches/ajax_map_search.php?q=a", { headers: { "X-Requested-With": "XMLHttpRequest" } });
+    return (Array.isArray(j) ? j : []).filter((x) => ["3181", "3840"].includes(String(x.section_id))).map((x) => {
+      const html = unescape(x.popupHtml);
+      const hours = (html.match(/Ish tartibi:<\/b>\s*([^<]+)/i) || [])[1];
+      const addr = (html.match(/Manzil:<\/b>\s*([^<]+)/i) || [])[1];
+      return item("Turon bank", x.name, addr, hours, x.lat, x.lng, "turonbank.uz");
+    });
+  },
+
+  async "Orient Finans Bank"() {
+    const fields = "id,title,coords,location_type,city,street,house,work_day_first,work_day_last,work_day_start,work_day_end";
+    const j = await getJson(`https://ofb.uz/api/collections/locations/entries?filter%5Bsite%5D=uz&fields=${fields}&limit=2000`);
+    return (j.data || []).filter((x) => ["BXO", "BXM", "Mini-banklar"].includes(x.location_type?.title) && !/^bankomat/i.test(x.title || ""))
+      .map((x) => {
+        const [lat, lng] = String(x.coords || "").split(",");
+        const hours = x.work_day_start && x.work_day_end
+          ? `${x.work_day_first || ""}-${x.work_day_last || ""} ${x.work_day_start}-${x.work_day_end}`
+          : `${x.work_day_first || ""}-${x.work_day_last || ""}`;
+        const addr = [x.city, x.street, x.house].filter(Boolean).join(", ");
+        return item("Orient Finans Bank", x.title, addr, hours, lat, lng, "ofb.uz");
+      });
+  },
+
+  async "O‘zsanoatqurilishbank"() {
+    // The list sqb.uz/uz/filials/ itself loads, from the government open-data portal.
+    const j = await getJson("https://data.egov.uz/apiPartner/Partner/WebService?token=636cd1fb276499f932feca4d&name=5-003-0003&offset=0&limit=500&lang=uz");
+    return (j.result?.data || []).map((x) =>
+      item("O‘zsanoatqurilishbank", x.BXMBXOnomi, [x.TumanNomi, x.Joylashuvi].filter(Boolean).join(", "), x.Ishvaqti, x.latitude, x.longitude, "sqb.uz / data.egov.uz"));
+  },
+
+  async "MKBank"() {
+    // No list endpoint: office pages from the sitemap, one request each, slowly.
+    const xml = await get("https://mkbank.uz/uz/sitemap-iblock-331.xml");
+    const urls = [...new Set([...xml.matchAll(/<loc>([^<]*\/uz\/branches\/branches\/[^<]+)<\/loc>/g)].map((m) => m[1]))].slice(0, 200);
+    const out = [];
+    for (const url of urls) {
+      try {
+        const page = await get(url);
+        const m = page.match(/'LON':'([\d.]+)','LAT':'([\d.]+)'/);
+        const name = cheerio.load(page)("h1").first().text();
+        const addr = (page.match(/Manzil:(?:&nbsp;)?<\/b>\s*(?:<p>)?\s*([^<]+)/i) || [])[1];
+        const hours = (page.match(/Ish tartibi:(?:&nbsp;)?<\/b>\s*([^<]+)/i) || [])[1];
+        out.push(item("MKBank", name, addr, hours, m?.[2], m?.[1], "mkbank.uz"));
+      } catch {
+        // skip one failing page
+      }
+      await sleep(400);
+    }
+    return out;
+  }
+});
 
 /** Runs every importer; returns { branches, report } where report lists per-bank counts or errors. */
 export async function fetchOfficialBranches() {

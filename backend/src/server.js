@@ -696,12 +696,29 @@ async function getOfficialBranches({ force = false } = {}) {
   return officialMem.branches;
 }
 
-/** Replace a bank's entries in the base list with its official ones (only for banks that have official data). */
+/**
+ * Official entries win; a base (bank.uz) entry of the same bank within 250 m of an official one is treated as the
+ * same office and dropped. Base entries elsewhere stay: official lists often omit mini-banks and kassas.
+ */
 function mergeOfficial(base, official) {
   if (!official?.length) return base;
-  const officialKeys = [...new Set(official.map((b) => bankKey(b.bank)))];
-  const rest = base.filter((b) => !officialKeys.some((k) => sameBank(k, bankKey(b.bank))));
-  return [...rest, ...official.map(({ source, ...b }) => ({ ...b, source }))];
+  const byBank = new Map();
+  for (const o of official) {
+    const k = bankKey(o.bank);
+    if (!byBank.has(k)) byBank.set(k, []);
+    byBank.get(k).push(o);
+  }
+  const near = (a, b) => {
+    const dLat = (a.lat - b.lat) * 111320;
+    const dLng = (a.lng - b.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+    return dLat * dLat + dLng * dLng < 250 * 250;
+  };
+  const rest = base.filter((b) => {
+    const k = bankKey(b.bank);
+    for (const [ok, list] of byBank) if (sameBank(ok, k) && list.some((o) => near(o, b))) return false;
+    return true;
+  });
+  return [...rest, ...official];
 }
 
 async function getBranches({ force = false } = {}) {
