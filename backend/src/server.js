@@ -3,6 +3,7 @@ import express from "express";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { fetchOfficialBranches } from "./officialBranches.js";
 
 const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 
@@ -663,16 +664,60 @@ function round2(x) {
 
 /* ---------- ATMs ---------- */
 
+/* ---------- official branch lists (bank websites), refreshed daily, kept on disk ---------- */
+
+const OFFICIAL_FILE = join(DATA_DIR, "official-branches.json");
+const OFFICIAL_TTL_MS = 24 * 60 * 60 * 1000;
+let officialMem = null;
+const bankKey = (name) => String(name || "").toLowerCase().replace(/[^0-9a-zа-яё]/g, "");
+const sameBank = (a, b) => {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [s, l] = a.length <= b.length ? [a, b] : [b, a];
+  return s.length >= 5 && l.includes(s);
+};
+
+async function getOfficialBranches({ force = false } = {}) {
+  if (!officialMem) {
+    try {
+      officialMem = JSON.parse(await readFile(OFFICIAL_FILE, "utf8"));
+    } catch {
+      officialMem = null;
+    }
+  }
+  if (!force && officialMem && Date.now() - officialMem.fetchedAt < OFFICIAL_TTL_MS) return officialMem.branches;
+  const { branches, report } = await fetchOfficialBranches();
+  console.log("Official branches:", Object.entries(report).map(([b, r]) => `${b}=${r.count ?? "ERR"}`).join(", "));
+  // Keep the previous list for banks whose importer failed this time.
+  const okBanks = new Set(Object.entries(report).filter(([, r]) => r.count > 0).map(([b]) => b));
+  const kept = (officialMem?.branches || []).filter((b) => !okBanks.has(b.bank));
+  officialMem = { fetchedAt: Date.now(), report, branches: [...kept, ...branches] };
+  await writeFile(OFFICIAL_FILE, JSON.stringify(officialMem)).catch((e) => console.error("Official save:", e.message));
+  return officialMem.branches;
+}
+
+/** Replace a bank's entries in the base list with its official ones (only for banks that have official data). */
+function mergeOfficial(base, official) {
+  if (!official?.length) return base;
+  const officialKeys = [...new Set(official.map((b) => bankKey(b.bank)))];
+  const rest = base.filter((b) => !officialKeys.some((k) => sameBank(k, bankKey(b.bank))));
+  return [...rest, ...official.map(({ source, ...b }) => ({ ...b, source }))];
+}
+
 async function getBranches({ force = false } = {}) {
   if (!force && cachedBranches && Date.now() - cachedBranches.cachedAt < ATM_CACHE_TTL_MS) {
     return cachedBranches.branches;
   }
 
-  // Prefer the pre-scraped bank.uz dataset (full coverage, offline, free).
+  // Prefer the pre-scraped bank.uz dataset (full coverage, offline, free), with each bank that publishes its
+  // own branch list replaced by that official list (exact coordinates + opening hours).
   const staticBranches = await loadStatic("branches.json");
   if (staticBranches && staticBranches.length) {
-    cachedBranches = { cachedAt: Date.now(), branches: staticBranches };
-    return staticBranches;
+    // Manually confirmed branches (user reports) that no official list contains.
+    const manual = (await loadStatic("manual-branches.json")) || [];
+    const merged = [...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual];
+    cachedBranches = { cachedAt: Date.now(), branches: merged };
+    return merged;
   }
 
   // Otherwise fall back to Yandex (if keyed) or OSM.

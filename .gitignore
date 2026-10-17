@@ -25,3 +25,4 @@ backend/data/history-*.json
 # Collected rate history (back these up: they cannot be re-downloaded)
 backend/data/bank-history-*.json
 backend/data/gold-history.json
+backend/data/official-branches.json

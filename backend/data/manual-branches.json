@@ -1,0 +1,20 @@
+[
+  {
+    "bank": "Aloqabank",
+    "name": "Aloqabank (Mahtumquli 87)",
+    "address": "Toshkent sh., Yashnobod tumani, Mahtumquli ko‘chasi, 87",
+    "hours": null,
+    "lat": 41.304976,
+    "lng": 69.3223614,
+    "source": "manual: user report 2026-10-17, geocoded via OpenStreetMap Nominatim"
+  },
+  {
+    "bank": "Agrobank",
+    "name": "Agrobank (Mahtumquli 87)",
+    "address": "Toshkent sh., Yashnobod tumani, Mahtumquli ko‘chasi, 87",
+    "hours": null,
+    "lat": 41.3050,
+    "lng": 69.3225,
+    "source": "manual: user report 2026-10-17, geocoded via OpenStreetMap Nominatim"
+  }
+]
