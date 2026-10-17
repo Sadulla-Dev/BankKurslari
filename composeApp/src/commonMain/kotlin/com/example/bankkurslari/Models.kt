@@ -57,11 +57,20 @@ enum class Currency(val code: String, val symbol: String, val nameUz: String, va
     fun displayName(lang: Lang) = if (lang == Lang.RU) nameRu else nameUz
 }
 
-/** Backend base URL. LAN IP of the dev machine: works from the emulator, a phone on the same Wi-Fi and the iOS simulator. */
-const val SERVER_BASE = "http://172.16.60.142:8080"
-val backendBase = SERVER_BASE
+/** Dev machine's LAN address, for real phones on the same Wi-Fi. Changes with the network; a public server replaces this. */
+const val SERVER_LAN = "http://192.168.1.56:8080"
+
+/** Backend base URL for this device (emulators/simulators reach the dev machine through a fixed host alias). */
+val SERVER_BASE: String by lazy { platformServerBase(SERVER_LAN) }
+val backendBase: String get() = SERVER_BASE
 fun ratesUrl(cur: Currency) = "$backendBase/api/rates/${cur.code.lowercase()}"
 fun analyticsUrl(cur: Currency) = "$backendBase/api/analytics/${cur.code.lowercase()}"
 fun historyUrl(cur: Currency) = "$backendBase/api/history/${cur.code.lowercase()}"
-val backendAtmsUrl = "$backendBase/api/atms"
-val backendBranchesUrl = "$backendBase/api/branches"
+val backendAtmsUrl: String get() = "$backendBase/api/atms"
+val backendBranchesUrl: String get() = "$backendBase/api/branches"
+val backendGoldUrl: String get() = "$backendBase/api/gold"
+
+/** One CBU measured gold bar: sale price and buy-back prices (packaging intact / damaged), so'm. */
+data class GoldBar(val grams: Double, val sell: Long, val buyback: Long?, val buybackDamaged: Long?)
+
+data class GoldPrices(val date: String?, val time: String?, val bars: List<GoldBar>)

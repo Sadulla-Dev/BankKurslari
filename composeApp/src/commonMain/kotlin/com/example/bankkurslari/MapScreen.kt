@@ -179,7 +179,6 @@ fun MapScreen(
     }
 
     val onPinTap: (MapPin) -> Unit = { p ->
-        debugLog("onPinTap id=${p.id} kind=${p.kind} hasRate=${p.rb != null}")
         selectedId = p.id
         if (p.kind == MapPinKind.PRICED && p.rb != null) { sheetBank = p.rb; infoPin = null } else { infoPin = p; sheetBank = null }
         map?.animateTo(p.lat, p.lng)
@@ -187,11 +186,14 @@ fun MapScreen(
 
     // Default camera (spec 6.2): centred on the user with the radius of the 5th nearest priced pin (>= 5 pins in view).
     // Skipped entirely when the location is unusable (null, or nearest priced branch > 100 km) -> banner + city picker.
-    LaunchedEffect(map, userLocation, pricedPins.size) {
+    // Keyed on the pin list itself: pins are built in the background and may first arrive without distances
+    // (location not known yet). Centre only once real distances exist.
+    LaunchedEffect(map, userLocation, pricedPins) {
         val mv = map ?: return@LaunchedEffect
         if (didCenter || userLocation == null || pricedPins.isEmpty() || locationBad) return@LaunchedEffect
-        didCenter = true
         val ds = pricedPins.mapNotNull { it.rawKm }.sorted()
+        if (ds.isEmpty()) return@LaunchedEffect
+        didCenter = true
         val r = (ds.getOrNull(4) ?: ds.last()).coerceIn(0.5, MAP_FAR_KM) * 1.15
         val dLat = r / 111.0
         val dLng = r / (111.0 * cos(toRadians(userLocation.first)).coerceAtLeast(0.2))

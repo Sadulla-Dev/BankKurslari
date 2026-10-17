@@ -157,3 +157,29 @@ suspend fun fetchHistory(cur: Currency): List<HistoryPoint> = withContext(Dispat
     parseHistoryPoints(body)
 }
 
+
+/* ---------- gold bars (CBU) ---------- */
+
+fun parseGold(body: String): GoldPrices {
+    val o = parseJsonObject(body)
+    val bars = (o.arr("bars") ?: JsonArray(emptyList())).objects().mapNotNull { b ->
+        GoldBar(
+            grams = b.dbl("grams") ?: return@mapNotNull null,
+            sell = b.long("sell") ?: return@mapNotNull null,
+            buyback = b.long("buyback"),
+            buybackDamaged = b.long("buybackDamaged")
+        )
+    }
+    return GoldPrices(o.str("date"), o.str("time"), bars)
+}
+
+suspend fun cachedGold(): GoldPrices? = withContext(Dispatchers.Default) {
+    RateService.loadCache("gold")?.let { runCatching { parseGold(it) }.getOrNull() }
+}
+
+suspend fun fetchGold(): GoldPrices = withContext(Dispatchers.Default) {
+    val body = httpGet(backendGoldUrl, 20_000)
+    val parsed = parseGold(body)
+    RateService.saveCache("gold", body)
+    parsed
+}

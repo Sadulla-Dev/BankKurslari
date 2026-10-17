@@ -21,6 +21,9 @@ interface KeyValueStore {
 
 expect fun appStore(): KeyValueStore
 
+/** Server URL for this device: emulator / simulator use the host alias, real devices [lan]. */
+expect fun platformServerBase(lan: String): String
+
 /**
  * Large JSON payloads (rates, branches, ATMs, history) live in plain files, not in [KeyValueStore]:
  * SharedPreferences / NSUserDefaults rewrite and reload the whole store, which blocked the UI for seconds.

@@ -257,7 +257,6 @@ fun InteractiveHistory(
                 }
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    debugLog("chart down x=${down.position.x} w=${size.width} left=$liveLeft from=$liveFrom to=$liveTo span=${vp.span}")
                     stopAnim()
                     var transforming = false
                     sel = nearest(down.position.x)
@@ -284,10 +283,8 @@ fun InteractiveHistory(
                             // Mostly-horizontal movement belongs to the chart; vertical goes to the page scroll.
                             if (abs(dx) >= abs(dy)) ch.consume()
                             sel = nearest(ch.position.x)
-                            debugLog("chart move x=${ch.position.x} sel=$sel")
                         }
                     }
-                    debugLog("chart up")
                     sel = null
                 }
             }

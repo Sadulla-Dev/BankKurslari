@@ -154,6 +154,18 @@ app.get("/api/branches", async (_request, response) => {
   }
 });
 
+app.get("/api/gold", async (_request, response) => {
+  try {
+    response.json(await getGold());
+  } catch (error) {
+    if (goldCache) {
+      response.json(goldCache.data);
+      return;
+    }
+    response.status(502).json({ error: "gold_unavailable", message: error instanceof Error ? error.message : "Unknown upstream error" });
+  }
+});
+
 app.get("/api/atms", async (_request, response) => {
   try {
     const atms = await getAtms();
@@ -418,6 +430,40 @@ function historySampleDates() {
   add(historyDays);
 
   return [...set].sort(); // ISO strings sort chronologically
+}
+
+/* ---------- gold bars (CBU) ---------- */
+
+const CBU_GOLD_PAGE = "https://cbu.uz/uz/banknotes-coins/gold-bars/prices/";
+const GOLD_TTL_MS = Number(process.env.GOLD_TTL_MS || 60 * 60 * 1000);
+let goldCache = null;
+
+const somNumber = (text) => Number(String(text).replace(/[^0-9]/g, "")) || null;
+
+/**
+ * CBU measured gold bars: per weight, the sale price and two buy-back prices
+ * (packaging intact / damaged, after expertise). Prices can change during the day.
+ */
+async function getGold({ force = false } = {}) {
+  if (!force && goldCache && Date.now() - goldCache.cachedAt < GOLD_TTL_MS) return goldCache.data;
+  const $ = cheerio.load(await fetchText(CBU_GOLD_PAGE));
+  const bars = [];
+  $("table tr").each((_, tr) => {
+    const cells = $(tr).find("td").map((__, td) => $(td).text().trim()).get();
+    if (cells.length < 4) return;
+    const grams = Number((cells[0].match(/[\d.]+/) || [])[0]);
+    const sell = somNumber(cells[1]);
+    if (!grams || !sell) return;
+    bars.push({ grams, sell, buyback: somNumber(cells[2]), buybackDamaged: somNumber(cells[3]) });
+  });
+  if (!bars.length) throw new Error("gold table not found");
+  // "Yangilangan sana: 16 Okt 2026, 09:53" -> keep the dd.mm.yyyy that follows it, plus the time.
+  const page = $.root().text().replace(/\s+/g, " ");
+  const date = (page.match(/(\d{2}\.\d{2}\.\d{4})/) || [])[1] || null;
+  const time = (page.match(/Yangilangan sana:[^,]*,\s*(\d{1,2}:\d{2})/) || [])[1] || null;
+  const data = { source: "cbu.uz", date, time, fetchedAt: new Date().toISOString(), bars };
+  goldCache = { cachedAt: Date.now(), data };
+  return data;
 }
 
 /* ---------- analytics ---------- */

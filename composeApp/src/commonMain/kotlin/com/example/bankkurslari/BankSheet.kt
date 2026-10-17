@@ -54,7 +54,6 @@ fun BankSheet(
     onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.runtime.LaunchedEffect(item.rate.bank) { debugLog("BankSheet shown: ${item.rate.bank}") }
     val route = LocalRoute.current
     val ru = kursIsRu()
     val sell = direction == ConvertMode.SELL_USD

@@ -82,6 +82,7 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
   - **“1 USD / mening summam”** rejimi: grafik va pufakcha so‘mda (“14.09 da 100 USD = 1 176 500 so‘m, bugun +19 800”).
   - Ko‘rinayotgan davr uchun o‘zgarish sarlavhada.
 - **Bugun bozorda:** eng yaxshi sotib oluvchi va eng arzon sotuvchi bank.
+- **Markaziy bank oltin quymalari:** 5–100 g quymalarning sotish va qaytarib sotib olish narxlari, 1 gramm narxi, “sotib olib darhol qaytarsangiz yo‘qotish” foizi; qatorni bosganda qadog‘i buzilgan holatdagi narx. Manba: cbu.uz, oflaynda ham ko‘rinadi.
 - **Ogohlantirishlar:** “USD 12 000 dan oshsa xabar ber” — bozordagi eng yaxshi yoki aniq bank bo‘yicha, ≥ / ≤ shart, ko‘pi bilan 5 ta.
 - Ma’lumot manbalari (bank.uz, cbu.uz) va yangilangan vaqt.
 
@@ -166,6 +167,7 @@ Node.js + Express, port 8080. Ma’lumot manbalari: **bank.uz** (tijorat banklar
 | `GET /api/history/:cur` | MB kursi tarixi 2009-yildan (kunlik → haftalik → oylik), diskda keshlanadi |
 | `GET /api/branches` | Bank filiallari (manzil, ish vaqti, koordinata) |
 | `GET /api/atms` | Bankomatlar |
+| `GET /api/gold` | MB oltin quymalari narxlari (cbu.uz), 1 soatlik kesh |
 | `GET /api/analytics/:cur` | Eski prognoz endpointi — ilova endi ishlatmaydi |
 
 ---
@@ -178,7 +180,7 @@ cd backend
 npm install
 node src/server.js        # http://localhost:8080
 ```
-Ilova serverga `composeApp/.../Models.kt` dagi `SERVER_BASE` orqali ulanadi (hozir lokal tarmoq IP manzili).
+Server manzili `composeApp/.../Models.kt` da: Android emulator avtomatik `10.0.2.2`, iOS simulyator `localhost`, haqiqiy telefonlar `SERVER_LAN` (kompyuterning lokal tarmoq IP manzili — tarmoq o‘zgarsa yangilash kerak).
 
 ### Android
 ```bash

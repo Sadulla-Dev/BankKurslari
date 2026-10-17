@@ -60,6 +60,14 @@ private val store: KeyValueStore by lazy {
 
 actual fun appStore(): KeyValueStore = store
 
+private val isEmulator: Boolean by lazy {
+    android.os.Build.FINGERPRINT.contains("generic") || android.os.Build.FINGERPRINT.contains("emulator") ||
+        android.os.Build.MODEL.contains("sdk_gphone") || android.os.Build.HARDWARE.contains("ranchu")
+}
+
+/** 10.0.2.2 is the emulator's fixed alias for the host machine, so it survives network/IP changes. */
+actual fun platformServerBase(lan: String): String = if (isEmulator) "http://10.0.2.2:8080" else lan
+
 actual fun debugLog(msg: String) { android.util.Log.d("QK", msg) }
 
 private val cacheDir: File by lazy {

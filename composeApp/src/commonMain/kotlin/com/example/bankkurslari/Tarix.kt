@@ -149,6 +149,10 @@ fun TarixScreen(
 
         SectionDivider()
 
+        GoldSection(ru = ru, unit = unit)
+
+        SectionDivider()
+
         // Alerts
         Text(if (ru) "Оповещения" else "Ogohlantirishlar", style = VsType.Title, color = VsInk)
         if (alerts.isEmpty()) {

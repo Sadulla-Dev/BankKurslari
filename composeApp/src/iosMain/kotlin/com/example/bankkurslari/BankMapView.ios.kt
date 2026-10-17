@@ -146,7 +146,6 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
 
     /** Pin tap: open the pin; cluster tap: zoom in, or open its best pin when it cannot split further. */
     private fun handleTap(mapView: MKMapView, a: PinAnnotation) {
-        debugLog("map tap: kind=${a.spec.kind} cluster=${a.spec.cluster?.size} pin=${a.spec.pin?.id} zoom=${mapView.zoomLevel()}")
         val group = a.spec.cluster
         when {
             group != null -> {

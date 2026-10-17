@@ -57,6 +57,10 @@ private val store: KeyValueStore by lazy { DefaultsStore(NSUserDefaults.standard
 
 actual fun appStore(): KeyValueStore = store
 
+/** The simulator shares the Mac's network stack, so localhost is the dev machine. */
+actual fun platformServerBase(lan: String): String =
+    if (platform.Foundation.NSProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != null) "http://localhost:8080" else lan
+
 /** NSLog's varargs do not bridge Kotlin strings (passing one as %@ crashes), so the text goes in as the format itself. */
 actual fun debugLog(msg: String) {
     platform.Foundation.NSLog("QK " + msg.replace("%", "%%"))
