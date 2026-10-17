@@ -154,6 +154,55 @@ app.get("/api/branches", async (_request, response) => {
   }
 });
 
+/** All ~75 CBU currencies (official rate per Nominal units), with names in uz / uz-Cyrillic / ru / en. */
+let cbuFullCache = null;
+app.get("/api/cbu/all", async (_request, response) => {
+  try {
+    if (!cbuFullCache || Date.now() - cbuFullCache.cachedAt > CACHE_TTL_MS) {
+      const data = await fetchJson(CBU_ALL_URL);
+      const num = (v) => parseFloat(String(v ?? "0").replace(",", "."));
+      const list = (Array.isArray(data) ? data : []).map((r) => ({
+        code: r.Ccy,
+        nominal: Number(r.Nominal) || 1,
+        rate: num(r.Rate),
+        diff: num(r.Diff),
+        date: r.Date ?? null,
+        names: { uz: r.CcyNm_UZ, uzc: r.CcyNm_UZC, ru: r.CcyNm_RU, en: r.CcyNm_EN }
+      })).filter((r) => r.code && Number.isFinite(r.rate) && r.rate > 0);
+      cbuFullCache = { cachedAt: Date.now(), body: { updatedAt: new Date().toISOString(), currencies: list } };
+    }
+    response.json(cbuFullCache.body);
+  } catch (error) {
+    if (cbuFullCache) return response.json(cbuFullCache.body);
+    response.status(502).json({ error: "cbu_unavailable", message: error instanceof Error ? error.message : "Unknown upstream error" });
+  }
+});
+
+/** Per-bank daily history collected by this server: ?days=30 (default 30, max 365). */
+app.get("/api/bank-history/:cur", async (request, response) => {
+  const cur = String(request.params.cur || "").toUpperCase();
+  if (!SUPPORTED.includes(cur)) {
+    response.status(400).json({ error: "unsupported_currency" });
+    return;
+  }
+  const days = Math.min(365, Math.max(1, Number(request.query.days) || 30));
+  const data = await loadBankHistory(cur);
+  const from = localDate(Date.now() - days * 24 * 60 * 60 * 1000);
+  const out = Object.fromEntries(Object.entries(data).filter(([d]) => d >= from).sort(([a], [b]) => (a < b ? -1 : 1)));
+  response.json({ currency: cur, days: out });
+});
+
+/** Daily CBU gold bar prices collected by this server (starts empty, grows by one day per day). */
+app.get("/api/gold/history", async (_request, response) => {
+  try {
+    const hist = JSON.parse(await readFile(goldHistoryFile, "utf8"));
+    const points = Object.entries(hist).sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, bars]) => ({ date, bars }));
+    response.json({ points });
+  } catch {
+    response.json({ points: [] });
+  }
+});
+
 app.get("/api/gold", async (_request, response) => {
   try {
     response.json(await getGold());
@@ -187,6 +236,9 @@ app.listen(PORT, () => {
   // Warm caches at boot so client requests always hit ready payloads.
   refreshAllRates();
   setInterval(refreshAllRates, CACHE_TTL_MS).unref();
+  // Gold: refresh every 3 h so the daily gold history has no gaps even when nobody opens the app.
+  getGold({ force: true }).catch((e) => console.error("Gold warm failed:", e.message));
+  setInterval(() => getGold({ force: true }).catch(() => {}), 3 * 60 * 60 * 1000).unref();
   // Warm every currency one after another (cold start fetches years of CBU data; disk cache makes later starts fast).
   (async () => {
     for (const cur of SUPPORTED) {
@@ -251,7 +303,65 @@ async function getRatesPayload(cur, { force = false } = {}) {
   };
 
   ratesCache.set(cur, { cachedAt: Date.now(), payload });
+  recordBankHistory(cur, commercialRates).catch((e) => console.error(`Bank history (${cur}):`, e.message));
   return payload;
+}
+
+/* ---------- bank rate history (collected by this server; starts empty) ---------- */
+
+// Tashkent local date (UTC+5) so a "day" matches what users see.
+const localDate = (ms = Date.now()) => new Date(ms + 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const bankHistoryFile = (cur) => join(DATA_DIR, `bank-history-${cur}.json`);
+const bankHistoryMem = new Map();
+
+async function loadBankHistory(cur) {
+  if (bankHistoryMem.has(cur)) return bankHistoryMem.get(cur);
+  let data = {};
+  try {
+    data = JSON.parse(await readFile(bankHistoryFile(cur), "utf8"));
+  } catch {
+    data = {};
+  }
+  bankHistoryMem.set(cur, data);
+  return data;
+}
+
+/**
+ * Per day and bank: the first and the latest buy/sell seen that day.
+ * { "2026-10-17": { "Infinbank": { first: [buy, sell], last: [buy, sell], at: "12:31" } } }
+ */
+async function recordBankHistory(cur, banks) {
+  if (!banks.length) return;
+  const data = await loadBankHistory(cur);
+  const day = localDate();
+  const time = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString().slice(11, 16);
+  const today = (data[day] ||= {});
+  for (const b of banks) {
+    const pair = [Number.isFinite(b.buy) ? b.buy : null, Number.isFinite(b.sell) ? b.sell : null];
+    const entry = (today[b.bank] ||= { first: pair, last: pair, at: time });
+    entry.last = pair;
+    entry.at = time;
+  }
+  await writeFile(bankHistoryFile(cur), JSON.stringify(data));
+}
+
+/* ---------- gold history (collected daily by this server) ---------- */
+
+const goldHistoryFile = join(DATA_DIR, "gold-history.json");
+
+async function recordGoldHistory(data) {
+  let hist = {};
+  try {
+    hist = JSON.parse(await readFile(goldHistoryFile, "utf8"));
+  } catch {
+    hist = {};
+  }
+  // Key by the CBU's own price date when given (dd.mm.yyyy -> yyyy-mm-dd), else today.
+  const m = (data.date || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  const day = m ? `${m[3]}-${m[2]}-${m[1]}` : localDate();
+  hist[day] = Object.fromEntries(data.bars.map((b) => [String(b.grams), { sell: b.sell, buyback: b.buyback }]));
+  await writeFile(goldHistoryFile, JSON.stringify(hist));
+  return hist;
 }
 
 function sanitizeRates(rates, cbuRate) {
@@ -463,6 +573,7 @@ async function getGold({ force = false } = {}) {
   const time = (page.match(/Yangilangan sana:[^,]*,\s*(\d{1,2}:\d{2})/) || [])[1] || null;
   const data = { source: "cbu.uz", date, time, fetchedAt: new Date().toISOString(), bars };
   goldCache = { cachedAt: Date.now(), data };
+  recordGoldHistory(data).catch((e) => console.error("Gold history:", e.message));
   return data;
 }
 

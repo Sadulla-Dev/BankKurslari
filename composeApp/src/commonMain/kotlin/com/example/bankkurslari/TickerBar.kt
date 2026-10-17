@@ -113,7 +113,8 @@ fun TickerBar(
     offline: Boolean,
     onOpenSettings: () -> Unit,
     searchOpen: Boolean? = null,
-    onToggleSearch: () -> Unit = {}
+    onToggleSearch: () -> Unit = {},
+    onAllCurrencies: (() -> Unit)? = null
 ) {
     val ru = kursIsRu()
     val haptic = LocalHapticFeedback.current
@@ -142,8 +143,8 @@ fun TickerBar(
             val time = updatedAt?.formatUpdatedAt()
             Text(
                 when {
-                    offline -> if (ru) "Офлайн · ${time ?: "—"}" else "Oflayn · ${time ?: "—"}"
-                    time != null -> if (ru) "Обновлено в $time" else "$time yangilandi"
+                    offline -> pick(lang, "Oflayn · ${time ?: "—"}", "Офлайн · ${time ?: "—"}", "Offline · ${time ?: "—"}")
+                    time != null -> pick(lang, "$time yangilandi", "Обновлено в $time", "Updated at $time")
                     else -> ""
                 },
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f)
@@ -153,12 +154,12 @@ fun TickerBar(
             if (searchOpen != null) {
                 IconButton(onClick = onToggleSearch) {
                     AnimatedContent(searchOpen, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) }, label = "srch") { open ->
-                        Icon(if (open) Icons.Outlined.Close else Icons.Outlined.Search, tr("Qidirish", "Поиск"), tint = VsInk)
+                        Icon(if (open) Icons.Outlined.Close else Icons.Outlined.Search, tr("Qidirish", "Поиск", "Search"), tint = VsInk)
                     }
                 }
             }
             IconButton(onClick = onOpenSettings) {
-                Icon(Icons.Outlined.Settings, tr("Sozlamalar", "Настройки"), tint = VsInk)
+                Icon(Icons.Outlined.Settings, tr("Sozlamalar", "Настройки", "Settings"), tint = VsInk)
             }
             }
         }
@@ -202,6 +203,18 @@ fun TickerBar(
                 )
             }
         }
+        if (onAllCurrencies != null) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable(role = Role.Button, onClick = onAllCurrencies),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    tr("Boshqa valyutalar: yuan, tenge, lira, dirham…", "Другие валюты: юань, тенге, лира, дирхам…", "Other currencies: yuan, tenge, lira, dirham…"),
+                    style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f)
+                )
+                Text("›", style = VsType.Title, color = VsInkSoft)
+            }
+        }
     }
 }
 
@@ -219,8 +232,8 @@ private fun TickerCard(currency: Currency, selected: Boolean, data: TickerData?,
     val spoken = buildString {
         append(currency.code)
         if (cbu != null) {
-            append(", ").append(if (ru) "курс ЦБ " else "MB kursi ").append(tickerRate(cbu.rate, ru)).append(" ").append(kSom(ru))
-            append(", ").append(if (ru) "за день " else "kecha bilan farq ").append(tickerDelta(cbu.diff, cbu.rate, ru))
+            append(", ").append(pick(lang, "MB kursi ", "курс ЦБ ", "CBU rate ")).append(tickerRate(cbu.rate, ru)).append(" ").append(kSom(ru))
+            append(", ").append(pick(lang, "kecha bilan farq ", "за день ", "day change ")).append(tickerDelta(cbu.diff, cbu.rate, ru))
         }
     }
     Column(
@@ -238,7 +251,7 @@ private fun TickerCard(currency: Currency, selected: Boolean, data: TickerData?,
             Text(currency.code, style = VsType.Meta.copy(fontWeight = FontWeight.SemiBold), color = codeColor, modifier = Modifier.weight(1f))
             if (cbu != null && selected) {
                 Text(
-                    tickerDelta(cbu.diff, cbu.rate, ru) + (if (ru) " · вчера" else " · kecha"),
+                    tickerDelta(cbu.diff, cbu.rate, ru) + (pick(lang, " · kecha", " · вчера", " · yesterday")),
                     style = VsType.Meta, color = VsInkSoft, maxLines = 1, softWrap = false
                 )
             }
@@ -259,7 +272,7 @@ private fun TickerCard(currency: Currency, selected: Boolean, data: TickerData?,
             }
         }
         Text(
-            if (selected) (if (ru) "ЦБ, ${kSom(ru)} · 30 дн." else "MB, ${kSom(ru)} · 30 kun")
+            if (selected) (pick(lang, "MB, ${kSom(ru)} · 30 kun", "ЦБ, ${kSom(ru)} · 30 дн.", "CBU, ${kSom(ru)} · 30 days"))
             else cbu?.let { tickerDelta(it.diff, it.rate, ru) } ?: " ",
             style = VsType.Meta, color = VsInkSoft, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip
         )

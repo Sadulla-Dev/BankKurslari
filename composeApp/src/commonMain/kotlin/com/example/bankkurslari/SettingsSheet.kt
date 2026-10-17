@@ -94,18 +94,17 @@ fun SettingsSheet(
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            Text(tr("Sozlamalar", "Настройки"), style = VsType.Title, color = VsInk, modifier = Modifier.heightIn(min = 48.dp).padding(top = 8.dp))
+            Text(tr("Sozlamalar", "Настройки", "Settings"), style = VsType.Title, color = VsInk, modifier = Modifier.heightIn(min = 48.dp).padding(top = 8.dp))
 
             // Til
-            SettingsLabel(tr("Til", "Язык"))
-            LangRow("Oʻzbekcha", lang == Lang.UZ) { onLang(Lang.UZ) }
-            LangRow("Русский", lang == Lang.RU) { onLang(Lang.RU) }
+            SettingsLabel(tr("Til", "Язык", "Language"))
+            Lang.entries.forEach { l -> LangRow(l.label, lang == l) { onLang(l) } }
             HorizontalDivider(color = VsLine)
 
             // Mavzu
-            SettingsLabel(tr("Mavzu", "Тема"))
+            SettingsLabel(tr("Mavzu", "Тема", "Theme"))
             SettingsSegmented(
-                options = listOf(tr("Tizim", "Система"), tr("Yorugʻ", "Светлая"), tr("Qorongʻi", "Тёмная")),
+                options = listOf(tr("Tizim", "Система", "System"), tr("Yorugʻ", "Светлая", "Light"), tr("Qorongʻi", "Тёмная", "Dark")),
                 selected = themeMode.coerceIn(0, 2),
                 onSelect = onThemeMode
             )
@@ -113,7 +112,7 @@ fun SettingsSheet(
             HorizontalDivider(color = VsLine)
 
             // Standart valyuta
-            SettingsLabel(tr("Standart valyuta", "Валюта по умолчанию"))
+            SettingsLabel(tr("Standart valyuta", "Валюта по умолчанию", "Default currency"))
             SettingsSegmented(
                 options = Currency.entries.map { it.code },
                 selected = defaultCurrency.ordinal,
@@ -125,15 +124,15 @@ fun SettingsSheet(
             // Shahar
             Box {
                 SettingsRow(
-                    title = tr("Shahar", "Город"),
-                    value = UZ_CITIES.firstOrNull { it.first == city }?.let { if (ru) it.second else it.first }
-                        ?: tr("Tanlanmagan", "Не выбран"),
+                    title = tr("Shahar", "Город", "City"),
+                    value = UZ_CITIES.firstOrNull { it.first == city }?.let { pick(lang, it.first, it.second, it.first) }
+                        ?: tr("Tanlanmagan", "Не выбран", "Not selected"),
                     onClick = { cityMenu = true }
                 )
                 DropdownMenu(expanded = cityMenu, onDismissRequest = { cityMenu = false }, containerColor = VsBg) {
                     UZ_CITIES.forEach { (uz, rus) ->
                         DropdownMenuItem(
-                            text = { Text(if (ru) rus else uz, style = VsType.Body, color = if (uz == city) VsEmerald else VsInk) },
+                            text = { Text(pick(lang, uz, rus, uz), style = VsType.Body, color = if (uz == city) VsEmerald else VsInk) },
                             onClick = {
                                 city = uz
                                 RateService.setCity(uz)
@@ -151,7 +150,7 @@ fun SettingsSheet(
             var routeMenu by remember { mutableStateOf(false) }
             Box {
                 SettingsRow(
-                    title = tr("Marshrut ilovasi", "Приложение для маршрута"),
+                    title = tr("Marshrut ilovasi", "Приложение для маршрута", "Directions app"),
                     value = mapAppLabel(routeApp, ru),
                     onClick = { routeMenu = true }
                 )
@@ -169,15 +168,15 @@ fun SettingsSheet(
 
             // Ogohlantirishlar
             SettingsRow(
-                title = tr("Ogohlantirishlar", "Оповещения"),
-                value = if (alertCount > 0) tr("$alertCount ta", "$alertCount шт.") else "",
+                title = tr("Ogohlantirishlar", "Оповещения", "Alerts"),
+                value = if (alertCount > 0) tr("$alertCount ta", "$alertCount шт.", "$alertCount") else "",
                 onClick = onOpenAlerts
             )
             HorizontalDivider(color = VsLine)
 
             // Manbalar
             SettingsRow(
-                title = tr("Maʻlumot manbalari va yangilanish tartibi", "Источники данных и порядок обновления"),
+                title = tr("Maʻlumot manbalari va yangilanish tartibi", "Источники данных и порядок обновления", "Data sources and update schedule"),
                 value = "",
                 onClick = { sourcesOpen = !sourcesOpen }
             )
@@ -203,7 +202,7 @@ fun SettingsSheet(
 
             // Fikr bildirish
             SettingsRow(
-                title = tr("Fikr bildirish", "Обратная связь"),
+                title = tr("Fikr bildirish", "Обратная связь", "Send feedback"),
                 value = "",
                 onClick = {
                     openUri("mailto:?subject=Qulay%20Kurs")

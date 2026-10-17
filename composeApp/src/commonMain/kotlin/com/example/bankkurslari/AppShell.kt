@@ -73,7 +73,8 @@ fun CurrencyTrackerApp(
     lang: Lang,
     onLang: (Lang) -> Unit
 ) {
-    val s = LocalStrings.current
+    val noBankRates = tr("Bank kurslari hozircha mavjud emas. Keyinroq urinib koʻring.", "Курсы банков пока недоступны. Попробуйте позже.", "Bank rates are not available yet. Please try again later.")
+    val connectFail = tr("Serverga ulanib boʻlmadi.", "Не удалось подключиться к серверу.", "Could not connect to the server.")
     var payload by remember { mutableStateOf<RatesPayload?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -140,14 +141,14 @@ fun CurrencyTrackerApp(
         scope.launch {
             runCatching { fetchRates(currency) }.fold(
                 onSuccess = { p ->
-                    if (p.banks.isEmpty()) error = s.noBankRates
+                    if (p.banks.isEmpty()) error = noBankRates
                     else { payload = p; offline = false }
                 },
                 onFailure = {
                     // No connection: fall back to the last cached rates if available.
                     val cached = cachedRates(currency)
                     if (cached != null && cached.banks.isNotEmpty()) { payload = cached; offline = true }
-                    else error = it.message ?: s.connectFail
+                    else error = it.message ?: connectFail
                 }
             )
             loading = false
@@ -369,7 +370,6 @@ private fun LoadingScreen(padding: PaddingValues) {
 
 @Composable
 private fun ErrorScreen(padding: PaddingValues, message: String, onRetry: () -> Unit) {
-    val s = LocalStrings.current
     Column(
         modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -377,7 +377,7 @@ private fun ErrorScreen(padding: PaddingValues, message: String, onRetry: () -> 
     ) {
         Icon(Icons.Outlined.CloudOff, null, tint = VsInkSoft, modifier = Modifier.size(40.dp))
         Spacer(Modifier.height(16.dp))
-        Text(s.errorTitle, color = VsInk, style = VsType.Title)
+        Text(tr("Maʼlumot olinmadi", "Не удалось получить данные", "Could not load data"), color = VsInk, style = VsType.Title)
         Spacer(Modifier.height(8.dp))
         Text(message, color = VsInkSoft, style = VsType.Meta, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(24.dp))
@@ -392,7 +392,7 @@ private fun ErrorScreen(padding: PaddingValues, message: String, onRetry: () -> 
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(Icons.Outlined.Refresh, null, tint = VsBg, modifier = Modifier.size(20.dp))
-            Text(s.retry, color = VsBg, style = VsType.BodyMedium)
+            Text(tr("Qayta urinish", "Повторить", "Retry"), color = VsBg, style = VsType.BodyMedium)
         }
     }
 }

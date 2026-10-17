@@ -146,7 +146,12 @@ fun openState(hours: String?, now: LocalDateTime): OpenState {
 fun formatHours(raw: String?, ru: Boolean): String? {
     val sch = parseHours(raw) ?: return null
     if (sch.always) return "24/7"
-    val names = if (ru) listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс") else listOf("Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya")
+    val names = when {
+        ru -> listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+        lang == Lang.EN -> listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        lang == Lang.UZ_CYRL -> listOf("Ду", "Се", "Чо", "Па", "Жу", "Ша", "Як")
+        else -> listOf("Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya")
+    }
     val keys = sch.days.map { spans ->
         spans.joinToString(", ") {
             val e = if (it.end > 1440) it.end - 1440 else it.end

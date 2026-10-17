@@ -111,7 +111,7 @@ import kotlin.math.roundToLong
 /* ---------- shared formatting / actions (also used by BankSheet) ---------- */
 
 @Composable
-fun kursIsRu(): Boolean = LocalStrings.current === RuStrings
+fun kursIsRu(): Boolean = LocalLang.current == Lang.RU
 
 private const val NBSP = ' '
 private const val MINUS = '−'
@@ -128,7 +128,7 @@ fun kGroup(n: Long): String {
 
 fun kGroup(n: Int): String = kGroup(n.toLong())
 
-fun kSom(ru: Boolean) = if (ru) "сум" else "soʻm"
+fun kSom(ru: Boolean) = pick(lang, "soʻm", "сум", "UZS")
 
 fun kDelta(d: Long): String = when {
     d < 0 -> "$MINUS${kGroup(-d)}"
@@ -138,9 +138,9 @@ fun kDelta(d: Long): String = when {
 
 fun kKm(km: Double, ru: Boolean): String {
     val m = (km * 1000).roundToInt()
-    if (m < 1000) return "$m ${if (ru) "м" else "m"}"
+    if (m < 1000) return "$m ${pick(lang, "m", "м", "m")}"
     val v = ((km * 10).roundToInt() / 10.0).toString()
-    return (if (ru) v.replace('.', ',') else v) + " " + (if (ru) "км" else "km")
+    return (if (ru) v.replace('.', ',') else v) + " " + (pick(lang, "km", "км", "km"))
 }
 
 fun kRateFmt(v: Double, ru: Boolean): String =
@@ -148,23 +148,23 @@ fun kRateFmt(v: Double, ru: Boolean): String =
     else v.fixed(2).let { if (ru) it.replace('.', ',') else it }
 
 fun kHoursShort(o: OpenState, ru: Boolean): String = when {
-    !o.known -> if (ru) "Время работы неизвестно" else "Ish vaqti nomaʻlum"
-    o.open -> o.untilText?.let { if (ru) "до $it" else "$it gacha" } ?: (if (ru) "Открыто" else "Ochiq")
-    else -> (if (ru) "Закрыто" else "Yopiq") +
-        (o.untilText?.let { if (ru) " · откроется в $it" else " · $it da ochiladi" } ?: "")
+    !o.known -> pick(lang, "Ish vaqti nomaʻlum", "Время работы неизвестно", "Opening hours unknown")
+    o.open -> o.untilText?.let { pick(lang, "$it gacha", "до $it", "until $it") } ?: (pick(lang, "Ochiq", "Открыто", "Open"))
+    else -> (pick(lang, "Yopiq", "Закрыто", "Closed")) +
+        (o.untilText?.let { pick(lang, " · $it da ochiladi", " · откроется в $it", " · opens at $it") } ?: "")
 }
 
 fun kHoursLong(o: OpenState, ru: Boolean): String = when {
-    !o.known -> if (ru) "Время работы неизвестно" else "Ish vaqti nomaʻlum"
-    o.open -> (if (ru) "Открыто" else "Ochiq") +
-        (o.untilText?.let { if (ru) " · до $it" else " · $it gacha" } ?: "")
+    !o.known -> pick(lang, "Ish vaqti nomaʻlum", "Время работы неизвестно", "Opening hours unknown")
+    o.open -> (pick(lang, "Ochiq", "Открыто", "Open")) +
+        (o.untilText?.let { pick(lang, " · $it gacha", " · до $it", " · until $it") } ?: "")
     else -> kHoursShort(o, ru)
 }
 
 private fun kSpokenHours(o: OpenState, ru: Boolean): String = when {
-    !o.known -> if (ru) "время работы неизвестно" else "ish vaqti nomaʻlum"
-    o.open -> o.untilText?.let { if (ru) "открыто до $it" else "$it gacha ochiq" } ?: (if (ru) "открыто" else "ochiq")
-    else -> if (ru) "закрыто" else "yopiq"
+    !o.known -> pick(lang, "ish vaqti nomaʻlum", "время работы неизвестно", "opening hours unknown")
+    o.open -> o.untilText?.let { pick(lang, "$it gacha ochiq", "открыто до $it", "open until $it") } ?: (pick(lang, "ochiq", "открыто", "open"))
+    else -> pick(lang, "yopiq", "закрыто", "closed")
 }
 
 private fun kSpokenSom(n: Long, ru: Boolean): String {
@@ -172,18 +172,18 @@ private fun kSpokenSom(n: Long, ru: Boolean): String {
     val t = (n / 1000) % 1000
     val r = n % 1000
     val parts = mutableListOf<String>()
-    if (m > 0) parts += if (ru) "$m млн" else "$m million"
-    if (t > 0) parts += if (ru) "$t тыс." else "$t ming"
+    if (m > 0) parts += pick(lang, "$m million", "$m млн", "$m million")
+    if (t > 0) parts += pick(lang, "$t ming", "$t тыс.", "$t thousand")
     if (r > 0 || parts.isEmpty()) parts += "$r"
     return parts.joinToString(" ") + " " + kSom(ru)
 }
 
 private fun kSpokenKm(km: Double, ru: Boolean): String {
     val m = (km * 1000).roundToInt()
-    return if (m < 1000) "$m ${if (ru) "метров" else "metr"}"
+    return if (m < 1000) "$m ${pick(lang, "metr", "метров", "metres")}"
     else {
         val v = ((km * 10).roundToInt() / 10.0).toString().let { if (ru) it.replace('.', ',') else it }
-        "$v ${if (ru) "километра" else "kilometr"}"
+        "$v ${pick(lang, "kilometr", "километра", "kilometres")}"
     }
 }
 
@@ -210,7 +210,7 @@ fun kShareText(item: RankedBank, currency: Currency, amount: Double, updatedAt: 
     val amt = if (amount > 0) amount.roundToLong() else 1L
     val total = if (amount > 0) item.total else item.perUnit.toLong()
     val time = updatedAt?.formatUpdatedAt()?.let { " ($it)" }.orEmpty()
-    val head = if (best) (if (ru) "Лучший курс" else "Eng yaxshi kurs") else (if (ru) "Курс" else "Kurs")
+    val head = if (best) (pick(lang, "Eng yaxshi kurs", "Лучший курс", "Best rate")) else (pick(lang, "Kurs", "Курс", "Rate"))
     return "$head: ${kGroup(amt)} ${currency.code} → ${kGroup(total)} ${kSom(ru)} — ${item.rate.bank}$time"
 }
 
@@ -293,7 +293,7 @@ private class GroupingTransformation : VisualTransformation {
 @Composable
 private fun AmountField(currency: Currency, amountText: String, onAmount: (String) -> Unit) {
     val digits = amountText.filter { it.isDigit() }.trimStart('0').take(12)
-    val label = tr("Summa, ${currency.code}", "Сумма, ${currency.code}")
+    val label = tr("Summa, ${currency.code}", "Сумма, ${currency.code}", "Amount, ${currency.code}")
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     val lineColor by animateColorAsState(if (focused) VsEmerald else VsLine, Motion.color(), label = "amtline")
@@ -336,10 +336,10 @@ private enum class KursSort { SOM, DIST, RATE, OPEN }
 
 @Composable
 private fun sortLabel(s: KursSort): String = when (s) {
-    KursSort.SOM -> tr("Soʻm", "Сумма")
-    KursSort.DIST -> tr("Masofa", "Расстояние")
-    KursSort.RATE -> tr("Kurs", "Курс")
-    KursSort.OPEN -> tr("Ochiq hozir", "Открыто сейчас")
+    KursSort.SOM -> tr("Soʻm", "Сумма", "Amount")
+    KursSort.DIST -> tr("Masofa", "Расстояние", "Distance")
+    KursSort.RATE -> tr("Kurs", "Курс", "Rate")
+    KursSort.OPEN -> tr("Ochiq hozir", "Открыто сейчас", "Open now")
 }
 
 /* ---------- screen ---------- */
@@ -380,6 +380,7 @@ fun KursScreen(
     var sortMenu by remember { mutableStateOf(false) }
     var locChipDismissed by rememberSaveable { mutableStateOf(false) }
     var sheetBank by remember { mutableStateOf<String?>(null) }
+    var showAll by remember { mutableStateOf(false) }
 
     val ranked = remember(payload.banks, direction, amount, userLocation, osmBranches) {
         rankBanks(payload.banks, direction, amount, userLocation, osmBranches)
@@ -407,8 +408,8 @@ fun KursScreen(
     val anyDistance = ranked.any { it.distanceKm != null }
     val cbu = payload.cbu.rate
     val locMsg = when {
-        userLocation == null -> tr("Joylashuvni yoqing", "Включите геолокацию")
-        !anyDistance -> tr("Joylashuv aniqlanmadi", "Местоположение не определено")
+        userLocation == null -> tr("Joylashuvni yoqing", "Включите геолокацию", "Turn on location")
+        !anyDistance -> tr("Joylashuv aniqlanmadi", "Местоположение не определено", "Location not found")
         else -> null
     }
 
@@ -431,7 +432,8 @@ fun KursScreen(
                     updatedAt = payload.updatedAt, offline = offline,
                     onOpenSettings = onOpenSettings,
                     searchOpen = searchOpen,
-                    onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" }
+                    onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
+                    onAllCurrencies = { showAll = true }
                 )
             }
             if (searchOpen) {
@@ -450,7 +452,7 @@ fun KursScreen(
                                 Icon(Icons.Outlined.Search, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Box(Modifier.weight(1f)) {
-                                    if (query.isEmpty()) Text(tr("Bank nomi", "Название банка"), style = VsType.Body, color = VsInkSoft)
+                                    if (query.isEmpty()) Text(tr("Bank nomi", "Название банка", "Bank name"), style = VsType.Body, color = VsInkSoft)
                                     inner()
                                 }
                             }
@@ -461,7 +463,7 @@ fun KursScreen(
             // Direction
             item(key = "dir") {
                 Segmented(
-                    options = listOf(tr("Men sotaman", "Я продаю"), tr("Men olaman", "Я покупаю")),
+                    options = listOf(tr("Men sotaman", "Я продаю", "I sell"), tr("Men olaman", "Я покупаю", "I buy")),
                     selected = if (sell) 0 else 1,
                     onSelect = { onDirection(if (it == 0) ConvertMode.SELL_USD else ConvertMode.BUY_USD) },
                     modifier = Modifier.padding(top = 12.dp)
@@ -485,15 +487,16 @@ fun KursScreen(
             if (offline) {
                 item(key = "offline") {
                     KBanner(Icons.Outlined.CloudOff, VsInk,
-                        if (ru) "Последние данные ${timeText?.let { "в $it" } ?: ""}, нет интернета".replace("  ", " ")
-                        else "Oxirgi maʻlumot ${timeText ?: ""}, internet yoʻq".replace("  ", " "),
+                        pick(lang, "Oxirgi maʻlumot ${timeText ?: ""}, internet yoʻq",
+                            "Последние данные ${timeText?.let { "в $it" } ?: ""}, нет интернета",
+                            "Last data ${timeText?.let { "at $it" } ?: ""}, no internet").replace("  ", " "),
                         Modifier.animateItem())
                 }
             } else if (stale12) {
                 item(key = "stale") {
                     val h = ageH.toInt()
                     KBanner(Icons.Outlined.Schedule, VsAmber,
-                        if (ru) "Данные обновлены $h ч назад" else "Maʻlumot $h soat oldin yangilangan",
+                        pick(lang, "Maʻlumot $h soat oldin yangilangan", "Данные обновлены $h ч назад", "Data updated $h h ago"),
                         Modifier.animateItem())
                 }
             }
@@ -505,7 +508,7 @@ fun KursScreen(
                 }
                 noData -> item(key = "empty") {
                     Text(
-                        tr("Bank kurslari hozircha mavjud emas.", "Курсы банков пока недоступны."),
+                        tr("Bank kurslari hozircha mavjud emas.", "Курсы банков пока недоступны.", "Bank rates are not available yet."),
                         style = VsType.Body, color = VsInkSoft, modifier = Modifier.padding(vertical = 24.dp)
                     )
                 }
@@ -522,7 +525,7 @@ fun KursScreen(
                                 )
                             } else {
                                 Text(
-                                    tr("Mos bank topilmadi", "Подходящих банков нет"),
+                                    tr("Mos bank topilmadi", "Подходящих банков нет", "No matching banks"),
                                     style = VsType.Body, color = VsInkSoft, modifier = Modifier.padding(vertical = 24.dp)
                                 )
                             }
@@ -539,13 +542,13 @@ fun KursScreen(
                                 Icon(Icons.Outlined.LocationOff, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    msg + tr(" — masofa koʻrsatilmaydi", " — расстояние не показывается"),
+                                    msg + tr(" — masofa koʻrsatilmaydi", " — расстояние не показывается", " — distances are not shown"),
                                     style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f)
                                 )
                                 Box(
                                     Modifier.size(40.dp).clip(RoundedCornerShape(999.dp))
                                         .clickable(role = Role.Button) { locChipDismissed = true }
-                                        .semantics { contentDescription = if (ru) "Закрыть" else "Yopish" },
+                                        .semantics { contentDescription = pick(lang, "Yopish", "Закрыть", "Close") },
                                     contentAlignment = Alignment.Center
                                 ) { Icon(Icons.Outlined.Close, null, tint = VsInkSoft, modifier = Modifier.size(16.dp)) }
                             }
@@ -556,7 +559,7 @@ fun KursScreen(
                         Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 Row(Modifier.weight(1f)) {
-                                    Text(tr("Banklar", "Банки"), style = VsType.Title, color = VsInk, modifier = Modifier.alignByBaseline())
+                                    Text(tr("Banklar", "Банки", "Banks"), style = VsType.Title, color = VsInk, modifier = Modifier.alignByBaseline())
                                     Spacer(Modifier.width(8.dp))
                                     Text("${displayed.size}", style = VsType.Meta, color = VsInkSoft, modifier = Modifier.alignByBaseline())
                                 }
@@ -585,8 +588,8 @@ fun KursScreen(
                                 }
                             }
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                VsChip(tr("Ochiq hozir", "Открыто сейчас"), onlyOpen, { onlyOpen = !onlyOpen })
-                                if (favorites.isNotEmpty()) VsChip(tr("Tanlanganlar", "Избранное"), onlyFav, { onlyFav = !onlyFav })
+                                VsChip(tr("Ochiq hozir", "Открыто сейчас", "Open now"), onlyOpen, { onlyOpen = !onlyOpen })
+                                if (favorites.isNotEmpty()) VsChip(tr("Tanlanganlar", "Избранное", "Favourites"), onlyFav, { onlyFav = !onlyFav })
                             }
                             Spacer(Modifier.height(4.dp))
                             KHairline()
@@ -595,7 +598,7 @@ fun KursScreen(
                     if (displayed.isEmpty()) {
                         item(key = "none") {
                             Text(
-                                tr("Mos bank topilmadi", "Подходящих банков нет"),
+                                tr("Mos bank topilmadi", "Подходящих банков нет", "No matching banks"),
                                 style = VsType.Body, color = VsInkSoft, modifier = Modifier.animateItem().padding(vertical = 24.dp)
                             )
                         }
@@ -615,7 +618,7 @@ fun KursScreen(
                     }
                     item(key = "cbu") {
                         Text(
-                            (if (ru) "Центральный банк: " else "Markaziy bank: ") + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
+                            (pick(lang, "Markaziy bank: ", "Центральный банк: ", "Central Bank: ")) + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
                             style = VsType.Meta, color = VsInkSoft,
                             modifier = Modifier.animateItem().fillMaxWidth().padding(top = 16.dp)
                         )
@@ -624,6 +627,8 @@ fun KursScreen(
             }
         }
     }
+
+    if (showAll) AllCurrenciesSheet(onDismiss = { showAll = false })
 
     val sheetItem = sheetBank?.let { name -> ranked.firstOrNull { it.rate.bank == name } }
     if (sheetItem != null) {
@@ -658,9 +663,9 @@ private fun HeroBlock(
     val has = amount > 0
     val big = LocalDensity.current.fontScale > 1.5f
     val heroStyle = VsType.Hero.copy(fontSize = if (big) 28.sp else 32.sp, lineHeight = if (big) 34.sp else 38.sp)
-    val label = if (!has) (if (ru) "Курс за 1 ${currency.code}" else "1 ${currency.code} uchun")
-    else if (sell) (if (ru) "Вы получите" else "Qoʻlingizga tegadi")
-    else (if (ru) "Вам нужно заплатить" else "Toʻlashingiz kerak")
+    val label = if (!has) (pick(lang, "1 ${currency.code} uchun", "Курс за 1 ${currency.code}", "Rate for 1 ${currency.code}"))
+    else if (sell) (pick(lang, "Qoʻlingizga tegadi", "Вы получите", "You get"))
+    else (pick(lang, "Toʻlashingiz kerak", "Вам нужно заплатить", "You pay"))
     val value = if (has) best.total else best.perUnit.toLong()
     val som = kSom(ru)
     val spoken = if (has) "$label, ${kSpokenSom(value, ru)}" else "$label, ${kSpokenSom(value, ru)}"
@@ -695,12 +700,12 @@ private fun HeroBlock(
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KButton(
-                text = tr("Yoʻnalish", "Маршрут"), icon = Icons.Outlined.Directions, primary = true,
+                text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions, primary = true,
                 enabled = best.lat != null && best.lng != null, modifier = Modifier.weight(1f),
                 // Tonal, not filled: the currency cards on top are the first thing the eye should land on.
                 tonal = true, onClick = onRoute
             )
-            KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться")) { kShare(shareText) }
+            KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share")) { kShare(shareText) }
         }
     }
 }
@@ -726,16 +731,16 @@ private fun BankListRow(
         item.distanceKm?.let { kKm(it, ru) },
         hours
     ).joinToString("  ·  ")
-    val ageText = ageH?.toInt()?.let { if (ru) "$it ч назад" else "$it s oldin" }
+    val ageText = ageH?.toInt()?.let { pick(lang, "$it s oldin", "$it ч назад", "$it h ago") }
 
     val spoken = buildString {
-        append(if (ru) "$rank-е место, " else "$rank-oʻrin, ")
+        append(pick(lang, "$rank-oʻrin, ", "$rank-е место, ", "#$rank, "))
         append(item.rate.bank).append(", ")
         append(kSpokenSom(shown, ru))
         item.distanceKm?.let { append(", ").append(kSpokenKm(it, ru)) }
         append(", ").append(kSpokenHours(item.open, ru))
-        if (delta != null && delta != 0L) append(", ").append(if (ru) "разница " else "farq ").append(kDelta(delta))
-        if (favorite) append(", ").append(if (ru) "в избранном" else "tanlangan")
+        if (delta != null && delta != 0L) append(", ").append(pick(lang, "farq ", "разница ", "difference ")).append(kDelta(delta))
+        if (favorite) append(", ").append(pick(lang, "tanlangan", "в избранном", "favourite"))
         if (stale && ageText != null) append(", ").append(ageText)
     }
 
@@ -743,8 +748,8 @@ private fun BankListRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClickLabel = tr("Batafsil", "Подробнее"),
-                onLongClickLabel = tr("Tanlanganlarga qoʻshish yoki olib tashlash", "Добавить в избранное или убрать"),
+                onClickLabel = tr("Batafsil", "Подробнее", "Details"),
+                onLongClickLabel = tr("Tanlanganlarga qoʻshish yoki olib tashlash", "Добавить в избранное или убрать", "Add to or remove from favourites"),
                 onClick = onClick,
                 onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() }
             )

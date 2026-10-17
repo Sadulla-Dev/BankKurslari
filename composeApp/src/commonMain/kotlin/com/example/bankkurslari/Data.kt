@@ -183,3 +183,69 @@ suspend fun fetchGold(): GoldPrices = withContext(Dispatchers.Default) {
     RateService.saveCache("gold", body)
     parsed
 }
+
+/* ---------- all CBU currencies ---------- */
+
+fun parseCbuAll(body: String): List<CbuCurrency> =
+    (parseJsonObject(body).arr("currencies") ?: JsonArray(emptyList())).objects().mapNotNull { c ->
+        val names = c.obj("names")
+        CbuCurrency(
+            code = c.str("code") ?: return@mapNotNull null,
+            nominal = c.int("nominal") ?: 1,
+            rate = c.dbl("rate") ?: return@mapNotNull null,
+            diff = c.dbl("diff") ?: 0.0,
+            date = c.str("date"),
+            nameUz = names?.str("uz").orEmpty(),
+            nameUzc = names?.str("uzc").orEmpty(),
+            nameRu = names?.str("ru").orEmpty(),
+            nameEn = names?.str("en").orEmpty()
+        )
+    }
+
+suspend fun cachedCbuAll(): List<CbuCurrency> = withContext(Dispatchers.Default) {
+    RateService.loadCache("cbu_all")?.let { runCatching { parseCbuAll(it) }.getOrNull() }.orEmpty()
+}
+
+suspend fun fetchCbuAll(): List<CbuCurrency> = withContext(Dispatchers.Default) {
+    val body = httpGet(backendCbuAllUrl, 15_000)
+    val list = parseCbuAll(body)
+    RateService.saveCache("cbu_all", body)
+    list
+}
+
+/* ---------- per-bank daily history (collected by our server) ---------- */
+
+/** A bank's rates on one day: first and last (buy, sell) seen. */
+data class BankDay(val firstBuy: Int?, val firstSell: Int?, val lastBuy: Int?, val lastSell: Int?)
+
+/** day (yyyy-MM-dd) -> bank -> rates; oldest day first. */
+suspend fun fetchBankHistory(cur: Currency, days: Int = 7): List<Pair<String, Map<String, BankDay>>> =
+    withContext(Dispatchers.Default) {
+        val body = httpGet("$backendBase/api/bank-history/${cur.code.lowercase()}?days=$days", 15_000)
+        val daysObj = parseJsonObject(body).obj("days") ?: return@withContext emptyList()
+        fun pair(a: JsonArray?): Pair<Int?, Int?> =
+            (a?.getOrNull(0) as? JsonPrimitive)?.doubleOrNull?.toInt() to (a?.getOrNull(1) as? JsonPrimitive)?.doubleOrNull?.toInt()
+        daysObj.entries.sortedBy { it.key }.map { (day, banksEl) ->
+            day to ((banksEl as? JsonObject)?.entries?.associate { (bank, v) ->
+                val o = v as? JsonObject
+                val f = pair(o?.arr("first"))
+                val l = pair(o?.arr("last"))
+                bank to BankDay(f.first, f.second, l.first, l.second)
+            } ?: emptyMap())
+        }
+    }
+
+/** Daily CBU price per gram (from the largest bar), as collected by our server: (yyyy-MM-dd, so'm). */
+suspend fun fetchGoldHistory(): List<Pair<String, Double>> = withContext(Dispatchers.Default) {
+    val body = httpGet("$backendBase/api/gold/history", 15_000)
+    (parseJsonObject(body).arr("points") ?: JsonArray(emptyList())).objects().mapNotNull { p ->
+        val date = p.str("date") ?: return@mapNotNull null
+        val bars = p.obj("bars") ?: return@mapNotNull null
+        val best = bars.entries.mapNotNull { (g, v) ->
+            val grams = g.toDoubleOrNull() ?: return@mapNotNull null
+            val sell = (v as? JsonObject)?.dbl("sell") ?: return@mapNotNull null
+            grams to sell
+        }.maxByOrNull { it.first } ?: return@mapNotNull null
+        date to best.second / best.first
+    }
+}

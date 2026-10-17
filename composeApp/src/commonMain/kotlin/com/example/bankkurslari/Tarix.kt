@@ -65,8 +65,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 
-private const val UNIT_UZ = "soʻm"
-private const val UNIT_RU = "сум"
 
 /** Tarix (spec 6.3): "Is today normal?" History, facts and alerts. No forecast, no advice. */
 @Composable
@@ -84,7 +82,7 @@ fun TarixScreen(
     onOpenSettings: () -> Unit
 ) {
     val ru = lang == Lang.RU
-    val unit = if (ru) UNIT_RU else UNIT_UZ
+    val unit = somUnit()
     var alerts by remember { mutableStateOf(Alerts.load()) }
     var showAdd by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
@@ -119,8 +117,8 @@ fun TarixScreen(
             ) {
                 Text(
                     when {
-                        analyticsLoading -> if (ru) "История загружается…" else "Tarix yuklanmoqda…"
-                        else -> if (ru) "История пока недоступна. Попробуйте позже." else "Tarix hozircha mavjud emas. Keyinroq urinib koʻring."
+                        analyticsLoading -> pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…")
+                        else -> pick(lang, "Tarix hozircha mavjud emas. Keyinroq urinib koʻring.", "История пока недоступна. Попробуйте позже.", "History is not available yet. Please try again later.")
                     },
                     style = VsType.Meta, color = VsInkSoft
                 )
@@ -134,15 +132,15 @@ fun TarixScreen(
         val time = payload.updatedAt?.formatUpdatedAt().orEmpty()
         val bestSell = payload.banks.filter { it.buy != null }.maxByOrNull { it.buy!! }
         val bestBuy = payload.banks.filter { it.sell != null }.minByOrNull { it.sell!! }
-        Text(if (ru) "Сегодня на рынке" else "Bugun bozorda", style = VsType.Title, color = VsInk)
+        Text(pick(lang, "Bugun bozorda", "Сегодня на рынке", "In the market today"), style = VsType.Title, color = VsInk)
         MarketRow(
-            title = if (ru) "Если продаёте $name — больше всех платит" else "$name sotsangiz — eng koʻp toʻlaydi",
+            title = pick(lang, "$name sotsangiz — eng koʻp toʻlaydi", "Если продаёте $name — больше всех платит", "Selling ${name.lowercase()}? Pays the most"),
             value = bestSell?.buy.formatUzs(), unit = unit,
             meta = listOfNotNull(bestSell?.bank, time.ifEmpty { null }).joinToString(" · ")
         )
         HorizontalDivider(color = VsLine)
         MarketRow(
-            title = if (ru) "Если покупаете $name — дешевле всех продаёт" else "$name olsangiz — eng arzon sotadi",
+            title = pick(lang, "$name olsangiz — eng arzon sotadi", "Если покупаете $name — дешевле всех продаёт", "Buying ${name.lowercase()}? Sells the cheapest"),
             value = bestBuy?.sell.formatUzs(), unit = unit,
             meta = listOfNotNull(bestBuy?.bank, time.ifEmpty { null }).joinToString(" · ")
         )
@@ -154,10 +152,10 @@ fun TarixScreen(
         SectionDivider()
 
         // Alerts
-        Text(if (ru) "Оповещения" else "Ogohlantirishlar", style = VsType.Title, color = VsInk)
+        Text(pick(lang, "Ogohlantirishlar", "Оповещения", "Alerts"), style = VsType.Title, color = VsInk)
         if (alerts.isEmpty()) {
             Text(
-                if (ru) "Сообщим, когда курс достигнет нужного значения." else "Kurs kerakli qiymatga yetganda xabar beramiz.",
+                pick(lang, "Kurs kerakli qiymatga yetganda xabar beramiz.", "Сообщим, когда курс достигнет нужного значения.", "We will notify you when the rate reaches your target."),
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp)
             )
         }
@@ -171,14 +169,15 @@ fun TarixScreen(
         val full = alerts.size >= Alerts.MAX
         Spacer(Modifier.height(12.dp))
         KButton(
-            text = if (ru) "Добавить оповещение" else "Ogohlantirish qoʻshish",
+            text = pick(lang, "Ogohlantirish qoʻshish", "Добавить оповещение", "Add alert"),
             icon = Icons.Outlined.NotificationsNone, primary = false, enabled = !full,
             modifier = Modifier.fillMaxWidth()
         ) { showAdd = true }
         if (full) {
             Text(
-                if (ru) "Не больше ${Alerts.MAX} оповещений. Удалите одно, чтобы добавить новое."
-                else "Eng koʻpi bilan ${Alerts.MAX} ta ogohlantirish. Yangisini qoʻshish uchun birini oʻchiring.",
+                pick(lang, "Eng koʻpi bilan ${Alerts.MAX} ta ogohlantirish. Yangisini qoʻshish uchun birini oʻchiring.",
+                    "Не больше ${Alerts.MAX} оповещений. Удалите одно, чтобы добавить новое.",
+                    "Up to ${Alerts.MAX} alerts. Delete one to add a new one."),
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -191,14 +190,15 @@ fun TarixScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                (if (ru) "Источник: bank.uz, cbu.uz" else "Manba: bank.uz, cbu.uz") + if (time.isNotEmpty()) " · $time" else "",
+                (pick(lang, "Manba: bank.uz, cbu.uz", "Источник: bank.uz, cbu.uz", "Source: bank.uz, cbu.uz")) + if (time.isNotEmpty()) " · $time" else "",
                 style = VsType.Meta, color = VsInkSoft
             )
         }
         if (sourcesOpen) {
             Text(
-                if (ru) "bank.uz — курсы коммерческих банков (наличные).\ncbu.uz — официальный курс Центрального банка и его история."
-                else "bank.uz — tijorat banklarining naqd kurslari.\ncbu.uz — Markaziy bankning rasmiy kursi va uning tarixi.",
+                pick(lang, "bank.uz — tijorat banklarining naqd kurslari.\ncbu.uz — Markaziy bankning rasmiy kursi va uning tarixi.",
+                    "bank.uz — курсы коммерческих банков (наличные).\ncbu.uz — официальный курс Центрального банка и его история.",
+                    "bank.uz — commercial banks’ cash rates.\ncbu.uz — the Central Bank’s official rate and its history."),
                 style = VsType.Meta, color = VsInkSoft
             )
         }
@@ -244,13 +244,15 @@ private fun MarketRow(title: String, value: String, unit: String, meta: String) 
 @Composable
 private fun AlertRow(a: RateAlert, ru: Boolean, unit: String, onDelete: () -> Unit) {
     val cur = Currency.entries.firstOrNull { it.code == a.currency } ?: Currency.USD
-    val name = if (ru) cur.nameRu.lowercase() else cur.nameUz
     val sell = a.side == AlertSide.SELL
     val op = if (sell) "≥" else "≤"
-    val title = if (ru) "${if (sell) "Продаёте" else "Покупаете"} $name $op ${a.threshold.formatUzs()} $unit"
-    else "$name ${if (sell) "sotsangiz" else "olsangiz"} $op ${a.threshold.formatUzs()} $unit"
-    val scope = a.bank ?: if (ru) "Лучший на рынке" else "Bozordagi eng yaxshi"
-    val status = if (a.fired) (if (ru) " · сработало" else " · ishga tushdi") else ""
+    val v = "$op ${a.threshold.formatUzs()} $unit"
+    val title = pick(lang,
+        "${cur.nameUz} ${if (sell) "sotsangiz" else "olsangiz"} $v",
+        "${if (sell) "Продаёте" else "Покупаете"} ${cur.nameRu.lowercase()} $v",
+        "${if (sell) "Selling" else "Buying"} ${cur.nameEn.lowercase()} $v")
+    val scope = a.bank ?: pick(lang, "Bozordagi eng yaxshi", "Лучший на рынке", "Best in the market")
+    val status = if (a.fired) (pick(lang, " · ishga tushdi", " · сработало", " · triggered")) else ""
     Row(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
             Text(title, style = VsType.Body, color = VsInk)
@@ -260,7 +262,7 @@ private fun AlertRow(a: RateAlert, ru: Boolean, unit: String, onDelete: () -> Un
             modifier = Modifier
                 .size(48.dp)
                 .clickable(onClick = onDelete)
-                .semantics { role = Role.Button; contentDescription = if (ru) "Удалить оповещение" else "Ogohlantirishni oʻchirish" },
+                .semantics { role = Role.Button; contentDescription = pick(lang, "Ogohlantirishni oʻchirish", "Удалить оповещение", "Delete alert") },
             contentAlignment = Alignment.Center
         ) { Icon(Icons.Outlined.Delete, contentDescription = null, tint = VsInkSoft) }
     }
@@ -278,7 +280,7 @@ private fun AddAlertSheet(
     onSave: (RateAlert) -> Unit
 ) {
     val ru = lang == Lang.RU
-    val unit = if (ru) UNIT_RU else UNIT_UZ
+    val unit = somUnit()
     val name = currency.displayName(lang).let { if (ru) it.lowercase() else it }
     var side by remember { mutableStateOf(AlertSide.SELL) }
     var specificBank by remember { mutableStateOf(false) }
@@ -322,10 +324,10 @@ private fun AddAlertSheet(
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            Text(if (ru) "Новое оповещение" else "Yangi ogohlantirish", style = VsType.Title, color = VsInk)
+            Text(pick(lang, "Yangi ogohlantirish", "Новое оповещение", "New alert"), style = VsType.Title, color = VsInk)
             Spacer(Modifier.height(16.dp))
             SettingsSegmented(
-                options = listOf(if (ru) "Я продаю" else "Men sotaman", if (ru) "Я покупаю" else "Men olaman"),
+                options = listOf(pick(lang, "Men sotaman", "Я продаю", "I sell"), pick(lang, "Men olaman", "Я покупаю", "I buy")),
                 selected = side.ordinal,
                 onSelect = {
                     side = AlertSide.entries[it]
@@ -335,15 +337,15 @@ private fun AddAlertSheet(
             )
             Text(
                 if (side == AlertSide.SELL) {
-                    if (ru) "Сообщим, когда за $name заплатят ${"≥"} указанной суммы." else "$name sotsangiz, kurs shu qiymatga yetganda yoki undan oshganda (≥) xabar beramiz."
+                    pick(lang, "$name sotsangiz, kurs shu qiymatga yetganda yoki undan oshganda (≥) xabar beramiz.", "Сообщим, когда за $name заплатят ${"≥"} указанной суммы.", "Selling ${name.lowercase()}: we notify you when the rate reaches or exceeds (≥) this value.")
                 } else {
-                    if (ru) "Сообщим, когда $name можно будет купить по курсу ≤ указанной суммы." else "$name olsangiz, kurs shu qiymatga tushganda yoki undan pasayganda (≤) xabar beramiz."
+                    pick(lang, "$name olsangiz, kurs shu qiymatga tushganda yoki undan pasayganda (≤) xabar beramiz.", "Сообщим, когда $name можно будет купить по курсу ≤ указанной суммы.", "Buying ${name.lowercase()}: we notify you when the rate drops to or below (≤) this value.")
                 },
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
             )
 
             Spacer(Modifier.height(16.dp))
-            Text(if (ru) "Порог" else "Chegara", style = VsType.Meta, color = VsInkSoft)
+            Text(pick(lang, "Chegara", "Порог", "Threshold"), style = VsType.Meta, color = VsInkSoft)
             Row(
                 modifier = Modifier
                     .padding(top = 4.dp)
@@ -368,23 +370,24 @@ private fun AddAlertSheet(
             }
             if (now != null) {
                 Text(
-                    if (ru) "Сейчас: ${now.formatUzs()} $unit" else "Hozir: ${now.formatUzs()} $unit",
+                    pick(lang, "Hozir: ${now.formatUzs()} $unit", "Сейчас: ${now.formatUzs()} $unit", "Now: ${now.formatUzs()} $unit"),
                     style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp)
                 )
             }
             if (alreadyMet) {
                 Text(
-                    if (ru) "Условие уже выполнено. Сообщим, когда курс выйдет из условия и достигнет его снова."
-                    else "Shart hozir bajarilgan. Kurs shartdan chiqib, qayta yetganda xabar beramiz.",
+                    pick(lang, "Shart hozir bajarilgan. Kurs shartdan chiqib, qayta yetganda xabar beramiz.",
+                        "Условие уже выполнено. Сообщим, когда курс выйдет из условия и достигнет его снова.",
+                        "Already met. We’ll notify you when the rate leaves this range and reaches it again."),
                     style = VsType.Meta, color = VsAmber, modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
             Spacer(Modifier.height(16.dp))
-            Text(if (ru) "Где" else "Qayerda", style = VsType.Meta, color = VsInkSoft)
+            Text(pick(lang, "Qayerda", "Где", "Where"), style = VsType.Meta, color = VsInkSoft)
             Spacer(Modifier.height(4.dp))
             SettingsSegmented(
-                options = listOf(if (ru) "Лучший на рынке" else "Bozordagi eng yaxshi", if (ru) "Конкретный банк" else "Aniq bank"),
+                options = listOf(pick(lang, "Bozordagi eng yaxshi", "Лучший на рынке", "Best in the market"), pick(lang, "Aniq bank", "Конкретный банк", "Specific bank")),
                 selected = if (specificBank) 1 else 0,
                 onSelect = {
                     specificBank = it == 1
@@ -404,7 +407,7 @@ private fun AddAlertSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            bank ?: (if (ru) "Выберите банк" else "Bankni tanlang"),
+                            bank ?: (pick(lang, "Bankni tanlang", "Выберите банк", "Choose a bank")),
                             style = VsType.Body, color = if (bank == null) VsInkSoft else VsInk
                         )
                     }
@@ -442,7 +445,7 @@ private fun AddAlertSheet(
                     .semantics { role = Role.Button },
                 contentAlignment = Alignment.Center
             ) {
-                Text(if (ru) "Сохранить" else "Saqlash", style = VsType.BodyMedium, color = if (valid) VsBg else VsInkSoft)
+                Text(pick(lang, "Saqlash", "Сохранить", "Save"), style = VsType.BodyMedium, color = if (valid) VsBg else VsInkSoft)
             }
         }
     }

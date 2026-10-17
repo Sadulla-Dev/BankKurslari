@@ -38,16 +38,15 @@ class RateWidgetProvider : AppWidgetProvider() {
 
         private fun renderAll(context: Context, manager: AppWidgetManager, ids: IntArray) {
             val cur = RateService.selectedCurrency()
-            val ru = RateService.language() == "ru"
             val currency = Currency.entries.firstOrNull { it.code == cur } ?: Currency.USD
-            val name = if (ru) currency.nameRu.lowercase() else currency.nameUz
             val views = RemoteViews(context.packageName, R.layout.widget_rate)
             val best = runCatching { bestOrNull(context, cur) }.getOrNull()
             val snap = RateService.loadSnapshot(cur)
 
-            views.setTextViewText(R.id.widget_currency, "$cur / ${if (ru) "сум" else "soʻm"}")
-            views.setTextViewText(R.id.widget_sell_label, if (ru) "Продаёте $name" else "$name sotsangiz")
-            views.setTextViewText(R.id.widget_buy_label, if (ru) "Покупаете $name" else "$name olsangiz")
+            val som = trSaved("soʻm", "сум", "UZS")
+            views.setTextViewText(R.id.widget_currency, "$cur / $som")
+            views.setTextViewText(R.id.widget_sell_label, trSaved("${currency.nameUz} sotsangiz", "Продаёте ${currency.nameRu.lowercase()}", "Selling ${currency.nameEn.lowercase()}"))
+            views.setTextViewText(R.id.widget_buy_label, trSaved("${currency.nameUz} olsangiz", "Покупаете ${currency.nameRu.lowercase()}", "Buying ${currency.nameEn.lowercase()}"))
 
             if (best != null) {
                 views.setTextViewText(R.id.widget_sell_value, best.sellRate.formatUzs())
@@ -63,11 +62,11 @@ class RateWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_sell_bank, "")
                 views.setTextViewText(R.id.widget_buy_value, "—")
                 views.setTextViewText(R.id.widget_buy_bank, "")
-                views.setTextViewText(R.id.widget_time, if (ru) "Обновление…" else "Yangilanmoqda…")
+                views.setTextViewText(R.id.widget_time, trSaved("Yangilanmoqda…", "Обновление…", "Updating…"))
             }
             views.setTextViewText(
                 R.id.widget_cbu,
-                if (snap != null) "${if (ru) "ЦБ" else "MB"} ${RateService.formatRate(snap.rate)} ${if (ru) "сум" else "soʻm"}${if (snap.date.isNotEmpty()) " · ${snap.date}" else ""}" else ""
+                if (snap != null) "${trSaved("MB", "ЦБ", "CBU")} ${RateService.formatRate(snap.rate)} $som${if (snap.date.isNotEmpty()) " · ${snap.date}" else ""}" else ""
             )
 
             val openApp = PendingIntent.getActivity(

@@ -39,9 +39,9 @@ enum class HomeTab(val icon: ImageVector) {
 
     @Composable
     fun label(): String = when (this) {
-        KURS -> tr("Kurs", "Курс")
-        MAP -> tr("Xarita", "Карта")
-        TREND -> tr("Tarix", "История")
+        KURS -> tr("Kurs", "Курс", "Rate")
+        MAP -> tr("Xarita", "Карта", "Map")
+        TREND -> tr("Tarix", "История", "History")
     }
 }
 
@@ -49,12 +49,12 @@ enum class SortMode { BUY, SELL }
 
 enum class ConvertMode { SELL_USD, BUY_USD }
 
-enum class Currency(val code: String, val symbol: String, val nameUz: String, val nameRu: String) {
-    USD("USD", "$", "Dollar", "Доллар"),
-    EUR("EUR", "€", "Yevro", "Евро"),
-    RUB("RUB", "₽", "Rubl", "Рубль");
+enum class Currency(val code: String, val symbol: String, val nameUz: String, val nameRu: String, val nameEn: String) {
+    USD("USD", "$", "Dollar", "Доллар", "Dollar"),
+    EUR("EUR", "€", "Yevro", "Евро", "Euro"),
+    RUB("RUB", "₽", "Rubl", "Рубль", "Ruble");
 
-    fun displayName(lang: Lang) = if (lang == Lang.RU) nameRu else nameUz
+    fun displayName(lang: Lang) = pick(lang, nameUz, nameRu, nameEn)
 }
 
 /** Dev machine's LAN address, for real phones on the same Wi-Fi. Changes with the network; a public server replaces this. */
@@ -74,3 +74,20 @@ val backendGoldUrl: String get() = "$backendBase/api/gold"
 data class GoldBar(val grams: Double, val sell: Long, val buyback: Long?, val buybackDamaged: Long?)
 
 data class GoldPrices(val date: String?, val time: String?, val bars: List<GoldBar>)
+
+val backendCbuAllUrl: String get() = "$backendBase/api/cbu/all"
+
+/** One CBU currency: [rate] so'm per [nominal] units (e.g. 100 JPY). */
+data class CbuCurrency(
+    val code: String,
+    val nominal: Int,
+    val rate: Double,
+    val diff: Double,
+    val date: String?,
+    val nameUz: String,
+    val nameUzc: String,
+    val nameRu: String,
+    val nameEn: String
+) {
+    val perUnit: Double get() = rate / nominal
+}

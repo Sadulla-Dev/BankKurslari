@@ -101,7 +101,6 @@ fun MapScreen(
     direction: ConvertMode,
     userLocation: Pair<Double, Double>?
 ) {
-    val s = LocalStrings.current
 
     var openNow by remember { mutableStateOf(false) }
     var bestOnly by remember { mutableStateOf(false) }
@@ -224,11 +223,11 @@ fun MapScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MapChip(tr("Ochiq hozir", "Открыто сейчас"), openNow, { openNow = !openNow })
-                MapChip(tr("Eng yaxshi", "Лучшие"), bestOnly, { bestOnly = !bestOnly })
+                MapChip(tr("Ochiq hozir", "Открыто сейчас", "Open now"), openNow, { openNow = !openNow })
+                MapChip(tr("Eng yaxshi", "Лучшие", "Best"), bestOnly, { bestOnly = !bestOnly })
                 Box {
                     MapChip(
-                        label = bankSel?.let { k -> bankNames.firstOrNull { bankKey(it) == k } } ?: tr("Bank", "Банк"),
+                        label = bankSel?.let { k -> bankNames.firstOrNull { bankKey(it) == k } } ?: tr("Bank", "Банк", "Bank"),
                         selected = bankSel != null,
                         onClick = { bankMenu = true },
                         trailing = Icons.Outlined.ExpandMore
@@ -238,7 +237,7 @@ fun MapScreen(
                         containerColor = VsBg, shape = RoundedCornerShape(12.dp)
                     ) {
                         DropdownMenuItem(
-                            text = { Text(tr("Barcha banklar", "Все банки"), style = VsType.Body, color = if (bankSel == null) VsEmerald else VsInk) },
+                            text = { Text(tr("Barcha banklar", "Все банки", "All banks"), style = VsType.Body, color = if (bankSel == null) VsEmerald else VsInk) },
                             onClick = { bankSel = null; bankMenu = false }
                         )
                         bankNames.forEach { n ->
@@ -250,8 +249,8 @@ fun MapScreen(
                         }
                     }
                 }
-                MapChip(tr("Bankomat", "Банкомат"), atmOn, { atmOn = !atmOn }, loading = atmOn && atmsLoading)
-                MapChip(tr("Roʻyxat", "Список"), listMode, { listMode = !listMode })
+                MapChip(tr("Bankomat", "Банкомат", "ATMs"), atmOn, { atmOn = !atmOn }, loading = atmOn && atmsLoading)
+                MapChip(tr("Roʻyxat", "Список", "List"), listMode, { listMode = !listMode })
             }
             // Fade on the trailing edge while more chips are off-screen: tells the row scrolls.
             val fadeA by androidx.compose.animation.core.animateFloatAsState(
@@ -269,12 +268,12 @@ fun MapScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        tr("Joylashuv aniqlanmadi", "Местоположение не определено"),
+                        tr("Joylashuv aniqlanmadi", "Местоположение не определено", "Location not found"),
                         style = VsType.Meta, color = VsAmber, modifier = Modifier.weight(1f)
                     )
                     Box {
                         MapChip(
-                            label = cityName?.let { tr(it.uz, it.ru) } ?: tr("Shahar tanlang", "Выберите город"),
+                            label = cityName?.let { tr(it.uz, it.ru) } ?: tr("Shahar tanlang", "Выберите город", "Choose a city"),
                             selected = cityName != null,
                             onClick = { cityMenu = true },
                             trailing = Icons.Outlined.ExpandMore
@@ -321,7 +320,7 @@ fun MapScreen(
                     .border(1.dp, VsLine, RoundedCornerShape(12.dp))
             ) {
                 Segmented(
-                    options = listOf(tr("Kurs", "Курс"), tr("Bank", "Банк"), tr("Ikkalasi", "Оба")),
+                    options = listOf(tr("Kurs", "Курс", "Rate"), tr("Bank", "Банк", "Bank"), tr("Ikkalasi", "Оба", "Both")),
                     selected = labelMode.ordinal,
                     onSelect = {
                         labelMode = MapLabel.entries[it]
@@ -333,7 +332,7 @@ fun MapScreen(
 
             MapReveal(visible = tileFailed, fromTop = true, modifier = Modifier.align(Alignment.TopCenter).padding(top = 52.dp)) {
                 Text(
-                    tr("Xarita yuklanmadi — qayta urinmoqda", "Карта не загрузилась — повторяем попытку"),
+                    tr("Xarita yuklanmadi — qayta urinmoqda", "Карта не загрузилась — повторяем попытку", "Map failed to load — retrying"),
                     style = VsType.Meta, color = VsInk,
                     modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp)
                         .clip(RoundedCornerShape(999.dp)).background(VsBg)
@@ -349,7 +348,7 @@ fun MapScreen(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val legendText = tr("narx yaxshi, boshqa, yopiq", "цена хорошая, другие, закрыто")
+                val legendText = tr("narx yaxshi, boshqa, yopiq", "цена хорошая, другие, закрыто", "good rate, other, closed")
                 Box(
                     modifier = Modifier.heightIn(min = 48.dp)
                         .clickable(
@@ -376,13 +375,13 @@ fun MapScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 LegendSwatch(fill = VsEmerald, stroke = VsEmerald)
-                                Text(tr("yaxshi narx", "лучшая цена"), style = VsType.Meta, color = VsInk, maxLines = 1)
+                                Text(tr("yaxshi narx", "лучшая цена", "best rate"), style = VsType.Meta, color = VsInk, maxLines = 1)
                                 Spacer(Modifier.width(4.dp))
                                 LegendSwatch(fill = VsSurface, stroke = VsInkSoft)
-                                Text(tr("boshqa", "другие"), style = VsType.Meta, color = VsInk, maxLines = 1)
+                                Text(tr("boshqa", "другие", "other"), style = VsType.Meta, color = VsInk, maxLines = 1)
                                 Spacer(Modifier.width(4.dp))
                                 LegendSwatch(fill = VsLine, stroke = VsInkSoft, dashed = true)
-                                Text(tr("yopiq", "закрыто"), style = VsType.Meta, color = VsInkSoft, maxLines = 1)
+                                Text(tr("yopiq", "закрыто", "closed"), style = VsType.Meta, color = VsInkSoft, maxLines = 1)
                             }
                         } else {
                             Box(
@@ -408,7 +407,7 @@ fun MapScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Outlined.MyLocation, contentDescription = s.myLocation, tint = VsInk, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Outlined.MyLocation, contentDescription = tr("Mening joylashuvim", "Моё местоположение", "My location"), tint = VsInk, modifier = Modifier.size(22.dp))
                 }
             }
 
@@ -421,7 +420,7 @@ fun MapScreen(
                     if (listItems.isEmpty()) {
                         item {
                             Text(
-                                tr("Hech narsa topilmadi", "Ничего не найдено"),
+                                tr("Hech narsa topilmadi", "Ничего не найдено", "Nothing found"),
                                 style = VsType.Body, color = VsInkSoft, textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth().padding(24.dp)
                             )
@@ -498,14 +497,14 @@ private fun LegendSwatch(fill: androidx.compose.ui.graphics.Color, stroke: andro
 @Composable
 private fun mapDistanceText(km: Double?): String? {
     if (km == null || km > MAP_FAR_KM) return null
-    return if (km < 1.0) "${(km * 1000).toInt()} " + tr("m", "м") else "${(km * 10).toInt() / 10.0} " + tr("km", "км")
+    return if (km < 1.0) "${(km * 1000).toInt()} " + tr("m", "м", "m") else "${(km * 10).toInt() / 10.0} " + tr("km", "км", "km")
 }
 
 @Composable
 private fun mapOpenText(o: OpenState): String? = when {
-    !o.known -> tr("Ish vaqti nomaʻlum", "Время работы неизвестно")
-    o.open -> o.untilText ?: tr("Ochiq", "Открыто")
-    else -> tr("Yopiq", "Закрыто")
+    !o.known -> tr("Ish vaqti nomaʻlum", "Время работы неизвестно", "Opening hours unknown")
+    o.open -> o.untilText ?: tr("Ochiq", "Открыто", "Open")
+    else -> tr("Yopiq", "Закрыто", "Closed")
 }
 
 @Composable
@@ -513,8 +512,8 @@ private fun MapListRow(rank: Int, rb: RankedBank, good: Boolean, onClick: () -> 
     val dist = mapDistanceText(rb.distanceKm)
     val open = mapOpenText(rb.open)
     val meta = listOfNotNull(dist, open).joinToString(" · ")
-    val unit = tr("soʻm", "сум")
-    val desc = tr("$rank-oʻrin", "место $rank") + ", ${rb.rate.bank}, ${mapRateText(rb.perUnit)} $unit" +
+    val unit = tr("soʻm", "сум", "UZS")
+    val desc = tr("$rank-oʻrin", "место $rank", "#$rank") + ", ${rb.rate.bank}, ${mapRateText(rb.perUnit)} $unit" +
         (dist?.let { ", $it" } ?: "") + (open?.let { ", $it" } ?: "")
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -544,7 +543,6 @@ private fun MapListRow(rank: Int, rb: RankedBank, good: Boolean, onClick: () -> 
 @Composable
 private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
     val route = LocalRoute.current
-    val s = LocalStrings.current
     val dist = mapDistanceText(pin.rawKm)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -558,7 +556,7 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
         ) {
             Text(pin.title, style = VsType.Title, color = VsInk)
             Text(
-                if (pin.kind == MapPinKind.ATM) tr("Bankomat", "Банкомат") else tr("Kurs maʻlumoti yoʻq", "Нет данных о курсе"),
+                if (pin.kind == MapPinKind.ATM) tr("Bankomat", "Банкомат", "ATMs") else tr("Kurs maʻlumoti yoʻq", "Нет данных о курсе", "No rate data"),
                 style = VsType.Meta, color = VsInkSoft
             )
             pin.address?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
@@ -572,7 +570,7 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(tr("Yoʻnalish", "Маршрут"), style = VsType.BodyMedium, color = VsBg)
+                Text(tr("Yoʻnalish", "Маршрут", "Directions"), style = VsType.BodyMedium, color = VsBg)
             }
         }
     }

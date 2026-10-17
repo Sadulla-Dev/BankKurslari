@@ -167,7 +167,7 @@ fun InteractiveHistory(
     val periodText = "${shortDay(a.date)} – ${shortDay(b.date)}"
 
     Row(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-        Text(if (ru) "История курса ЦБ" else "MB kursi tarixi", style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f).alignByBaseline())
+        Text(pick(lang, "MB kursi tarixi", "История курса ЦБ", "CBU rate history"), style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f).alignByBaseline())
         AnimatedContent(deltaText, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) }, label = "hd", modifier = Modifier.alignByBaseline()) { s ->
             Text(s, style = VsType.BodyMedium, color = VsInk)
         }
@@ -175,7 +175,12 @@ fun InteractiveHistory(
     Text(periodText, style = VsType.Meta, color = VsInkSoft)
 
     // ---- presets ----
-    val labels = if (ru) listOf("7д", "30д", "90д", "1г", "5л", "Макс") else listOf("7k", "30k", "90k", "1y", "5y", "Max")
+    val labels = when (lang) {
+        Lang.RU -> listOf("7д", "30д", "90д", "1г", "5л", "Макс")
+        Lang.UZ_CYRL -> listOf("7к", "30к", "90к", "1й", "5й", "Макс")
+        Lang.EN -> listOf("7d", "30d", "90d", "1y", "5y", "Max")
+        Lang.UZ -> listOf("7k", "30k", "90k", "1y", "5y", "Max")
+    }
     val presetIdx = PRESETS.indexOfFirst { p ->
         val want = if (p == null) last - first else min(p.toDouble(), last - first)
         abs(vp.end - last) < 0.5 && abs(vp.span - want) < 1.0
@@ -237,7 +242,7 @@ fun InteractiveHistory(
     val tickText: (Double) -> String = { v -> if (mult == 1.0 && today < 1000) v.fixed(2) else v.roundToLong().formatUzsL() }
     val leftPx = (ticks.maxOfOrNull { measurer.widthOf(tickText(it), axisStyle) } ?: 0f) + with(density) { 12.dp.toPx() }
 
-    val desc = (if (ru) "График курса ЦБ, " else "MB kursi grafigi, ") + periodText
+    val desc = (pick(lang, "MB kursi grafigi, ", "График курса ЦБ, ", "CBU rate chart, ")) + periodText
     // The gesture coroutine outlives recompositions: read the current slice and axis width, not the first ones.
     val liveFrom by rememberUpdatedState(from)
     val liveTo by rememberUpdatedState(to)
@@ -361,8 +366,8 @@ fun InteractiveHistory(
             else "$date  ${pt.rate.formatRate()} $unit"
             val diff = (today - pt.rate) * mult
             val dPct = if (pt.rate > 0) (today - pt.rate) / pt.rate * 100 else 0.0
-            val l2 = if (si == series.lastIndex) (if (ru) "сегодня" else "bugun") else
-                (if (ru) "→ сегодня " else "→ bugun ") + (if (diff >= 0) "+" else "−") +
+            val l2 = if (si == series.lastIndex) (pick(lang, "bugun", "сегодня", "today")) else
+                (pick(lang, "→ bugun ", "→ сегодня ", "→ today ")) + (if (diff >= 0) "+" else "−") +
                     fmtSom(diff, if (amountMode) 1000.0 else today) + " $unit (${if (dPct >= 0) "+" else "−"}${abs(dPct).fixed(2)}%)"
             val padB = 8.dp.toPx()
             val lineH = 13.sp.toPx() * 1.35f
@@ -385,8 +390,9 @@ fun InteractiveHistory(
 
     AnimatedVisibility(!hintSeen) {
         Text(
-            if (ru) "Ведите пальцем по графику · два пальца — масштаб · окно внизу можно двигать"
-            else "Grafik boʻylab barmoq yurgizing · ikki barmoq — kattalashtirish · pastdagi oynani suring",
+            pick(lang, "Grafik boʻylab barmoq yurgizing · ikki barmoq — kattalashtirish · pastdagi oynani suring",
+                "Ведите пальцем по графику · два пальца — масштаб · окно внизу можно двигать",
+                "Drag along the chart · pinch to zoom · move the window below"),
             style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
         )
     }

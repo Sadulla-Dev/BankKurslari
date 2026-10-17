@@ -144,12 +144,12 @@ private fun RoutePickerSheet(target: RouteTarget, onDismiss: () -> Unit) {
         tonalElevation = 0.dp
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Text(tr("Qaysi xaritada ochamiz?", "Где построить маршрут?"), style = VsType.Title, color = VsInk)
+            Text(tr("Qaysi xaritada ochamiz?", "Где построить маршрут?", "Open in which map?"), style = VsType.Title, color = VsInk)
             Text(target.name, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
             apps.forEach { (app, installed) ->
                 PickerRow(
                     title = app.label,
-                    meta = if (installed) tr("Oʻrnatilgan", "Установлено") else tr("Brauzerda ochiladi", "Откроется в браузере"),
+                    meta = if (installed) tr("Oʻrnatilgan", "Установлено", "Installed") else tr("Brauzerda ochiladi", "Откроется в браузере", "Opens in the browser"),
                     trailingWeb = !installed
                 ) {
                     if (always) setRememberedMapApp(app)
@@ -158,7 +158,7 @@ private fun RoutePickerSheet(target: RouteTarget, onDismiss: () -> Unit) {
                 }
                 KHairline()
             }
-            PickerRow(title = tr("Boshqa ilova…", "Другое приложение…"), meta = null, trailingWeb = false, more = true) {
+            PickerRow(title = tr("Boshqa ilova…", "Другое приложение…", "Other app…"), meta = null, trailingWeb = false, more = true) {
                 if (always) setRememberedMapApp(MapApp.OTHER)
                 launchRoute(MapApp.OTHER, target)
                 onDismiss()
@@ -166,7 +166,7 @@ private fun RoutePickerSheet(target: RouteTarget, onDismiss: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             AlwaysToggle(always) { always = !always }
             Text(
-                tr("Keyin Sozlamalarda oʻzgartirish mumkin.", "Можно изменить в настройках."),
+                tr("Keyin Sozlamalarda oʻzgartirish mumkin.", "Можно изменить в настройках.", "You can change this later in Settings."),
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
             )
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -206,13 +206,13 @@ private fun AlwaysToggle(checked: Boolean, onToggle: () -> Unit) {
             contentAlignment = Alignment.Center
         ) { if (checked) Icon(Icons.Outlined.Check, null, tint = VsBg, modifier = Modifier.size(14.dp)) }
         Spacer(Modifier.width(12.dp))
-        Text(tr("Har doim shu ilovada ochilsin", "Всегда открывать в этом приложении"), style = VsType.Body, color = VsInk)
+        Text(tr("Har doim shu ilovada ochilsin", "Всегда открывать в этом приложении", "Always open in this app"), style = VsType.Body, color = VsInk)
     }
 }
 
 /** Settings row helper: current remembered app label, or null when the app asks every time. */
 fun mapAppLabel(app: MapApp?, ru: Boolean): String = when (app) {
-    null -> if (ru) "Спрашивать" else "Har safar soʻrash"
-    MapApp.OTHER -> if (ru) "Системный выбор" else "Tizim tanlovi"
+    null -> pick(lang, "Har safar soʻrash", "Спрашивать", "Ask every time")
+    MapApp.OTHER -> pick(lang, "Tizim tanlovi", "Системный выбор", "System chooser")
     else -> app.label
 }

@@ -77,13 +77,12 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
         fun ensureAlertChannel(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-            val uz = RateService.language() != "ru"
             val channel = NotificationChannel(
                 ALERT_CHANNEL_ID,
-                if (uz) "Kurs ogohlantirishlari" else "Оповещения о курсе",
+                trSaved("Kurs ogohlantirishlari", "Оповещения о курсе", "Rate alerts"),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = if (uz) "Belgilangan kursga yetganda xabar" else "Уведомление при достижении заданного курса"
+                description = trSaved("Belgilangan kursga yetganda xabar", "Уведомление при достижении заданного курса", "Notification when the rate reaches your target")
             }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
@@ -117,19 +116,15 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         private fun notifyAlert(context: Context, a: RateAlert, bank: String, value: Int) {
             if (!canNotify(context)) return
             ensureAlertChannel(context)
-            val uz = RateService.language() != "ru"
             val cur = Currency.entries.firstOrNull { it.code == a.currency } ?: Currency.USD
-            val name = if (uz) cur.nameUz else cur.nameRu.lowercase()
             val op = if (a.side == AlertSide.SELL) "≥" else "≤"
-            val unit = if (uz) "soʻm" else "сум"
+            val unit = trSaved("soʻm", "сум", "UZS")
             val title = "${a.currency} $op ${a.threshold.formatUzs()} $unit"
-            val text = if (uz) {
-                if (a.side == AlertSide.SELL) "$name sotsangiz: $bank ${value.formatUzs()} $unit toʻlaydi"
-                else "$name olsangiz: $bank ${value.formatUzs()} $unit dan sotadi"
-            } else {
-                if (a.side == AlertSide.SELL) "Если продаёте $name: $bank платит ${value.formatUzs()} $unit"
-                else "Если покупаете $name: $bank продаёт по ${value.formatUzs()} $unit"
-            }
+            val v = "${value.formatUzs()} $unit"
+            val text = if (a.side == AlertSide.SELL)
+                trSaved("${cur.nameUz} sotsangiz: $bank $v toʻlaydi", "Если продаёте ${cur.nameRu.lowercase()}: $bank платит $v", "Selling ${cur.nameEn.lowercase()}: $bank pays $v")
+            else
+                trSaved("${cur.nameUz} olsangiz: $bank $v dan sotadi", "Если покупаете ${cur.nameRu.lowercase()}: $bank продаёт по $v", "Buying ${cur.nameEn.lowercase()}: $bank sells at $v")
             val open = PendingIntent.getActivity(
                 context, a.id.hashCode(), Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
             )

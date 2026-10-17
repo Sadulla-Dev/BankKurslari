@@ -18,11 +18,21 @@ import com.example.bankkurslari.ui.theme.BankKurslariTheme
 fun App(onDarkTheme: (Boolean) -> Unit = {}) {
     val systemDark = isSystemInDarkTheme()
     var themeMode by remember { mutableStateOf(RateService.themeMode()) }
-    var lang by remember { mutableStateOf(if (RateService.language() == "ru") Lang.RU else Lang.UZ) }
+    var lang by remember { mutableStateOf(Lang.fromCode(RateService.language())) }
+    appLang = lang
     val dark = when (themeMode) { 1 -> false; 2 -> true; else -> systemDark }
     LaunchedEffect(dark) { onDarkTheme(dark) }
     BankKurslariTheme(darkTheme = dark) {
-        CompositionLocalProvider(LocalStrings provides stringsFor(lang)) {
+        CompositionLocalProvider(LocalLang provides lang) {
+            var onboarded by remember { mutableStateOf(appStore().getBoolean(ONBOARDED_KEY, false)) }
+            if (!onboarded) {
+                Onboarding(
+                    lang = lang,
+                    onLang = { lang = it; RateService.setLanguage(it.code) },
+                    onDone = { onboarded = true }
+                )
+                return@CompositionLocalProvider
+            }
             CurrencyTrackerApp(
                 themeMode = themeMode,
                 onThemeMode = {

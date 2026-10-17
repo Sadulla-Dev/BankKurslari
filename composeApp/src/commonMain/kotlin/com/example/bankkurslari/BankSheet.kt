@@ -28,6 +28,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.datetime.toLocalDateTime
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,7 +85,7 @@ fun BankSheet(
                 IconButton(onClick = onToggleFavorite) {
                     Icon(
                         if (favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                        contentDescription = if (favorite) tr("Tanlanganlardan olib tashlash", "Убрать из избранного") else tr("Tanlanganlarga qoʻshish", "Добавить в избранное"),
+                        contentDescription = if (favorite) tr("Tanlanganlardan olib tashlash", "Убрать из избранного", "Remove from favourites") else tr("Tanlanganlarga qoʻshish", "Добавить в избранное", "Add to favourites"),
                         tint = if (favorite) VsEmerald else VsInkSoft
                     )
                 }
@@ -100,48 +102,50 @@ fun BankSheet(
             KHairline()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 SideCell(
-                    label = tr("Sotib olish", "Покупка"), hint = tr("bank sotib oladi", "банк покупает"),
+                    label = tr("Sotib olish", "Покупка", "Buy"), hint = tr("bank sotib oladi", "банк покупает", "bank buys"),
                     value = buy, highlight = sell, modifier = Modifier.weight(1f)
                 )
                 SideCell(
-                    label = tr("Sotish", "Продажа"), hint = tr("bank sotadi", "банк продаёт"),
+                    label = tr("Sotish", "Продажа", "Sell"), hint = tr("bank sotadi", "банк продаёт", "bank sells"),
                     value = sellRate, highlight = !sell, modifier = Modifier.weight(1f)
                 )
             }
             if (spread != null) {
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 48.dp).combinedClickable(
-                        onClickLabel = tr("Izoh", "Пояснение"),
-                        onLongClickLabel = tr("Izoh", "Пояснение"),
+                        onClickLabel = tr("Izoh", "Пояснение", "Explanation"),
+                        onLongClickLabel = tr("Izoh", "Пояснение", "Explanation"),
                         onClick = { explain = !explain },
                         onLongClick = { explain = !explain }
                     ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val diff = (if (ru) "Разница " else "Farq ") + "${kGroup(spread)} $som"
-                    Text(diff + (time?.let { " · " + (if (ru) "Обновлено $it" else "Yangilandi $it") } ?: ""), style = VsType.Meta, color = VsInkSoft)
+                    val diff = (pick(lang, "Farq ", "Разница ", "Spread ")) + "${kGroup(spread)} $som"
+                    Text(diff + (time?.let { " · " + (pick(lang, "Yangilandi $it", "Обновлено $it", "Updated $it")) } ?: ""), style = VsType.Meta, color = VsInkSoft)
                 }
                 if (explain) {
                     Text(
-                        tr("Sotish va sotib olish orasidagi farq", "Разница между продажей и покупкой"),
+                        tr("Sotish va sotib olish orasidagi farq", "Разница между продажей и покупкой", "Difference between the sell and buy rates"),
                         style = VsType.Meta, color = VsInkSoft
                     )
                 }
             } else if (time != null) {
-                Text(if (ru) "Обновлено $time" else "Yangilandi $time", style = VsType.Meta, color = VsInkSoft)
+                Text(pick(lang, "Yangilandi $time", "Обновлено $time", "Updated $time"), style = VsType.Meta, color = VsInkSoft)
             }
+
+            YesterdayLine(item, currency, ru)
 
             if (amount > 0) {
                 val amt = kGroup(amount.toLong())
-                val head = if (sell) (if (ru) "Ваши $amt ${currency.code}" else "Sizning $amt ${currency.code}")
-                else (if (ru) "Оплата за $amt ${currency.code}" else "$amt ${currency.code} uchun toʻlov")
+                val head = if (sell) (pick(lang, "Sizning $amt ${currency.code}", "Ваши $amt ${currency.code}", "Your $amt ${currency.code}"))
+                else (pick(lang, "$amt ${currency.code} uchun toʻlov", "Оплата за $amt ${currency.code}", "Payment for $amt ${currency.code}"))
                 Text("$head: ${kGroup(item.total)} $som", style = VsType.BodyMedium, color = VsInk)
             }
 
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 KButton(
-                    text = tr("Yoʻnalish", "Маршрут"), icon = Icons.Outlined.Directions, primary = true,
+                    text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions, primary = true,
                     enabled = item.lat != null && item.lng != null,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -149,7 +153,7 @@ fun BankSheet(
                     val ln = item.lng
                     if (la != null && ln != null) route(RouteTarget(la, ln, item.rate.bank))
                 }
-                KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться")) { kShare(shareText) }
+                KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share")) { kShare(shareText) }
             }
             Spacer(Modifier.height(8.dp))
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -167,4 +171,31 @@ private fun SideCell(label: String, hint: String, value: Int?, highlight: Boolea
         )
         Text(hint, style = VsType.Meta, color = VsInkSoft)
     }
+}
+
+
+/** "Kecha: 12 020 (+20) · 12 100 (−10)" from our own collected history; hidden until a previous day exists. */
+@Composable
+private fun YesterdayLine(item: RankedBank, currency: Currency, ru: Boolean) {
+    var prev by remember(item.rate.bank, currency) { mutableStateOf<BankDay?>(null) }
+    LaunchedEffect(item.rate.bank, currency) {
+        val hist = runCatching { fetchBankHistory(currency, 7) }.getOrNull().orEmpty()
+        val today = kotlin.time.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).date.toString()
+        prev = hist.lastOrNull { it.first < today }?.second?.get(item.rate.bank)
+    }
+    val p = prev ?: return
+    fun part(now: Int?, then: Int?): String? {
+        if (now == null || then == null) return null
+        val d = now - then
+        val sign = when { d > 0 -> "+"; d < 0 -> "−"; else -> "±" }
+        return "${kGroup(then)} ($sign${kGroup(kotlin.math.abs(d))})"
+    }
+    val buy = part(item.rate.buy, p.lastBuy)
+    val sell = part(item.rate.sell, p.lastSell)
+    if (buy == null && sell == null) return
+    Text(
+        tr("Kecha: ", "Вчера: ", "Yesterday: ") +
+            listOfNotNull(buy?.let { tr("sotib olish ", "покупка ", "buy ") + it }, sell?.let { tr("sotish ", "продажа ", "sell ") + it }).joinToString(" · "),
+        style = VsType.Meta, color = VsInkSoft
+    )
 }
