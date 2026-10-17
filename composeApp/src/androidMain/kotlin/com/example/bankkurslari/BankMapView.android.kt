@@ -83,6 +83,29 @@ actual fun BankMapView(
     onTileFailure: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val useGoogle = remember { hasGoogleMapsKey(context) }
+    if (useGoogle) {
+        GoogleBankMap(modifier, darkMode, pins, selectedId, labelMode, sell, best, showMyLocation, onPinTap, onController, onTileFailure)
+    } else {
+        OsmBankMap(modifier, darkMode, pins, selectedId, labelMode, sell, best, showMyLocation, onPinTap, onController, onTileFailure)
+    }
+}
+
+@Composable
+private fun OsmBankMap(
+    modifier: Modifier,
+    darkMode: Boolean,
+    pins: List<MapPin>,
+    selectedId: String?,
+    labelMode: MapLabel,
+    sell: Boolean,
+    best: Int?,
+    showMyLocation: Boolean,
+    onPinTap: (MapPin) -> Unit,
+    onController: (MapController) -> Unit,
+    onTileFailure: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
     val renderer = rememberPinRenderer()
     val surfaceArgb = VsSurface.toArgb()
     val lineArgb = VsLine.toArgb()
@@ -203,5 +226,176 @@ actual fun BankMapView(
             map.invalidate()
         },
         onRelease = { it.onDetach() }
+    )
+}
+
+/* ---------------- Google Maps (used when a Maps API key is in the manifest) ---------------- */
+
+private fun hasGoogleMapsKey(context: android.content.Context): Boolean = runCatching {
+    val info = context.packageManager.getApplicationInfo(context.packageName, android.content.pm.PackageManager.GET_META_DATA)
+    !info.metaData?.getString("com.google.android.geo.API_KEY").isNullOrBlank() &&
+        com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(context) == com.google.android.gms.common.ConnectionResult.SUCCESS
+}.getOrDefault(false)
+
+// Google "night" style, trimmed: dark land/water, muted labels, no POI clutter.
+private const val DARK_STYLE = """[
+{"elementType":"geometry","stylers":[{"color":"#1f2421"}]},
+{"elementType":"labels.text.fill","stylers":[{"color":"#9aa59f"}]},
+{"elementType":"labels.text.stroke","stylers":[{"color":"#1f2421"}]},
+{"featureType":"road","elementType":"geometry","stylers":[{"color":"#343b37"}]},
+{"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#454e48"}]},
+{"featureType":"water","elementType":"geometry","stylers":[{"color":"#121816"}]},
+{"featureType":"poi","stylers":[{"visibility":"off"}]},
+{"featureType":"transit","stylers":[{"visibility":"off"}]}
+]"""
+
+// Light: hide shops/restaurants etc. so bank pins stay readable.
+private const val LIGHT_STYLE = """[
+{"featureType":"poi.business","stylers":[{"visibility":"off"}]},
+{"featureType":"transit","elementType":"labels.icon","stylers":[{"visibility":"off"}]}
+]"""
+
+private class GoogleController(private val map: com.google.android.gms.maps.GoogleMap, private val density: Float) : MapController {
+    override fun animateTo(lat: Double, lng: Double, zoom: Double?) {
+        val target = com.google.android.gms.maps.model.LatLng(lat, lng)
+        val update = if (zoom == null) com.google.android.gms.maps.CameraUpdateFactory.newLatLng(target)
+        else com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(target, zoom.toFloat())
+        map.animateCamera(update, 600, null)
+    }
+
+    override fun fitBounds(north: Double, east: Double, south: Double, west: Double, paddingDp: Int, animate: Boolean) {
+        val bounds = com.google.android.gms.maps.model.LatLngBounds(
+            com.google.android.gms.maps.model.LatLng(south, west), com.google.android.gms.maps.model.LatLng(north, east)
+        )
+        val update = com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(bounds, (paddingDp * density).toInt())
+        runCatching { if (animate) map.animateCamera(update) else map.moveCamera(update) }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun myLocation(): Pair<Double, Double>? =
+        runCatching { map.myLocation }.getOrNull()?.let { it.latitude to it.longitude }
+}
+
+@android.annotation.SuppressLint("MissingPermission") // callers check the permission first
+private fun enableMyLocation(g: com.google.android.gms.maps.GoogleMap, on: Boolean) {
+    g.isMyLocationEnabled = on
+}
+
+@Composable
+private fun GoogleBankMap(
+    modifier: Modifier,
+    darkMode: Boolean,
+    pins: List<MapPin>,
+    selectedId: String?,
+    labelMode: MapLabel,
+    sell: Boolean,
+    best: Int?,
+    showMyLocation: Boolean,
+    onPinTap: (MapPin) -> Unit,
+    onController: (MapController) -> Unit,
+    onTileFailure: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val renderer = rememberPinRenderer()
+    val tapPin by rememberUpdatedState(onPinTap)
+    var gmap by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
+    // Bumped on every camera stop so markers are rebuilt for the new viewport/zoom.
+    var cameraTick by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) { onTileFailure(false) }
+
+    LaunchedEffect(gmap, darkMode) {
+        gmap?.setMapStyle(com.google.android.gms.maps.model.MapStyleOptions(if (darkMode) DARK_STYLE else LIGHT_STYLE))
+    }
+
+    LaunchedEffect(gmap, showMyLocation) {
+        val g = gmap ?: return@LaunchedEffect
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) enableMyLocation(g, showMyLocation)
+    }
+
+    // Markers: only the current viewport, rebuilt when data or camera changes.
+    val markers = remember { mutableListOf<com.google.android.gms.maps.model.Marker>() }
+    LaunchedEffect(gmap, pins, selectedId, labelMode, sell, best, cameraTick) {
+        val g = gmap ?: return@LaunchedEffect
+        val proj = g.projection
+        val bounds = proj.visibleRegion.latLngBounds
+        val inView = pins.filter { bounds.contains(com.google.android.gms.maps.model.LatLng(it.lat, it.lng)) }
+        val dens = context.resources.displayMetrics.density
+        val zoom = g.cameraPosition.zoom.toDouble()
+        val specs = buildMarkerSpecs(inView, selectedId, labelMode, sell, best, zoom, dens) { lat, lng ->
+            val pt = proj.toScreenLocation(com.google.android.gms.maps.model.LatLng(lat, lng))
+            pt.x.toFloat() to pt.y.toFloat()
+        }
+        markers.forEach { it.remove() }
+        markers.clear()
+        specs.forEach { spec ->
+            val m = g.addMarker(
+                com.google.android.gms.maps.model.MarkerOptions()
+                    .position(com.google.android.gms.maps.model.LatLng(spec.lat, spec.lng))
+                    .anchor(0.5f, if (spec.anchorBottom) 1f else 0.5f)
+                    .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(renderer.image(spec).asAndroidBitmap()))
+                    .zIndex(if (spec.selected) 2f else if (spec.cluster != null) 1f else 0f)
+            )
+            if (m != null) {
+                m.tag = spec
+                markers.add(m)
+            }
+        }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            val options = com.google.android.gms.maps.GoogleMapOptions()
+                .camera(com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(com.google.android.gms.maps.model.LatLng(41.311, 69.279), 11f))
+                .mapToolbarEnabled(false)
+                .compassEnabled(false)
+                .zoomControlsEnabled(false)
+            com.google.android.gms.maps.MapView(ctx, options).apply {
+                onCreate(null)
+                onStart()
+                onResume()
+                getMapAsync { g ->
+                    g.uiSettings.isMyLocationButtonEnabled = false
+                    g.uiSettings.isMapToolbarEnabled = false
+                    g.uiSettings.isRotateGesturesEnabled = false
+                    g.uiSettings.isTiltGesturesEnabled = false
+                    g.isIndoorEnabled = false
+                    g.setMinZoomPreference(4f)
+                    g.setOnCameraIdleListener { cameraTick++ }
+                    g.setOnMarkerClickListener { marker ->
+                        val spec = marker.tag as? MarkerSpec ?: return@setOnMarkerClickListener true
+                        val group = spec.cluster
+                        when {
+                            group != null -> {
+                                val open = clusterTapTarget(group, g.cameraPosition.zoom.toDouble())
+                                if (open != null) tapPin(open) else {
+                                    val b = com.google.android.gms.maps.model.LatLngBounds.builder()
+                                    group.forEach { b.include(com.google.android.gms.maps.model.LatLng(it.lat, it.lng)) }
+                                    val pad = (64 * ctx.resources.displayMetrics.density).toInt()
+                                    runCatching { g.animateCamera(com.google.android.gms.maps.CameraUpdateFactory.newLatLngBounds(b.build(), pad)) }
+                                }
+                            }
+                            spec.pin != null -> tapPin(spec.pin)
+                        }
+                        true
+                    }
+                    gmap = g
+                    onController(GoogleController(g, ctx.resources.displayMetrics.density))
+                }
+            }
+        },
+        onRelease = { mv ->
+            mv.onPause()
+            mv.onStop()
+            mv.onDestroy()
+        }
     )
 }

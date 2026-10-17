@@ -50,6 +50,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.ktor.client.android)
             implementation(libs.osmdroid.android)
+            implementation(libs.play.services.maps)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
         }
