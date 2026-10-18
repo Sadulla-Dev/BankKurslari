@@ -1,5 +1,5 @@
 [versions]
-agp = "9.0.1"
+agp = "9.1.1"
 coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
@@ -8,8 +8,8 @@ lifecycleRuntimeKtx = "2.9.2"
 activityCompose = "1.10.1"
 kotlin = "2.4.10"
 composeBom = "2024.09.00"
-osmdroid = "6.1.20"
-playServicesMaps = "19.2.0"
+maplibreCompose = "0.19.0"
+maplibreNativeFfi = "0.202609.5"
 work = "2.9.1"
 
 composeMultiplatform = "1.11.1"
@@ -33,8 +33,9 @@ kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
-play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
-osmdroid-android = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibreCompose" }
+# Native renderer for maplibre-compose (OpenGL works on every device and the emulator).
+maplibre-runtime-opengl = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-opengl", version.ref = "maplibreNativeFfi" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

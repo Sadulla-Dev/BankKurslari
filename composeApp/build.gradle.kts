@@ -8,7 +8,7 @@ plugins {
 kotlin {
     androidLibrary {
         namespace = "com.example.bankkurslari.shared"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 24
     }
 
@@ -49,8 +49,8 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.ktor.client.android)
-            implementation(libs.osmdroid.android)
-            implementation(libs.play.services.maps)
+            implementation(libs.maplibre.compose)
+            implementation(libs.maplibre.runtime.opengl)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
         }

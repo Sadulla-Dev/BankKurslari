@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -8,9 +6,7 @@ plugins {
 android {
     namespace = "com.example.bankkurslari"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
@@ -21,12 +17,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Google Maps key from local.properties (MAPS_API_KEY=...), never committed. Empty -> the app uses the OSM map.
-        val localProps = Properties().apply {
-            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
-        }
-        manifestPlaceholders["MAPS_API_KEY"] = localProps.getProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
