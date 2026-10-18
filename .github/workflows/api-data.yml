@@ -37,7 +37,7 @@ jobs:
       - run: npm ci
       - name: Build
         env:
-          STATE_URL: https://api.qulaykurs.uz
+          STATE_URL: https://qulaykurs-api.ubaydullayevsadulla843.workers.dev  # api.qulaykurs.uz once the domain is active
           MODE: ${{ github.event.schedule == '15 1,13 * * *' && 'full' || inputs.mode || 'rates' }}
         run: node src/build.js "$MODE"
       - name: Deploy
