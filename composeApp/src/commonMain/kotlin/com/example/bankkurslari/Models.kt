@@ -57,11 +57,16 @@ enum class Currency(val code: String, val symbol: String, val nameUz: String, va
     fun displayName(lang: Lang) = pick(lang, nameUz, nameRu, nameEn)
 }
 
-/** Dev machine's LAN address, for real phones on the same Wi-Fi. Changes with the network; a public server replaces this. */
+/** Public API: Cloudflare Worker serving JSON that GitHub Actions rebuilds (backend/src/build.js). */
+const val SERVER_PUBLIC = "https://api.qulaykurs.uz"
+
+/** true: use `npm run dev` on the dev machine instead (emulator/simulator via host alias, phones via SERVER_LAN). */
+const val USE_LOCAL_SERVER = false
+
+/** Dev machine's LAN address, for real phones on the same Wi-Fi. Changes with the network. */
 const val SERVER_LAN = "http://192.168.1.56:8080"
 
-/** Backend base URL for this device (emulators/simulators reach the dev machine through a fixed host alias). */
-val SERVER_BASE: String by lazy { platformServerBase(SERVER_LAN) }
+val SERVER_BASE: String by lazy { if (USE_LOCAL_SERVER) platformServerBase(SERVER_LAN) else SERVER_PUBLIC }
 val backendBase: String get() = SERVER_BASE
 fun ratesUrl(cur: Currency) = "$backendBase/api/rates/${cur.code.lowercase()}"
 fun analyticsUrl(cur: Currency) = "$backendBase/api/analytics/${cur.code.lowercase()}"

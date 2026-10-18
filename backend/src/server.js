@@ -1,16 +1,18 @@
 import * as cheerio from "cheerio";
 import express from "express";
 import { readFile, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { fetchOfficialBranches } from "./officialBranches.js";
 
-const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
+// DATA_DIR may point elsewhere (the static-site builder keeps state in a temp dir); static datasets stay in the repo.
+const REPO_DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
+const DATA_DIR = process.env.DATA_DIR || REPO_DATA_DIR;
 
 // Loads a pre-scraped static JSON dataset (bank.uz branches/ATMs), or null if absent.
 async function loadStatic(file) {
   try {
-    return JSON.parse(await readFile(join(DATA_DIR, file), "utf8"));
+    return JSON.parse(await readFile(join(REPO_DATA_DIR, file), "utf8"));
   } catch {
     return null;
   }
@@ -157,22 +159,25 @@ app.get("/api/branches", async (_request, response) => {
 
 /** All ~75 CBU currencies (official rate per Nominal units), with names in uz / uz-Cyrillic / ru / en. */
 let cbuFullCache = null;
+async function getCbuFull() {
+  if (!cbuFullCache || Date.now() - cbuFullCache.cachedAt > CACHE_TTL_MS) {
+    const data = await fetchJson(CBU_ALL_URL);
+    const num = (v) => parseFloat(String(v ?? "0").replace(",", "."));
+    const list = (Array.isArray(data) ? data : []).map((r) => ({
+      code: r.Ccy,
+      nominal: Number(r.Nominal) || 1,
+      rate: num(r.Rate),
+      diff: num(r.Diff),
+      date: r.Date ?? null,
+      names: { uz: r.CcyNm_UZ, uzc: r.CcyNm_UZC, ru: r.CcyNm_RU, en: r.CcyNm_EN }
+    })).filter((r) => r.code && Number.isFinite(r.rate) && r.rate > 0);
+    cbuFullCache = { cachedAt: Date.now(), body: { updatedAt: new Date().toISOString(), currencies: list } };
+  }
+  return cbuFullCache.body;
+}
 app.get("/api/cbu/all", async (_request, response) => {
   try {
-    if (!cbuFullCache || Date.now() - cbuFullCache.cachedAt > CACHE_TTL_MS) {
-      const data = await fetchJson(CBU_ALL_URL);
-      const num = (v) => parseFloat(String(v ?? "0").replace(",", "."));
-      const list = (Array.isArray(data) ? data : []).map((r) => ({
-        code: r.Ccy,
-        nominal: Number(r.Nominal) || 1,
-        rate: num(r.Rate),
-        diff: num(r.Diff),
-        date: r.Date ?? null,
-        names: { uz: r.CcyNm_UZ, uzc: r.CcyNm_UZC, ru: r.CcyNm_RU, en: r.CcyNm_EN }
-      })).filter((r) => r.code && Number.isFinite(r.rate) && r.rate > 0);
-      cbuFullCache = { cachedAt: Date.now(), body: { updatedAt: new Date().toISOString(), currencies: list } };
-    }
-    response.json(cbuFullCache.body);
+    response.json(await getCbuFull());
   } catch (error) {
     if (cbuFullCache) return response.json(cbuFullCache.body);
     response.status(502).json({ error: "cbu_unavailable", message: error instanceof Error ? error.message : "Unknown upstream error" });
@@ -232,7 +237,8 @@ app.get("/api/atms", async (_request, response) => {
   }
 });
 
-app.listen(PORT, () => {
+// Started directly (node src/server.js): serve over HTTP. Imported (src/build.js): only the functions are used.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) app.listen(PORT, () => {
   console.log(`ValyutaStat backend listening on http://localhost:${PORT}`);
   // Warm caches at boot so client requests always hit ready payloads.
   refreshAllRates();
@@ -304,7 +310,7 @@ async function getRatesPayload(cur, { force = false } = {}) {
   };
 
   ratesCache.set(cur, { cachedAt: Date.now(), payload });
-  recordBankHistory(cur, commercialRates).catch((e) => console.error(`Bank history (${cur}):`, e.message));
+  await recordBankHistory(cur, commercialRates).catch((e) => console.error(`Bank history (${cur}):`, e.message));
   return payload;
 }
 
@@ -574,7 +580,7 @@ async function getGold({ force = false } = {}) {
   const time = (page.match(/Yangilangan sana:[^,]*,\s*(\d{1,2}:\d{2})/) || [])[1] || null;
   const data = { source: "cbu.uz", date, time, fetchedAt: new Date().toISOString(), bars };
   goldCache = { cachedAt: Date.now(), data };
-  recordGoldHistory(data).catch((e) => console.error("Gold history:", e.message));
+  await recordGoldHistory(data).catch((e) => console.error("Gold history:", e.message));
   return data;
 }
 
@@ -937,3 +943,5 @@ function parseAmount(value) {
 function normalizeBankName(value) {
   return cleanText(value).toLowerCase().replace(/['‘’`]/g, "").replace(/\s+/g, " ");
 }
+
+export { getRatesPayload, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED };

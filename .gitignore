@@ -26,3 +26,5 @@ backend/data/history-*.json
 backend/data/bank-history-*.json
 backend/data/gold-history.json
 backend/data/official-branches.json
+backend/worker/public/
+backend/worker/.wrangler/

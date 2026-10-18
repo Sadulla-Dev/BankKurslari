@@ -1,0 +1,48 @@
+# Rebuilds the public API (api.qulaykurs.uz) from bank.uz / cbu.uz / bank sites and redeploys the Cloudflare Worker.
+# Needs repo secrets CLOUDFLARE_API_TOKEN (Workers Scripts: Edit) and CLOUDFLARE_ACCOUNT_ID.
+# Scheduled runs only fire from the default branch (main).
+name: API data
+
+on:
+  schedule:
+    - cron: "*/20 3-14 * * *"    # 08:00-19:59 Tashkent: rates every 20 min
+    - cron: "0 15-23,0-2 * * *"  # night: hourly
+    - cron: "15 1,13 * * *"      # 06:15 and 18:15 Tashkent: full rebuild (branches, ATMs, CBU history)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "rates or full"
+        default: "full"
+
+concurrency:
+  group: api-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Build
+        env:
+          STATE_URL: https://api.qulaykurs.uz
+          MODE: ${{ github.event.schedule == '15 1,13 * * *' && 'full' || inputs.mode || 'rates' }}
+        run: node src/build.js "$MODE"
+      - name: Deploy
+        working-directory: backend/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy

@@ -1,0 +1,12 @@
+name = "qulaykurs-api"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+routes = [{ pattern = "api.qulaykurs.uz", custom_domain = true }]
+
+# Built by ../src/build.js. The worker runs first for every path, so raw files are reachable only as routed above
+# (plus /_manifest.json and /_state/* that the builder pulls back).
+[assets]
+directory = "public"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/health"]
