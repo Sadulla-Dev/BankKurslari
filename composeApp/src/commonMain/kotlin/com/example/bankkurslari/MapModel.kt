@@ -82,10 +82,21 @@ val mapCities = listOf(
 
 private val bankSuffix = Regex("""(?i)[\s"«»]*(aksiyadorlik\s+)?(tijorat\s+)?(banki|bank)["«»\s]*$""")
 
-/** "Asia Alliance Bank" -> "Asia Alliance", "Oʻzbekiston Milliy banki" -> "Oʻzbekiston Milliy"; single-word names kept. */
+// Map labels: the short names people actually use for the long state-bank names.
+private val shortNames = listOf(
+    Regex("(?i)milliy") to "NBU",
+    Regex("(?i)sanoatqurilish|промстрой") to "SQB",
+    Regex("(?i)mikrokredit|mkbank") to "MKBank",
+    Regex("(?i)orient\\s*finans") to "OFB",
+    Regex("(?i)asia\\s*alliance") to "AAB",
+    Regex("(?i)ipak\\s*yo") to "Ipak Yo‘li"
+)
+
+/** Short map label: "Oʻzbekiston Milliy banki" -> "NBU", "Asia Alliance Bank" -> "AAB", "Hamkorbank" -> "Hamkorbank". */
 fun shortBankName(name: String): String {
+    shortNames.firstOrNull { it.first.containsMatchIn(name) }?.let { return it.second }
     val t = name.trim().replace(bankSuffix, "").trim().ifEmpty { name.trim() }
-    return if (t.length > 18) t.take(17).trimEnd() + "…" else t
+    return if (t.length > 14) t.take(13).trimEnd() + "…" else t
 }
 
 fun mapRateText(v: Int): String = v.toLong().formatUzsL()
@@ -188,7 +199,9 @@ class MarkerSpec(
     val cluster: List<MapPin>? = null
 ) {
     val anchorBottom: Boolean get() = tip
-    val imageKey: String get() = "$kind|$text|$sub|$style|$selected|$tip|$closed"
+    /** Pins hidden behind this one (cluster badge), 0 for a single pin. */
+    val more: Int get() = (cluster?.size ?: 1) - 1
+    val imageKey: String get() = "$kind|$text|$sub|$style|$selected|$tip|$closed|$more"
 }
 
 private fun styleOf(p: MapPin) = if (p.closed) MapPinStyle.CLOSED else if (p.good) MapPinStyle.GOOD else MapPinStyle.NEUTRAL
@@ -229,8 +242,9 @@ fun buildMarkerSpecs(
     extras.filter { if (it.kind == MapPinKind.ATM) zoom >= 12.0 else zoom >= 15.0 }.take(300)
         .forEach { out += pinSpec(it, false, labelMode) }
 
-    val boxW = (if (labelMode == MapLabel.RATE) 92 else 150) * density
-    val boxH = (if (labelMode == MapLabel.BOTH) 54 else 38) * density
+    // Label footprint incl. tip and cluster badge, plus a little air between labels.
+    val boxW = (if (labelMode == MapLabel.BOTH) 150 else 96) * density
+    val boxH = 46 * density
     val ordered = priced.sortedWith(
         compareByDescending<MapPin> { it.good && !it.closed }
             .thenBy { if (sell) -it.rb!!.perUnit else it.rb!!.perUnit }
@@ -242,8 +256,9 @@ fun buildMarkerSpecs(
         val g = groups.firstOrNull { abs(it.x - px) < boxW && abs(it.y - py) < boxH }
         if (g != null) g.pins.add(p) else groups.add(Group(px, py, mutableListOf(p)))
     }
-    // Lowest priority first so the best labels end up on top.
-    groups.asReversed().forEach { g ->
+    // Lowest priority first so the best labels end up on top. Groups beyond the cap are dropped (they are the
+    // worst-priced; zooming in brings them back).
+    groups.take(MAX_LABELS).asReversed().forEach { g ->
         val group = g.pins
         val lead = group[0]
         if (group.size == 1) out += pinSpec(lead, false, labelMode) else {
@@ -255,16 +270,42 @@ fun buildMarkerSpecs(
                 else -> MapPinStyle.NEUTRAL
             }
             // Lead = best-priced pin of the group (ordering above), so its name matches the shown rate.
-            val more = "+${group.size - 1}"
+            // The number of hidden pins is drawn as a badge (MarkerSpec.more).
             out += when (labelMode) {
-                MapLabel.RATE -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, "${mapRateText(groupBest)} · ${group.size}", null, style, cluster = group)
-                MapLabel.BANK -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, "${shortBankName(lead.title)} $more", null, style, cluster = group)
-                MapLabel.BOTH -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, "${shortBankName(lead.title)} $more", mapRateText(groupBest), style, cluster = group)
+                MapLabel.RATE -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, mapRateText(groupBest), null, style, tip = true, cluster = group)
+                MapLabel.BANK -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), null, style, tip = true, cluster = group)
+                MapLabel.BOTH -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), mapRateText(groupBest), style, tip = true, cluster = group)
             }
         }
     }
     selPin?.let { out += pinSpec(it, true, labelMode) }
     return out
+}
+
+private const val MAX_LABELS = 60
+
+/**
+ * Topmost marker under [x],[y] (screen px). [project] maps a coordinate to screen px; [sizeOf] gives a marker's image
+ * size in px. Hit boxes are grown to at least [minTouch] px so small pins stay easy to tap.
+ */
+fun hitTestMarkers(
+    specs: List<MarkerSpec>,
+    x: Float,
+    y: Float,
+    minTouch: Float,
+    project: (Double, Double) -> Pair<Float, Float>?,
+    sizeOf: (MarkerSpec) -> Pair<Float, Float>
+): MarkerSpec? {
+    // specs are back-to-front; test front-most first.
+    for (spec in specs.asReversed()) {
+        val (px, py) = project(spec.lat, spec.lng) ?: continue
+        val (w, h) = sizeOf(spec)
+        val cy = if (spec.anchorBottom) py - h / 2f else py
+        val hw = max(w, minTouch) / 2f
+        val hh = max(h, minTouch) / 2f
+        if (abs(x - px) <= hw && abs(y - cy) <= hh) return spec
+    }
+    return null
 }
 
 /**
@@ -282,10 +323,18 @@ fun clusterTapTarget(group: List<MapPin>, zoom: Double): MapPin? {
 class PinColors(val accent: Color, val onAccent: Color, val ink: Color, val inkSoft: Color, val line: Color, val bg: Color)
 
 /**
- * Draws marker images with Compose (rounded label with optional second line and tip; dots for ATMs / rate-less
- * branches). Images are padded with transparent pixels to a 48 dp hit area and cached by [MarkerSpec.imageKey].
+ * Draws marker images with Compose: a one-line capsule ("Anor  12 025") with a small tip, a count badge for clusters,
+ * dots for ATMs / rate-less branches. Cached by [MarkerSpec.imageKey].
+ *
+ * [touchPadding]: pad images with transparent pixels to a 48 dp hit area (MapKit hit-tests the image itself).
+ * Android hit-tests in code ([hitTestMarkers]) and keeps images tight.
  */
-class PinRenderer(private val measurer: TextMeasurer, private val density: Density, private val c: PinColors) {
+class PinRenderer(
+    private val measurer: TextMeasurer,
+    private val density: Density,
+    private val c: PinColors,
+    private val touchPadding: Boolean = true
+) {
     private val cache = HashMap<String, ImageBitmap>()
 
     fun image(spec: MarkerSpec): ImageBitmap {
@@ -306,37 +355,71 @@ class PinRenderer(private val measurer: TextMeasurer, private val density: Densi
         return img
     }
 
+    private fun pad(size: Float): Float = if (touchPadding) max(size, 48 * density.density) else size
+
     private fun pill(s: MarkerSpec): ImageBitmap {
         val d = density.density
-        val two = s.sub != null
-        val mainStyle = TextStyle(
-            fontSize = (if (two) (if (s.selected) 13 else 11) else (if (s.selected) 16 else 13)).sp,
-            fontWeight = if (two) FontWeight.Normal else FontWeight.Medium,
-            fontFeatureSettings = "tnum"
-        )
-        val subStyle = TextStyle(fontSize = (if (s.selected) 15 else 13).sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
-        val (fill, stroke, textColor, softColor) = when (s.style) {
-            MapPinStyle.GOOD -> listOf(c.accent, c.accent, c.onAccent, c.onAccent)
-            MapPinStyle.NEUTRAL -> listOf(c.bg, c.inkSoft, c.ink, c.inkSoft)
-            MapPinStyle.CLOSED -> listOf(c.line, c.inkSoft, c.inkSoft, c.inkSoft)
+        // GOOD = accent fill; selected = ink fill (inverted, reads as "this one"); CLOSED = muted.
+        val fill = when {
+            s.selected -> c.ink
+            s.style == MapPinStyle.GOOD -> c.accent
+            s.style == MapPinStyle.CLOSED -> c.line
+            else -> c.bg
         }
-        val main = measurer.measure(s.text, mainStyle.copy(color = if (two) softColor else textColor))
-        val sub = s.sub?.let { measurer.measure(it, subStyle.copy(color = textColor)) }
-        val padX = 10 * d
-        val gap = 1 * d
-        val pillH = if (two) main.size.height + sub!!.size.height + gap + 10 * d else (if (s.selected) 34f else 28f) * d
-        val textW = max(main.size.width.toFloat(), sub?.size?.width?.toFloat() ?: 0f)
-        val pillW = textW + 2 * padX
-        val strokeW = (if (s.selected) 2.5f else 1f) * d
-        val tipH = if (s.tip) 6 * d else 0f
-        val touch = 48 * d
-        val bw = max(pillW + 2 * strokeW, touch).toInt()
-        val bh = max(pillH + tipH + 2 * strokeW, touch).toInt()
+        val strong = when {
+            s.selected -> c.bg
+            s.style == MapPinStyle.GOOD -> c.onAccent
+            s.style == MapPinStyle.CLOSED -> c.inkSoft
+            else -> c.ink
+        }
+        val soft = strong.copy(alpha = if (s.style == MapPinStyle.NEUTRAL && !s.selected) 1f else 0.78f)
+        val softColor = if (s.style == MapPinStyle.NEUTRAL && !s.selected) c.inkSoft else soft
+
+        val big = s.selected
+        // Two parts on one line: label (bank, regular) + value (rate, semibold). Single-part pins use the strong style.
+        val labelText = if (s.sub != null) s.text else null
+        val valueText = s.sub ?: s.text
+        val valueStyle = TextStyle(
+            fontSize = (if (big) 15 else 13).sp, fontWeight = FontWeight.SemiBold,
+            fontFeatureSettings = "tnum", color = strong
+        )
+        val labelStyle = TextStyle(fontSize = (if (big) 13 else 11).sp, fontWeight = FontWeight.Medium, color = softColor)
+        val label = labelText?.let { measurer.measure(it, labelStyle) }
+        val value = measurer.measure(valueText, valueStyle)
+
+        val padX = (if (big) 12 else 10) * d
+        val gap = 5 * d
+        val pillH = (if (big) 34 else 28) * d
+        val pillW = padX * 2 + value.size.width + (label?.let { it.size.width + gap } ?: 0f)
+        val tipH = if (s.tip) 5 * d else 0f
+        val shadow = 3 * d
+        // Badge: hidden-pin count in a small ink circle overlapping the top-right corner.
+        val badge = if (s.more > 0) measurer.measure(
+            if (s.more > 99) "99+" else "+${s.more}",
+            TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = c.bg, fontFeatureSettings = "tnum")
+        ) else null
+        val badgeH = 16 * d
+        val badgeW = badge?.let { max(badgeH, it.size.width + 8 * d) } ?: 0f
+        val overhang = if (badge != null) badgeW / 2f else 0f
+        val contentW = pillW + 2 * overhang + 2 * shadow
+        val contentH = pillH + tipH + (if (badge != null) badgeH / 2f else 0f) + 2 * shadow
+        val bw = pad(contentW).toInt() + 1
+        val bh = pad(contentH).toInt() + 1
+
         return draw(bw, bh) {
             val left = (bw - pillW) / 2f
-            val bottom = if (s.tip) bh - tipH - strokeW else (bh + pillH) / 2f
+            // Bottom of the tip sits on the image's bottom edge (minus shadow room) so the anchor is exact.
+            val bottom = (if (s.tip) bh - shadow - tipH else (bh + pillH) / 2f)
             val top = bottom - pillH
-            val edge = if (s.selected) c.ink else stroke
+            val r = CornerRadius(pillH / 2f)
+            // soft shadow: three widening translucent layers
+            for (i in 3 downTo 1) {
+                val g = i * d
+                drawRoundRect(
+                    Color.Black.copy(alpha = 0.035f), Offset(left - g / 2, top - g / 2 + 1.5f * d),
+                    Size(pillW + g, pillH + g), CornerRadius(pillH / 2f + g / 2)
+                )
+            }
             if (s.tip) {
                 val path = Path().apply {
                     moveTo(bw / 2f - 5 * d, bottom - 1 * d)
@@ -344,23 +427,25 @@ class PinRenderer(private val measurer: TextMeasurer, private val density: Densi
                     lineTo(bw / 2f + 5 * d, bottom - 1 * d)
                     close()
                 }
-                drawPath(path, edge)
+                drawPath(path, fill)
             }
-            val r = CornerRadius((if (two) 10 else 12) * d)
             drawRoundRect(fill, Offset(left, top), Size(pillW, pillH), r)
-            drawRoundRect(
-                edge, Offset(left, top), Size(pillW, pillH), r,
-                style = Stroke(
-                    width = strokeW,
-                    pathEffect = if (s.style == MapPinStyle.CLOSED) PathEffect.dashPathEffect(floatArrayOf(4 * d, 3 * d)) else null
-                )
-            )
-            if (sub != null) {
-                val y1 = top + 5 * d
-                drawText(main, topLeft = Offset(bw / 2f - main.size.width / 2f, y1))
-                drawText(sub, topLeft = Offset(bw / 2f - sub.size.width / 2f, y1 + main.size.height + gap))
-            } else {
-                drawText(main, topLeft = Offset(bw / 2f - main.size.width / 2f, (top + bottom) / 2f - main.size.height / 2f))
+            if (s.style == MapPinStyle.NEUTRAL && !s.selected) {
+                drawRoundRect(c.line, Offset(left, top), Size(pillW, pillH), r, style = Stroke(1 * d))
+            }
+            var x = left + padX
+            if (label != null) {
+                drawText(label, topLeft = Offset(x, (top + bottom) / 2f - label.size.height / 2f))
+                x += label.size.width + gap
+            }
+            drawText(value, topLeft = Offset(x, (top + bottom) / 2f - value.size.height / 2f))
+            if (badge != null) {
+                val bl = left + pillW - badgeW / 2f
+                val bt = top - badgeH / 2f
+                drawRoundRect(c.bg, Offset(bl - 1.5f * d, bt - 1.5f * d), Size(badgeW + 3 * d, badgeH + 3 * d), CornerRadius(badgeH))
+                // Neutral ink badge: green is reserved for "good rate".
+                drawRoundRect(if (s.selected) c.accent else c.ink, Offset(bl, bt), Size(badgeW, badgeH), CornerRadius(badgeH / 2f))
+                drawText(badge, topLeft = Offset(bl + badgeW / 2f - badge.size.width / 2f, bt + badgeH / 2f - badge.size.height / 2f))
             }
         }
     }
@@ -368,7 +453,7 @@ class PinRenderer(private val measurer: TextMeasurer, private val density: Densi
     /** Small neutral marker: filled dot = branch without a rate, ring = ATM. */
     private fun dot(atm: Boolean, closed: Boolean): ImageBitmap {
         val d = density.density
-        val size = (48 * d).toInt()
+        val size = pad(16 * d).toInt()
         return draw(size, size) {
             val cx = Offset(size / 2f, size / 2f)
             if (atm) {
@@ -395,11 +480,13 @@ class PinRenderer(private val measurer: TextMeasurer, private val density: Densi
 }
 
 @Composable
-fun rememberPinRenderer(): PinRenderer {
+fun rememberPinRenderer(touchPadding: Boolean = true): PinRenderer {
     val measurer = rememberTextMeasurer(cacheSize = 64)
     val density = LocalDensity.current
     val colors = PinColors(VsEmerald, VsBg, VsInk, VsInkSoft, VsLine, VsBg)
-    return remember(measurer, density, colors.accent, colors.ink, colors.bg) { PinRenderer(measurer, density, colors) }
+    return remember(measurer, density, colors.accent, colors.ink, colors.bg, touchPadding) {
+        PinRenderer(measurer, density, colors, touchPadding)
+    }
 }
 
 /* ---------- platform map view ---------- */
@@ -413,7 +500,7 @@ interface MapController {
 }
 
 /**
- * The map itself: osmdroid on Android, MapKit on iOS. Gets the filtered pins; does viewport culling, projection and
+ * The map itself: MapLibre on Android, MapKit on iOS. Gets the filtered pins; does viewport culling, projection and
  * drawing (via [buildMarkerSpecs] + [PinRenderer]). Cluster taps zoom in; pin taps go to [onPinTap].
  */
 @Composable

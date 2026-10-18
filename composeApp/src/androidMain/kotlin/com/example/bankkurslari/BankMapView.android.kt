@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,7 +30,9 @@ import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraUpdate
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
+import org.maplibre.compose.map.CameraConstraints
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
@@ -109,7 +109,8 @@ actual fun BankMapView(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current.density
-    val renderer = rememberPinRenderer()
+    // Tight images: taps are hit-tested in code, so pins never swallow pan / pinch gestures.
+    val renderer = rememberPinRenderer(touchPadding = false)
     val tapPin by rememberUpdatedState(onPinTap)
     val scope = rememberCoroutineScope()
 
@@ -153,13 +154,57 @@ actual fun BankMapView(
         }
     }
 
+    fun onTap(spec: MarkerSpec) {
+        val group = spec.cluster
+        when {
+            group != null -> {
+                val open = clusterTapTarget(group, mapState.cameraPosition.zoom)
+                if (open != null) tapPin(open) else scope.launch {
+                    val pad = DpPadding(64.dp, 64.dp, 64.dp, 64.dp)
+                    runCatching {
+                        val cam = mapState.cameraForBounds(
+                            bounds(group.maxOf { it.lat }, group.maxOf { it.lng }, group.minOf { it.lat }, group.minOf { it.lng }),
+                            fitPadding = pad
+                        )
+                        mapState.animateCamera(cam.toCameraUpdate(), CameraAnimation.Ease(500.milliseconds))
+                    }
+                }
+            }
+            spec.pin != null -> tapPin(spec.pin)
+        }
+    }
+    val currentSpecs by rememberUpdatedState(specs)
+
     MaplibreMap(
         modifier = modifier,
         state = mapState,
+        cameraConstraints = CameraConstraints(minZoom = 4.0, maxZoom = 18.0),
         interactions = MapInteractions {
             camera {
                 rotate { enabled = false }
                 tilt { enabled = false }
+            }
+            callbacks {
+                click {
+                    onEvent { ev ->
+                        val hit = hitTestMarkers(
+                            currentSpecs,
+                            ev.screenOffset.x.value * density,
+                            ev.screenOffset.y.value * density,
+                            minTouch = 44 * density,
+                            project = { lat, lng ->
+                                mapState.screenLocationFromPosition(Position(lng, lat))?.let { it.x.value * density to it.y.value * density }
+                            },
+                            sizeOf = { spec -> renderer.image(spec).let { it.width.toFloat() to it.height.toFloat() } }
+                        )
+                        if (hit != null) {
+                            onTap(hit)
+                            ClickResult.Consume
+                        } else {
+                            ClickResult.Pass
+                        }
+                    }
+                }
             }
         },
         overlay = {
@@ -175,25 +220,6 @@ actual fun BankMapView(
                         modifier = Modifier
                             .placedAt(Position(spec.lng, spec.lat), if (spec.anchorBottom) Alignment.BottomCenter else Alignment.Center)
                             .zIndex(if (spec.selected) 2f else if (spec.cluster != null) 1f else 0f)
-                            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-                                val group = spec.cluster
-                                when {
-                                    group != null -> {
-                                        val open = clusterTapTarget(group, mapState.cameraPosition.zoom)
-                                        if (open != null) tapPin(open) else scope.launch {
-                                            val pad = DpPadding(64.dp, 64.dp, 64.dp, 64.dp)
-                                            runCatching {
-                                                val cam = mapState.cameraForBounds(
-                                                    bounds(group.maxOf { it.lat }, group.maxOf { it.lng }, group.minOf { it.lat }, group.minOf { it.lng }),
-                                                    fitPadding = pad
-                                                )
-                                                mapState.animateCamera(cam.toCameraUpdate(), CameraAnimation.Ease(500.milliseconds))
-                                            }
-                                        }
-                                    }
-                                    spec.pin != null -> tapPin(spec.pin)
-                                }
-                            }
                     )
                 }
             }
