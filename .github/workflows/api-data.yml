@@ -4,6 +4,12 @@
 name: API data
 
 on:
+  # Backend changes on main redeploy right away (full rebuild).
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/api-data.yml"
   schedule:
     - cron: "*/20 3-14 * * *"    # 08:00-19:59 Tashkent: rates every 20 min
     - cron: "0 15-23,0-2 * * *"  # night: hourly
@@ -38,7 +44,7 @@ jobs:
       - name: Build
         env:
           STATE_URL: https://qulaykurs-api.ubaydullayevsadulla843.workers.dev  # api.qulaykurs.uz once the domain is active
-          MODE: ${{ github.event.schedule == '15 1,13 * * *' && 'full' || inputs.mode || 'rates' }}
+          MODE: ${{ (github.event_name == 'push' || github.event.schedule == '15 1,13 * * *') && 'full' || inputs.mode || 'rates' }}
         run: node src/build.js "$MODE"
       - name: Deploy
         working-directory: backend/worker
