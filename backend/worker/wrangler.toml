@@ -2,8 +2,9 @@ name = "qulaykurs-api"
 main = "worker.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
-# Enable once qulaykurs.uz is active on Cloudflare:
-# routes = [{ pattern = "api.qulaykurs.uz", custom_domain = true }]
+# api.qulaykurs.uz is attached as a Custom Domain in the dashboard (Workers > qulaykurs-api > Domains).
+# Deploys leave it alone while no routes are listed here; adding it here would also need Zone permissions on the CI token.
+# workers.dev stays on for app builds released before the domain.
 
 # Built by ../src/build.js. The worker runs first for every path, so raw files are reachable only as routed above
 # (plus /_manifest.json and /_state/* that the builder pulls back).

@@ -58,8 +58,7 @@ enum class Currency(val code: String, val symbol: String, val nameUz: String, va
 }
 
 /** Public API: Cloudflare Worker serving JSON that GitHub Actions rebuilds (backend/src/build.js). */
-// Switch to "https://api.qulaykurs.uz" once the domain is active on Cloudflare (before the Play Store release).
-const val SERVER_PUBLIC = "https://qulaykurs-api.ubaydullayevsadulla843.workers.dev"
+const val SERVER_PUBLIC = "https://api.qulaykurs.uz"
 
 /** true: use `npm run dev` on the dev machine instead (emulator/simulator via host alias, phones via SERVER_LAN). */
 const val USE_LOCAL_SERVER = false
