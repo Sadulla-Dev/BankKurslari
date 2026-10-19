@@ -10,6 +10,8 @@ kotlin {
         namespace = "com.example.bankkurslari.shared"
         compileSdk = 37
         minSdk = 24
+        // Compose resources (fonts) are packaged through Android assets in KMP library modules.
+        androidResources.enable = true
     }
 
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -40,6 +42,7 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.ui)
             implementation(libs.compose.material3)
+            implementation(libs.compose.resources)
             implementation(libs.compose.icons.extended)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
@@ -58,4 +61,9 @@ kotlin {
             implementation(libs.ktor.client.darwin)
         }
     }
+}
+
+compose.resources {
+    packageOfResClass = "com.example.bankkurslari.generated"
+    generateResClass = always
 }

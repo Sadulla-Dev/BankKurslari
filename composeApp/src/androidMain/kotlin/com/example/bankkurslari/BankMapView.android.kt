@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -44,8 +45,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.milliseconds
 
-// OpenFreeMap vector styles: free, no API key, OSM data (attribution shown by the map).
-private const val STYLE_LIGHT = "https://tiles.openfreemap.org/styles/liberty"
+// OpenFreeMap vector styles (positron = quiet grey basemap so pins carry the data): free, no API key, OSM data (attribution shown by the map).
+private const val STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron"
 private const val STYLE_DARK = "https://tiles.openfreemap.org/styles/dark"
 
 private fun lastKnownLocation(context: Context): Pair<Double, Double>? {
@@ -131,12 +132,13 @@ actual fun BankMapView(
             .filterNotNull()
             .collect { settled = it }
     }
-    val specs = remember(settled, pins, selectedId, labelMode, sell, best) {
+    var viewSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    val specs = remember(settled, pins, selectedId, labelMode, sell, best, viewSize) {
         val vp = settled ?: return@remember emptyList()
         val sw = vp.visibleBounds.southwest
         val ne = vp.visibleBounds.northeast
         val inView = pins.filter { it.lat in sw.latitude..ne.latitude && it.lng in sw.longitude..ne.longitude }
-        buildMarkerSpecs(inView, selectedId, labelMode, sell, best, vp.cameraPosition.zoom, density) { lat, lng ->
+        buildMarkerSpecs(inView, selectedId, labelMode, sell, best, vp.cameraPosition.zoom, density, viewSize.width.toFloat(), viewSize.height.toFloat()) { lat, lng ->
             val o = mapState.screenLocationFromPosition(Position(lng, lat))
             if (o == null) -1e6f to -1e6f else o.x.value * density to o.y.value * density
         }
@@ -176,7 +178,7 @@ actual fun BankMapView(
     val currentSpecs by rememberUpdatedState(specs)
 
     MaplibreMap(
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { viewSize = it },
         state = mapState,
         cameraConstraints = CameraConstraints(minZoom = 4.0, maxZoom = 18.0),
         interactions = MapInteractions {

@@ -3,6 +3,8 @@ package com.example.bankkurslari
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -25,6 +27,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudOff
@@ -54,6 +58,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.bankkurslari.ui.theme.VsBg
+import com.example.bankkurslari.ui.theme.VsCard
+import com.example.bankkurslari.ui.theme.VsHair
+import com.example.bankkurslari.ui.theme.VsTealTint
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
@@ -307,38 +314,47 @@ fun CurrencyTrackerApp(
 private fun isDarkTheme(themeMode: Int): Boolean =
     when (themeMode) { 1 -> false; 2 -> true; else -> androidx.compose.foundation.isSystemInDarkTheme() }
 
-/* ---------- Bottom navigation: flat, hairline top, 3 tabs ---------- */
+/* ---------- Bottom navigation: card surface, hairline top, teal-tint pill behind the selected icon ---------- */
 
 @Composable
 private fun BottomBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(VsBg).navigationBarsPadding()) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(VsLine))
+    Column(Modifier.fillMaxWidth().background(VsCard).navigationBarsPadding()) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(VsHair))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 10.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceAround
         ) {
             HomeTab.entries.forEach { item ->
                 val active = item == selected
+                val source = remember { MutableInteractionSource() }
                 val tint by animateColorAsState(if (active) VsEmerald else VsInkSoft, Motion.color(), label = "navtint")
-                val iconScale by animateFloatAsState(if (active) 1f else 0.92f, Motion.slide(), label = "navscale")
+                // Icon animation: replays from 0 each time the tab becomes selected, rests at 1.
+                val play = remember { Animatable(1f) }
+                LaunchedEffect(active) {
+                    if (active) { play.snapTo(0f); play.animateTo(1f, tween(520, easing = LinearEasing)) }
+                }
+                val pill by animateFloatAsState(if (active) 1f else 0f, tween(Motion.MEDIUM, easing = Motion.Decelerate), label = "navpill")
                 val label = item.label()
                 Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 56.dp)
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null, role = Role.Tab, onClick = { onSelect(item) }
-                        )
+                        .width(84.dp)
+                        .pressScale(source)
+                        .clickable(interactionSource = source, indication = null, role = Role.Tab, onClick = { onSelect(item) })
                         .semantics { this.selected = active; contentDescription = label },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(item.icon, null, tint = tint, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale })
-                    Spacer(Modifier.height(2.dp))
+                    Box(Modifier.width(56.dp).height(32.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.matchParentSize()
+                                .graphicsLayer { scaleX = 0.5f + 0.5f * pill; alpha = pill }
+                                .clip(RoundedCornerShape(50)).background(VsTealTint)
+                        )
+                        NavIcon(item, tint, play.value)
+                    }
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        label, color = tint, style = VsType.Meta,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        label, color = tint, style = VsType.Tab,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1
                     )
                 }

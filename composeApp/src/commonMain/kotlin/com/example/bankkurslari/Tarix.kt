@@ -2,6 +2,8 @@ package com.example.bankkurslari
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,11 +24,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -50,14 +53,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.bankkurslari.ui.theme.VsAmber
+import androidx.compose.ui.unit.sp
 import com.example.bankkurslari.ui.theme.VsBg
+import com.example.bankkurslari.ui.theme.VsCard
 import com.example.bankkurslari.ui.theme.VsEmerald
+import com.example.bankkurslari.ui.theme.VsGround
+import com.example.bankkurslari.ui.theme.VsHair
 import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
-import com.example.bankkurslari.ui.theme.VsLine
-import com.example.bankkurslari.ui.theme.VsSurface
+import com.example.bankkurslari.ui.theme.VsRoseText
 import com.example.bankkurslari.ui.theme.VsType
 import kotlin.math.abs
 import kotlin.time.Clock
@@ -94,25 +100,44 @@ fun TarixScreen(
     }
 
 
+    val name = currency.displayName(lang).let { if (ru) it.lowercase() else it }
+    val time = payload.updatedAt?.formatUpdatedAt().orEmpty()
+    val bestSell = payload.banks.filter { it.buy != null }.maxByOrNull { it.buy!! }
+    val bestBuy = payload.banks.filter { it.sell != null }.minByOrNull { it.sell!! }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(VsBg)
             .padding(innerPadding)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp)
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Ticker header (same as Kurs): the selected card already carries today's CBU rate and day change.
-        TickerBar(
-            currency = currency, onCurrency = onCurrency, tickers = tickers,
-            updatedAt = payload.updatedAt, offline = offline, onOpenSettings = onOpenSettings
-        )
+        // Topbar: currency pill + share (+ settings, kept so it stays reachable from this tab).
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Segmented(
+                options = Currency.entries.map { it.code },
+                selected = Currency.entries.indexOf(currency),
+                onSelect = { onCurrency(Currency.entries[it]) },
+                cellWidth = 64.dp
+            )
+            Spacer(Modifier.weight(1f))
+            val shareDesc = pick(lang, "Grafikni ulashish", "Поделиться графиком", "Share chart")
+            VsIconButton(Icons.Outlined.IosShare, shareDesc, onClick = {
+                shareText("${currency.code} · MB / CBU: ${cur.formatRate()} ${unit}" + if (time.isNotEmpty()) " · $time" else "")
+            })
+            Spacer(Modifier.width(8.dp))
+            VsIconButton(Icons.Outlined.Tune, pick(lang, "Sozlamalar", "Настройки", "Settings"), onClick = onOpenSettings)
+        }
+
         if (series.size >= 2) {
             InteractiveHistory(series = series, today = cur, currency = currency, amount = amount, ru = ru, unit = unit)
         } else {
+            TrendHero(label = pick(lang, "Markaziy bank kursi, 1 $name", "Курс ЦБ, 1 $name", "Central Bank rate, 1 $name"), today = cur, unit = unit, delta = null)
             Box(
-                modifier = Modifier.padding(top = 24.dp).fillMaxWidth().height(240.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface),
+                modifier = Modifier.fillMaxWidth().height(200.dp).clip(VsShape.Panel).background(VsCard),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -125,68 +150,64 @@ fun TarixScreen(
             }
         }
 
-        SectionDivider()
-
-        // Bugun bozorda
-        val name = currency.displayName(lang).let { if (ru) it.lowercase() else it }
-        val time = payload.updatedAt?.formatUpdatedAt().orEmpty()
-        val bestSell = payload.banks.filter { it.buy != null }.maxByOrNull { it.buy!! }
-        val bestBuy = payload.banks.filter { it.sell != null }.minByOrNull { it.sell!! }
-        Text(pick(lang, "Bugun bozorda", "Сегодня на рынке", "In the market today"), style = VsType.Title, color = VsInk)
-        MarketRow(
-            title = pick(lang, "$name sotsangiz — eng koʻp toʻlaydi", "Если продаёте $name — больше всех платит", "Selling ${name.lowercase()}? Pays the most"),
-            value = bestSell?.buy.formatUzs(), unit = unit,
-            meta = listOfNotNull(bestSell?.bank, time.ifEmpty { null }).joinToString(" · ")
-        )
-        HorizontalDivider(color = VsLine)
-        MarketRow(
-            title = pick(lang, "$name olsangiz — eng arzon sotadi", "Если покупаете $name — дешевле всех продаёт", "Buying ${name.lowercase()}? Sells the cheapest"),
-            value = bestBuy?.sell.formatUzs(), unit = unit,
-            meta = listOfNotNull(bestBuy?.bank, time.ifEmpty { null }).joinToString(" · ")
-        )
-
-        SectionDivider()
+        // At banks today
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp), verticalAlignment = Alignment.Bottom) {
+            Text(pick(lang, "Bugun banklarda", "Сегодня в банках", "At banks today"), style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
+            Text(
+                pick(lang, "${payload.banks.size} ta bank", "${payload.banks.size} банков", "${payload.banks.size} banks"),
+                style = VsType.Meta, color = VsInkSoft
+            )
+        }
+        val spread = if (bestBuy?.sell != null && bestSell?.buy != null && bestBuy.sell!! > bestSell.buy!!) bestBuy.sell!! - bestSell.buy!! else null
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TrendStat(pick(lang, "Bank oladi", "Банк покупает", "Best buy"), bestSell?.buy.formatUzs(), bestSell?.bank, Modifier.weight(1f))
+            TrendStat(pick(lang, "Bank sotadi", "Банк продаёт", "Best sell"), bestBuy?.sell.formatUzs(), bestBuy?.bank, Modifier.weight(1f))
+            if (spread != null) TrendStat(pick(lang, "Farq", "Разница", "Spread"), spread.toLong().formatUzsL(), null, Modifier.weight(1f))
+        }
 
         GoldSection(ru = ru, unit = unit)
 
-        SectionDivider()
-
         // Alerts
-        Text(pick(lang, "Ogohlantirishlar", "Оповещения", "Alerts"), style = VsType.Title, color = VsInk)
-        if (alerts.isEmpty()) {
-            Text(
-                pick(lang, "Kurs kerakli qiymatga yetganda xabar beramiz.", "Сообщим, когда курс достигнет нужного значения.", "We will notify you when the rate reaches your target."),
-                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-        alerts.forEach { a ->
-            AlertRow(a, ru, unit) {
-                Alerts.remove(a.id)
-                alerts = Alerts.load()
-            }
-            HorizontalDivider(color = VsLine)
-        }
+        Text(pick(lang, "Ogohlantirishlar", "Оповещения", "Alerts"), style = VsType.Title, color = VsInk, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
         val full = alerts.size >= Alerts.MAX
-        Spacer(Modifier.height(12.dp))
-        KButton(
-            text = pick(lang, "Ogohlantirish qoʻshish", "Добавить оповещение", "Add alert"),
-            icon = Icons.Outlined.NotificationsNone, primary = false, enabled = !full,
-            modifier = Modifier.fillMaxWidth()
-        ) { showAdd = true }
+        VsPanel {
+            if (alerts.isEmpty()) {
+                Text(
+                    pick(lang, "Kurs kerakli qiymatga yetganda xabar beramiz.", "Сообщим, когда курс достигнет нужного значения.", "We will notify you when the rate reaches your target."),
+                    style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                )
+                VsDivider()
+            }
+            alerts.forEach { a ->
+                AlertRow(a, ru, unit) {
+                    Alerts.remove(a.id)
+                    alerts = Alerts.load()
+                }
+                VsDivider()
+            }
+            val addText = pick(lang, "Ogohlantirish qoʻshish", "Добавить оповещение", "Add alert")
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    .clickable(enabled = !full, role = Role.Button) { showAdd = true }
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(addText, style = VsType.BodyMedium, color = if (full) VsInkSoft else VsEmerald, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.NotificationsNone, null, tint = if (full) VsInkSoft else VsEmerald, modifier = Modifier.size(20.dp))
+            }
+        }
         if (full) {
             Text(
                 pick(lang, "Eng koʻpi bilan ${Alerts.MAX} ta ogohlantirish. Yangisini qoʻshish uchun birini oʻchiring.",
                     "Не больше ${Alerts.MAX} оповещений. Удалите одно, чтобы добавить новое.",
                     "Up to ${Alerts.MAX} alerts. Delete one to add a new one."),
-                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
+                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
 
-        SectionDivider()
-
         // Sources
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { sourcesOpen = !sourcesOpen },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { sourcesOpen = !sourcesOpen }.padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -199,7 +220,7 @@ fun TarixScreen(
                 pick(lang, "bank.uz — tijorat banklarining naqd kurslari.\ncbu.uz — Markaziy bankning rasmiy kursi va uning tarixi.",
                     "bank.uz — курсы коммерческих банков (наличные).\ncbu.uz — официальный курс Центрального банка и его история.",
                     "bank.uz — commercial banks’ cash rates.\ncbu.uz — the Central Bank’s official rate and its history."),
-                style = VsType.Meta, color = VsInkSoft
+                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
     }
@@ -218,26 +239,13 @@ fun TarixScreen(
     }
 }
 
+/** Ground stat tile for the three-up "At banks today" row (same shape and tokens as VsStat, 18 sp figure to fit a third of the width). */
 @Composable
-private fun SectionDivider() {
-    Spacer(Modifier.height(16.dp))
-    HorizontalDivider(color = VsLine)
-    Spacer(Modifier.height(16.dp))
-}
-
-@Composable
-private fun MarketRow(title: String, value: String, unit: String, meta: String) {
-    // Two baseline-aligned lines (same grid as the Kurs list): title · value, meta · unit.
-    Column(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 12.dp)) {
-        Row(Modifier.fillMaxWidth()) {
-            Text(title, style = VsType.Body, color = VsInk, modifier = Modifier.weight(1f).alignByBaseline())
-            Spacer(Modifier.width(12.dp))
-            Text(value, style = VsType.BodyMedium, color = VsInk, modifier = Modifier.alignByBaseline())
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-            Text(meta, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f).alignByBaseline())
-            Text(unit, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.alignByBaseline())
-        }
+private fun TrendStat(label: String, value: String, note: String?, modifier: Modifier = Modifier) {
+    Column(modifier.clip(VsShape.Stat).background(VsCard).border(1.dp, VsHair, VsShape.Stat).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, style = VsType.Value.copy(fontSize = 18.sp), color = VsInk, maxLines = 1)
+        if (note != null) Text(note, style = VsType.Meta.copy(fontSize = 12.sp), color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -253,9 +261,9 @@ private fun AlertRow(a: RateAlert, ru: Boolean, unit: String, onDelete: () -> Un
         "${if (sell) "Selling" else "Buying"} ${cur.nameEn.lowercase()} $v")
     val scope = a.bank ?: pick(lang, "Bozordagi eng yaxshi", "Лучший на рынке", "Best in the market")
     val status = if (a.fired) (pick(lang, " · ishga tushdi", " · сработало", " · triggered")) else ""
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-            Text(title, style = VsType.Body, color = VsInk)
+            Text(title, style = VsType.BodyMedium, color = VsInk)
             Text(scope + status, style = VsType.Meta, color = VsInkSoft)
         }
         Box(
@@ -312,8 +320,8 @@ private fun AddAlertSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        containerColor = VsBg,
+        shape = VsShape.Tray,
+        containerColor = VsCard,
         contentColor = VsInk,
         tonalElevation = 0.dp,
         dragHandle = null
@@ -322,12 +330,14 @@ private fun AddAlertSheet(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 20.dp)
         ) {
+            Box(Modifier.align(Alignment.CenterHorizontally).width(40.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(VsHair))
+            Spacer(Modifier.height(18.dp))
             Text(pick(lang, "Yangi ogohlantirish", "Новое оповещение", "New alert"), style = VsType.Title, color = VsInk)
             Spacer(Modifier.height(16.dp))
             SettingsSegmented(
-                options = listOf(pick(lang, "Men sotaman", "Я продаю", "I sell"), pick(lang, "Men olaman", "Я покупаю", "I buy")),
+                options = listOf(pick(lang, "Sotish", "Продать", "Sell"), pick(lang, "Olish", "Купить", "Buy")),
                 selected = side.ordinal,
                 onSelect = {
                     side = AlertSide.entries[it]
@@ -337,9 +347,9 @@ private fun AddAlertSheet(
             )
             Text(
                 if (side == AlertSide.SELL) {
-                    pick(lang, "$name sotsangiz, kurs shu qiymatga yetganda yoki undan oshganda (≥) xabar beramiz.", "Сообщим, когда за $name заплатят ${"≥"} указанной суммы.", "Selling ${name.lowercase()}: we notify you when the rate reaches or exceeds (≥) this value.")
+                    pick(lang, "$name sotsangiz: kurs shu qiymatga yetganda yoki oshganda (≥) xabar beramiz.", "Если продаёте $name: сообщим, когда курс достигнет этого значения или выше (≥).", "Selling ${name.lowercase()}: we notify you when the rate reaches or exceeds (≥) this value.")
                 } else {
-                    pick(lang, "$name olsangiz, kurs shu qiymatga tushganda yoki undan pasayganda (≤) xabar beramiz.", "Сообщим, когда $name можно будет купить по курсу ≤ указанной суммы.", "Buying ${name.lowercase()}: we notify you when the rate drops to or below (≤) this value.")
+                    pick(lang, "$name olsangiz: kurs shu qiymatga tushganda yoki pasayganda (≤) xabar beramiz.", "Если покупаете $name: сообщим, когда курс опустится до этого значения или ниже (≤).", "Buying ${name.lowercase()}: we notify you when the rate drops to or below (≤) this value.")
                 },
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
             )
@@ -351,9 +361,9 @@ private fun AddAlertSheet(
                     .padding(top = 4.dp)
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(VsSurface)
-                    .padding(horizontal = 12.dp),
+                    .clip(VsShape.Stat)
+                    .background(VsGround)
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicTextField(
@@ -377,9 +387,9 @@ private fun AddAlertSheet(
             if (alreadyMet) {
                 Text(
                     pick(lang, "Shart hozir bajarilgan. Kurs shartdan chiqib, qayta yetganda xabar beramiz.",
-                        "Условие уже выполнено. Сообщим, когда курс выйдет из условия и достигнет его снова.",
+                        "Условие уже выполнено. Сообщим, когда курс выйдет из диапазона и снова достигнет значения.",
                         "Already met. We’ll notify you when the rate leaves this range and reaches it again."),
-                    style = VsType.Meta, color = VsAmber, modifier = Modifier.padding(top = 4.dp)
+                    style = VsType.Meta, color = VsRoseText, modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
@@ -387,7 +397,7 @@ private fun AddAlertSheet(
             Text(pick(lang, "Qayerda", "Где", "Where"), style = VsType.Meta, color = VsInkSoft)
             Spacer(Modifier.height(4.dp))
             SettingsSegmented(
-                options = listOf(pick(lang, "Bozordagi eng yaxshi", "Лучший на рынке", "Best in the market"), pick(lang, "Aniq bank", "Конкретный банк", "Specific bank")),
+                options = listOf(pick(lang, "Bozordagi eng yaxshi", "Лучший на рынке", "Best in the market"), pick(lang, "Muayyan bank", "Конкретный банк", "Specific bank")),
                 selected = if (specificBank) 1 else 0,
                 onSelect = {
                     specificBank = it == 1
@@ -400,10 +410,10 @@ private fun AddAlertSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(VsSurface)
+                            .clip(VsShape.Stat)
+                            .background(VsGround)
                             .clickable { bankMenu = true }
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -411,7 +421,7 @@ private fun AddAlertSheet(
                             style = VsType.Body, color = if (bank == null) VsInkSoft else VsInk
                         )
                     }
-                    DropdownMenu(expanded = bankMenu, onDismissRequest = { bankMenu = false }, containerColor = VsBg) {
+                    DropdownMenu(expanded = bankMenu, onDismissRequest = { bankMenu = false }, containerColor = VsCard) {
                         bankNames.forEach { b ->
                             DropdownMenuItem(
                                 text = { Text(b, style = VsType.Body, color = VsInk) },
@@ -424,28 +434,27 @@ private fun AddAlertSheet(
             }
 
             Spacer(Modifier.height(24.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (valid) VsEmerald else VsSurface)
-                    .then(
-                        if (!valid) Modifier else Modifier.clickable {
-                            requestNotifications()
-                            onSave(
-                                RateAlert(
-                                    id = Alerts.newId(), currency = currency.code, side = side, threshold = threshold,
-                                    bank = if (specificBank) bank else null,
-                                    fired = alreadyMet, lastFiredAt = 0L
-                                )
+            val saveText = pick(lang, "Saqlash", "Сохранить", "Save")
+            if (valid) {
+                VsPrimaryButton(
+                    text = saveText,
+                    onClick = {
+                        requestNotifications()
+                        onSave(
+                            RateAlert(
+                                id = Alerts.newId(), currency = currency.code, side = side, threshold = threshold,
+                                bank = if (specificBank) bank else null,
+                                fired = alreadyMet, lastFiredAt = 0L
                             )
-                        }
-                    )
-                    .semantics { role = Role.Button },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(pick(lang, "Saqlash", "Сохранить", "Save"), style = VsType.BodyMedium, color = if (valid) VsBg else VsInkSoft)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                Box(
+                    Modifier.fillMaxWidth().height(54.dp).clip(VsShape.Button).background(VsGround),
+                    contentAlignment = Alignment.Center
+                ) { Text(saveText, style = VsType.BodyMedium, color = VsInkSoft) }
             }
         }
     }

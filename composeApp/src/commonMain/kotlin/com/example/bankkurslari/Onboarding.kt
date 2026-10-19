@@ -47,10 +47,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.bankkurslari.ui.theme.VsBg
 import com.example.bankkurslari.ui.theme.VsEmerald
-import com.example.bankkurslari.ui.theme.VsEmeraldSoft
+import com.example.bankkurslari.ui.theme.VsTealTint
+import com.example.bankkurslari.ui.theme.VsCard
+import com.example.bankkurslari.ui.theme.VsHair
 import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
-import com.example.bankkurslari.ui.theme.VsLine
 import com.example.bankkurslari.ui.theme.VsType
 
 const val ONBOARDED_KEY = "onboarded_v1"
@@ -77,7 +78,7 @@ fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(3) { i ->
-                    Box(Modifier.size(width = if (i == step) 20.dp else 6.dp, height = 6.dp).clip(CircleShape).background(if (i <= step) VsEmerald else VsLine))
+                    Box(Modifier.size(width = if (i == step) 20.dp else 6.dp, height = 6.dp).clip(CircleShape).background(if (i <= step) VsEmerald else VsHair))
                 }
             }
             Text(
@@ -120,13 +121,13 @@ fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
                     else -> {
                         StepTitle(tr("Odatda nima qilasiz?", "Что вы обычно делаете?", "What do you usually do?"))
                         Choice(
-                            tr("Valyuta sotaman", "Продаю валюту", "I sell currency"), sell,
-                            sub = tr("Eng koʻp soʻm beradigan bankni koʻrsatamiz", "Покажем банк, который даёт больше всего сумов", "We show the bank that pays the most so‘m"),
+                            tr("Valyuta sotish", "Продать валюту", "Sell currency"), sell,
+                            sub = tr("Eng koʻp soʻm beradigan bankni koʻrsatamiz", "Покажем, где дают больше всего сумов", "We show the bank that pays the most so‘m"),
                             icon = Icons.Outlined.ArrowUpward
                         ) { sell = true; appStore().putString("direction", "sell") }
                         Choice(
-                            tr("Valyuta olaman", "Покупаю валюту", "I buy currency"), !sell,
-                            sub = tr("Eng arzon sotadigan bankni koʻrsatamiz", "Покажем банк, который продаёт дешевле всех", "We show the bank that sells the cheapest"),
+                            tr("Valyuta olish", "Купить валюту", "Buy currency"), !sell,
+                            sub = tr("Eng arzon sotadigan bankni koʻrsatamiz", "Покажем, где валюта дешевле всего", "We show the bank that sells the cheapest"),
                             icon = Icons.Outlined.ArrowDownward
                         ) { sell = false; appStore().putString("direction", "buy") }
                     }
@@ -134,11 +135,12 @@ fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
             }
         }
 
-        KButton(
+        VsPrimaryButton(
             text = if (step < 2) tr("Davom etish", "Далее", "Continue") else tr("Boshlash", "Начать", "Get started"),
-            icon = Icons.AutoMirrored.Outlined.ArrowForward,
-            primary = true, enabled = true, modifier = Modifier.fillMaxWidth()
-        ) { if (step < 2) step++ else finish() }
+            onClick = { if (step < 2) step++ else finish() },
+            modifier = Modifier.fillMaxWidth(),
+            icon = Icons.AutoMirrored.Outlined.ArrowForward
+        )
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -150,11 +152,11 @@ private fun StepTitle(text: String) {
 
 @Composable
 private fun Choice(label: String, selected: Boolean, sub: String? = null, icon: ImageVector? = null, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = VsShape.Panel
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp).heightIn(min = 56.dp).clip(shape)
-            .background(if (selected) VsEmeraldSoft else VsBg)
-            .border(if (selected) 2.dp else 1.dp, if (selected) VsEmerald else VsLine, shape)
+            .background(if (selected) VsTealTint else VsCard)
+            .border(if (selected) 2.dp else 1.dp, if (selected) VsEmerald else VsHair, shape)
             .clickable(role = Role.RadioButton, onClick = onClick)
             .semantics { this.selected = selected }
             .padding(horizontal = 16.dp, vertical = 12.dp),

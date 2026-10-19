@@ -42,7 +42,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.bankkurslari.ui.theme.VsBg
+import com.example.bankkurslari.ui.theme.VsCard
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
@@ -139,12 +139,14 @@ private fun RoutePickerSheet(target: RouteTarget, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = VsBg,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        tonalElevation = 0.dp
+        containerColor = VsCard,
+        shape = VsShape.Tray,
+        tonalElevation = 0.dp,
+        scrimColor = VsInk.copy(alpha = 0.42f),
+        dragHandle = { VsSheetHandle() }
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Text(tr("Qaysi xaritada ochamiz?", "Где построить маршрут?", "Open in which map?"), style = VsType.Title, color = VsInk)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            Text(tr("Qaysi xaritada ochamiz?", "В каком приложении открыть?", "Open in which map?"), style = VsType.Title, color = VsInk)
             Text(target.name, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
             apps.forEach { (app, installed) ->
                 PickerRow(
@@ -156,7 +158,7 @@ private fun RoutePickerSheet(target: RouteTarget, onDismiss: () -> Unit) {
                     launchRoute(app, target)
                     onDismiss()
                 }
-                KHairline()
+                VsDivider()
             }
             PickerRow(title = tr("Boshqa ilova…", "Другое приложение…", "Other app…"), meta = null, trailingWeb = false, more = true) {
                 if (always) setRememberedMapApp(MapApp.OTHER)
@@ -193,7 +195,7 @@ private fun PickerRow(title: String, meta: String?, trailingWeb: Boolean, more: 
 
 @Composable
 private fun AlwaysToggle(checked: Boolean, onToggle: () -> Unit) {
-    val box by animateColorAsState(if (checked) VsEmerald else VsBg, Motion.color(), label = "chk")
+    val box by animateColorAsState(if (checked) VsEmerald else VsCard, Motion.color(), label = "chk")
     val edge by animateColorAsState(if (checked) VsEmerald else VsInkSoft, Motion.color(), label = "chke")
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -204,7 +206,7 @@ private fun AlwaysToggle(checked: Boolean, onToggle: () -> Unit) {
         Box(
             Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)).background(box).border(1.5.dp, edge, RoundedCornerShape(6.dp)),
             contentAlignment = Alignment.Center
-        ) { if (checked) Icon(Icons.Outlined.Check, null, tint = VsBg, modifier = Modifier.size(14.dp)) }
+        ) { if (checked) Icon(Icons.Outlined.Check, null, tint = VsCard, modifier = Modifier.size(14.dp)) }
         Spacer(Modifier.width(12.dp))
         Text(tr("Har doim shu ilovada ochilsin", "Всегда открывать в этом приложении", "Always open in this app"), style = VsType.Body, color = VsInk)
     }

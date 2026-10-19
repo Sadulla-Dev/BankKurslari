@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -109,11 +110,11 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = VsBg,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+        containerColor = com.example.bankkurslari.ui.theme.VsCard,
+        shape = VsShape.Tray,
         tonalElevation = 0.dp
     ) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 16.dp)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 20.dp)) {
             Text(tr("Barcha valyutalar", "Все валюты", "All currencies"), style = VsType.Title, color = VsInk)
             val date = list.firstOrNull()?.date
             Text(
@@ -132,7 +133,7 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 decorationBox = { inner ->
                     Row(
-                        Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface).padding(horizontal = 12.dp),
+                        Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsGround).padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(Icons.Outlined.Search, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
@@ -167,7 +168,7 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
                         onFav = { toggleFav(c.code) },
                         onClick = { selected = c.code; appStore().putString("cbu_selected", c.code) }
                     )
-                    HorizontalDivider(color = VsLine)
+                    HorizontalDivider(color = com.example.bankkurslari.ui.theme.VsGround)
                 }
                 item { Spacer(Modifier.height(16.dp)); Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)) }
             }
@@ -186,7 +187,7 @@ private fun Converter(c: CbuCurrency) {
     val to = if (toSom) som else c.code
 
     Column(
-        Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface).padding(16.dp)
+        Modifier.fillMaxWidth().padding(top = 16.dp).clip(VsShape.Stat).background(com.example.bankkurslari.ui.theme.VsGround).padding(16.dp)
     ) {
         Text(c.localName(), style = VsType.Meta, color = VsInkSoft)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -194,7 +195,7 @@ private fun Converter(c: CbuCurrency) {
                 value = amount,
                 onValueChange = { v -> amount = v.filter { it.isDigit() }.take(12) },
                 singleLine = true,
-                textStyle = VsType.Title.copy(color = VsInk),
+                textStyle = VsType.Amount.copy(color = VsInk),
                 cursorBrush = SolidColor(VsEmerald),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f)
@@ -207,7 +208,7 @@ private fun Converter(c: CbuCurrency) {
         AnimatedContent(result, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) }, label = "conv") { r ->
             Text(
                 (if (r >= 100) r.roundToLong().formatUzsL() else r.fixed(2)) + " $to",
-                style = VsType.Hero, color = VsEmerald, maxLines = 1, overflow = TextOverflow.Ellipsis
+                style = VsType.Display, color = VsEmerald, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
         Text(
@@ -224,7 +225,7 @@ private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, onFav: 
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            c.code, style = VsType.BodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            c.code, style = VsType.Value,
             color = if (selected) VsEmerald else VsInk, modifier = Modifier.width(52.dp)
         )
         Column(Modifier.weight(1f)) {
@@ -232,7 +233,7 @@ private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, onFav: 
             if (c.nominal != 1) Text(tr("${c.nominal} birlik uchun", "за ${c.nominal} ед.", "per ${c.nominal} units"), style = VsType.Meta, color = VsInkSoft)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(rateText(c.rate), style = VsType.BodyMedium, color = VsInk, textAlign = TextAlign.End)
+            Text(rateText(c.rate), style = VsType.Value, color = VsInk, textAlign = TextAlign.End)
             if (abs(c.diff) >= 0.005) {
                 Text(
                     (if (c.diff > 0) "▲ " else "▼ ") + (if (abs(c.diff) >= 1000) rateText(abs(c.diff)) else abs(c.diff).fixed(2)),
@@ -244,7 +245,7 @@ private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, onFav: 
             Icon(
                 if (fav) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 if (fav) tr("Sevimlilardan olib tashlash", "Убрать из избранного", "Remove from favourites")
-                else tr("Sevimlilarga qoʻshish", "В избранное", "Add to favourites"),
+                else tr("Sevimlilarga qoʻshish", "Добавить в избранное", "Add to favourites"),
                 tint = if (fav) VsEmerald else VsInkSoft, modifier = Modifier.size(20.dp)
             )
         }

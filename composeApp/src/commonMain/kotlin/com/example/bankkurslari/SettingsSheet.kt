@@ -6,13 +6,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.example.bankkurslari.ui.theme.VsGround
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,11 +43,11 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.bankkurslari.ui.theme.VsBg
+import com.example.bankkurslari.ui.theme.VsCard
+import com.example.bankkurslari.ui.theme.VsHair
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
-import com.example.bankkurslari.ui.theme.VsLine
 import com.example.bankkurslari.ui.theme.VsType
 
 /** Uzbek city names (UZ, RU). The UZ name is the stored key. */
@@ -82,24 +90,28 @@ fun SettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        containerColor = VsBg,
+        shape = VsShape.Tray,
+        containerColor = VsCard,
         contentColor = VsInk,
         tonalElevation = 0.dp,
-        dragHandle = null
+        scrimColor = VsInk.copy(alpha = 0.42f),
+        dragHandle = { VsSheetHandle() }
     ) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            Text(tr("Sozlamalar", "Настройки", "Settings"), style = VsType.Title, color = VsInk, modifier = Modifier.heightIn(min = 48.dp).padding(top = 8.dp))
+            Text(tr("Sozlamalar", "Настройки", "Settings"), style = VsType.Title.copy(fontSize = 22.sp), color = VsInk, modifier = Modifier.heightIn(min = 48.dp).padding(top = 8.dp))
 
             // Til
             SettingsLabel(tr("Til", "Язык", "Language"))
-            Lang.entries.forEach { l -> LangRow(l.label, lang == l) { onLang(l) } }
-            HorizontalDivider(color = VsLine)
+            Lang.entries.forEachIndexed { i, l ->
+                if (i > 0) HorizontalDivider(color = VsGround)
+                LangRow(l.label, lang == l) { onLang(l) }
+            }
+            HorizontalDivider(color = VsGround)
 
             // Mavzu
             SettingsLabel(tr("Mavzu", "Тема", "Theme"))
@@ -109,17 +121,17 @@ fun SettingsSheet(
                 onSelect = onThemeMode
             )
             Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = VsLine)
+            HorizontalDivider(color = VsGround)
 
             // Standart valyuta
-            SettingsLabel(tr("Standart valyuta", "Валюта по умолчанию", "Default currency"))
+            SettingsLabel(tr("Asosiy valyuta", "Основная валюта", "Main currency"))
             SettingsSegmented(
                 options = Currency.entries.map { it.code },
                 selected = defaultCurrency.ordinal,
                 onSelect = { onDefaultCurrency(Currency.entries[it]) }
             )
             Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = VsLine)
+            HorizontalDivider(color = VsGround)
 
             // Shahar
             Box {
@@ -129,7 +141,7 @@ fun SettingsSheet(
                         ?: tr("Tanlanmagan", "Не выбран", "Not selected"),
                     onClick = { cityMenu = true }
                 )
-                DropdownMenu(expanded = cityMenu, onDismissRequest = { cityMenu = false }, containerColor = VsBg) {
+                DropdownMenu(expanded = cityMenu, onDismissRequest = { cityMenu = false }, containerColor = VsCard) {
                     UZ_CITIES.forEach { (uz, rus) ->
                         DropdownMenuItem(
                             text = { Text(pick(lang, uz, rus, uz), style = VsType.Body, color = if (uz == city) VsEmerald else VsInk) },
@@ -143,7 +155,7 @@ fun SettingsSheet(
                     }
                 }
             }
-            HorizontalDivider(color = VsLine)
+            HorizontalDivider(color = VsGround)
 
             // Marshrut ilovasi: ask every time (default) or always use one app
             var routeApp by remember { mutableStateOf(rememberedMapApp()) }
@@ -154,7 +166,7 @@ fun SettingsSheet(
                     value = mapAppLabel(routeApp, ru),
                     onClick = { routeMenu = true }
                 )
-                DropdownMenu(expanded = routeMenu, onDismissRequest = { routeMenu = false }, containerColor = VsBg) {
+                DropdownMenu(expanded = routeMenu, onDismissRequest = { routeMenu = false }, containerColor = VsCard) {
                     (listOf<MapApp?>(null) + MapApp.entries).forEach { app ->
                         DropdownMenuItem(
                             text = { Text(mapAppLabel(app, ru), style = VsType.Body, color = if (app == routeApp) VsEmerald else VsInk) },
@@ -164,7 +176,7 @@ fun SettingsSheet(
                     }
                 }
             }
-            HorizontalDivider(color = VsLine)
+            HorizontalDivider(color = VsGround)
 
             // Ogohlantirishlar
             SettingsRow(
@@ -172,11 +184,11 @@ fun SettingsSheet(
                 value = if (alertCount > 0) tr("$alertCount ta", "$alertCount шт.", "$alertCount") else "",
                 onClick = onOpenAlerts
             )
-            HorizontalDivider(color = VsLine)
+            HorizontalDivider(color = VsGround)
 
             // Manbalar
             SettingsRow(
-                title = tr("Maʻlumot manbalari va yangilanish tartibi", "Источники данных и порядок обновления", "Data sources and update schedule"),
+                title = tr("Maʼlumot manbalari", "Источники данных", "Data sources"),
                 value = "",
                 onClick = { sourcesOpen = !sourcesOpen }
             )
@@ -198,11 +210,11 @@ fun SettingsSheet(
                     )
                 }
             }
-            HorizontalDivider(color = VsLine)
+            HorizontalDivider(color = VsGround)
 
             // Fikr bildirish
             SettingsRow(
-                title = tr("Fikr bildirish", "Обратная связь", "Send feedback"),
+                title = tr("Fikr yuborish", "Обратная связь", "Send feedback"),
                 value = "",
                 onClick = {
                     openUri("mailto:?subject=Qulay%20Kurs")
@@ -214,7 +226,7 @@ fun SettingsSheet(
 
 @Composable
 private fun SettingsLabel(text: String) {
-    Text(text, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+    Text(text, style = VsType.Meta.copy(fontWeight = FontWeight.Medium), color = VsInkSoft, modifier = Modifier.padding(top = 20.dp, bottom = 6.dp))
 }
 
 @Composable
@@ -227,12 +239,11 @@ private fun LangRow(label: String, selected: Boolean, onClick: () -> Unit) {
             .semantics { role = Role.RadioButton; this.selected = selected },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = null,
-            colors = RadioButtonDefaults.colors(selectedColor = VsEmerald, unselectedColor = VsInkSoft)
+        Text(
+            label, style = if (selected) VsType.Body.copy(fontWeight = FontWeight.SemiBold) else VsType.Body,
+            color = if (selected) VsEmerald else VsInk, modifier = Modifier.weight(1f)
         )
-        Text(label, style = VsType.Body, color = VsInk, modifier = Modifier.padding(start = 12.dp))
+        if (selected) Icon(Icons.Outlined.Check, null, tint = VsEmerald, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -241,7 +252,7 @@ private fun SettingsRow(title: String, value: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
+            .heightIn(min = 52.dp)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -250,6 +261,8 @@ private fun SettingsRow(title: String, value: String, onClick: () -> Unit) {
         if (value.isNotEmpty()) {
             Text(value, style = VsType.Body, color = VsInkSoft, modifier = Modifier.padding(start = 12.dp))
         }
+        Spacer(Modifier.width(4.dp))
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
     }
 }
 

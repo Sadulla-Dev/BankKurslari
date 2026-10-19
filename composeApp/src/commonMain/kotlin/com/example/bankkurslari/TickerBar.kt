@@ -251,7 +251,7 @@ private fun TickerCard(currency: Currency, selected: Boolean, data: TickerData?,
             Text(currency.code, style = VsType.Meta.copy(fontWeight = FontWeight.SemiBold), color = codeColor, modifier = Modifier.weight(1f))
             if (cbu != null && selected) {
                 Text(
-                    tickerDelta(cbu.diff, cbu.rate, ru) + (pick(lang, " · kecha", " · вчера", " · yesterday")),
+                    tickerDelta(cbu.diff, cbu.rate, ru) + (pick(lang, " · bugun", " · сегодня", " · today")),
                     style = VsType.Meta, color = VsInkSoft, maxLines = 1, softWrap = false
                 )
             }
@@ -342,10 +342,11 @@ private fun Sparkline(points: List<HistoryPoint>, modifier: Modifier) {
 
 /** Accent dot with a soft expanding ring while data is fresh; amber when stale/offline; grey otherwise. */
 @Composable
-private fun FreshDot(fresh: Boolean, stale: Boolean) {
+fun FreshDot(fresh: Boolean, stale: Boolean) {
     val color = when { stale -> VsAmber; fresh -> VsEmerald; else -> VsInkSoft }
     // 8 dp box so the dot itself sits on the content edge; the ring grows outside it (graphicsLayer does not clip).
     Box(Modifier.size(8.dp), contentAlignment = Alignment.Center) {
+        if (fresh || !stale) Box(Modifier.size(16.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)))
         if (fresh) {
             val t = rememberInfiniteTransition(label = "pulse")
             val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2200, easing = Motion.Decelerate), RepeatMode.Restart), label = "p")

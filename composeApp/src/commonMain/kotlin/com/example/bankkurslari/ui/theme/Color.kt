@@ -32,25 +32,42 @@ data class VsPalette(
     val amber: Color,
     val heroTop: Color,
     val heroMid: Color,
-    val heroBot: Color
+    val heroBot: Color,
+    // Redesign tokens (kurs-redesign): ground / card / hairline / teal tint / rose "less than best".
+    val ground: Color,
+    val card: Color,
+    val hair: Color,
+    val tile: Color,
+    val tealTint: Color,
+    val roseMark: Color,
+    val roseText: Color,
+    val roseTint: Color
 )
 
 val LightVsPalette = VsPalette(
-    bg = Color(0xFFFFFFFF),
-    surface = Color(0xFFF5F6F7),
-    ink = Color(0xFF0E1113),
-    inkSoft = Color(0xFF565E64),
-    line = Color(0xFFE3E6E8),
-    emerald = Color(0xFF0A7F56),        // accent: best result / primary action / selected
-    emeraldDeep = Color(0xFF0A7F56),
-    emeraldSoft = Color(0xFFE8F3EE),    // subtle selected fill only, never a card background
+    bg = Color(0xFFF1F3F5),
+    surface = Color(0xFFF1F3F5),
+    ink = Color(0xFF121A1F),
+    inkSoft = Color(0xFF5A6670),
+    line = Color(0xFFDDE2E7),
+    emerald = Color(0xFF0A7C72),        // accent: best result / primary action / selected
+    emeraldDeep = Color(0xFF0A7C72),
+    emeraldSoft = Color(0xFFD3EEEA),    // subtle selected fill only, never a card background
     indigo = Color(0xFF565E64),
-    indigoSoft = Color(0xFFF5F6F7),
-    danger = Color(0xFFB3261E),         // worse than reference only
+    indigoSoft = Color(0xFFF1F3F5),
+    danger = Color(0xFFB4433A),         // worse than reference only
     amber = Color(0xFF8A5A00),          // warn: stale data
-    heroTop = Color(0xFF0A7F56),
-    heroMid = Color(0xFF0A7F56),
-    heroBot = Color(0xFF0A7F56)
+    heroTop = Color(0xFF0A7C72),
+    heroMid = Color(0xFF0A7C72),
+    heroBot = Color(0xFF0A7C72),
+    ground = Color(0xFFF1F3F5),
+    card = Color(0xFFFFFFFF),
+    hair = Color(0xFFDDE2E7),
+    tile = Color(0xFFE6EAEE),
+    tealTint = Color(0xFFD3EEEA),
+    roseMark = Color(0xFFE2857B),
+    roseText = Color(0xFFB4433A),
+    roseTint = Color(0xFFFBE6E3)
 )
 
 val DarkVsPalette = VsPalette(
@@ -68,7 +85,15 @@ val DarkVsPalette = VsPalette(
     amber = Color(0xFFF2C14E),
     heroTop = Color(0xFF3DD6A0),
     heroMid = Color(0xFF3DD6A0),
-    heroBot = Color(0xFF3DD6A0)
+    heroBot = Color(0xFF3DD6A0),
+    ground = Color(0xFF0E1113),
+    card = Color(0xFF171B1E),
+    hair = Color(0xFF262C30),
+    tile = Color(0xFF22282C),
+    tealTint = Color(0xFF12332E),
+    roseMark = Color(0xFFE2857B),
+    roseText = Color(0xFFFF8A80),
+    roseTint = Color(0xFF3A1F1C)
 )
 
 val LocalVsPalette = staticCompositionLocalOf { LightVsPalette }
@@ -89,3 +114,12 @@ val VsAmber: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.curren
 val VsHeroTop: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.heroTop
 val VsHeroMid: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.heroMid
 val VsHeroBot: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.heroBot
+
+val VsGround: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.ground
+val VsCard: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.card
+val VsHair: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.hair
+val VsTile: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.tile
+val VsTealTint: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.tealTint
+val VsRoseMark: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.roseMark
+val VsRoseText: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.roseText
+val VsRoseTint: Color @Composable @ReadOnlyComposable get() = LocalVsPalette.current.roseTint

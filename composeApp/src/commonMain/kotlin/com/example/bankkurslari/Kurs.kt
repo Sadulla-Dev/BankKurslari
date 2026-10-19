@@ -33,7 +33,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -68,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -102,6 +105,20 @@ import com.example.bankkurslari.ui.theme.VsEmeraldSoft
 import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
 import com.example.bankkurslari.ui.theme.VsLine
+import com.example.bankkurslari.ui.theme.VsCard
+import com.example.bankkurslari.ui.theme.VsGround
+import com.example.bankkurslari.ui.theme.VsHair
+import com.example.bankkurslari.ui.theme.VsRoseMark
+import com.example.bankkurslari.ui.theme.VsRoseText
+import com.example.bankkurslari.ui.theme.VsTealTint
+import com.example.bankkurslari.ui.theme.VsTile
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 import com.example.bankkurslari.ui.theme.VsSurface
 import com.example.bankkurslari.ui.theme.VsType
 import kotlin.math.abs
@@ -128,7 +145,7 @@ fun kGroup(n: Long): String {
 
 fun kGroup(n: Int): String = kGroup(n.toLong())
 
-fun kSom(ru: Boolean) = pick(lang, "soʻm", "сум", "UZS")
+fun kSom(ru: Boolean) = pick(lang, "soʻm", "сум", "so'm")
 
 fun kDelta(d: Long): String = when {
     d < 0 -> "$MINUS${kGroup(-d)}"
@@ -148,21 +165,21 @@ fun kRateFmt(v: Double, ru: Boolean): String =
     else v.fixed(2).let { if (ru) it.replace('.', ',') else it }
 
 fun kHoursShort(o: OpenState, ru: Boolean): String = when {
-    !o.known -> pick(lang, "Ish vaqti nomaʻlum", "Время работы неизвестно", "Opening hours unknown")
+    !o.known -> pick(lang, "Ish vaqti nomaʼlum", "Часы работы неизвестны", "Opening hours unknown")
     o.open -> o.untilText?.let { pick(lang, "$it gacha", "до $it", "until $it") } ?: (pick(lang, "Ochiq", "Открыто", "Open"))
     else -> (pick(lang, "Yopiq", "Закрыто", "Closed")) +
         (o.untilText?.let { pick(lang, " · $it da ochiladi", " · откроется в $it", " · opens at $it") } ?: "")
 }
 
 fun kHoursLong(o: OpenState, ru: Boolean): String = when {
-    !o.known -> pick(lang, "Ish vaqti nomaʻlum", "Время работы неизвестно", "Opening hours unknown")
+    !o.known -> pick(lang, "Ish vaqti nomaʼlum", "Часы работы неизвестны", "Opening hours unknown")
     o.open -> (pick(lang, "Ochiq", "Открыто", "Open")) +
         (o.untilText?.let { pick(lang, " · $it gacha", " · до $it", " · until $it") } ?: "")
     else -> kHoursShort(o, ru)
 }
 
 private fun kSpokenHours(o: OpenState, ru: Boolean): String = when {
-    !o.known -> pick(lang, "ish vaqti nomaʻlum", "время работы неизвестно", "opening hours unknown")
+    !o.known -> pick(lang, "ish vaqti nomaʼlum", "часы работы неизвестны", "opening hours unknown")
     o.open -> o.untilText?.let { pick(lang, "$it gacha ochiq", "открыто до $it", "open until $it") } ?: (pick(lang, "ochiq", "открыто", "open"))
     else -> pick(lang, "yopiq", "закрыто", "closed")
 }
@@ -220,50 +237,43 @@ fun kShare(text: String) = shareText(text)
 
 @Composable
 fun KHairline(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().height(1.dp).background(VsLine))
+    Box(modifier.fillMaxWidth().height(1.dp).background(VsHair))
 }
 
-/** Filled primary / outlined secondary button, radius 12, >= 48 dp. */
+/** Primary (teal) / tonal (teal tint) / outlined secondary button. Redesign: 18 dp radius, >= 54 dp. */
 @Composable
 fun KButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, primary: Boolean, enabled: Boolean, modifier: Modifier = Modifier, tonal: Boolean = false, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = VsShape.Button
     val src = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = 54.dp)
             .pressScale(src)
             .clip(shape)
             .then(
                 when {
-                    primary && tonal -> Modifier.background(VsEmeraldSoft)
+                    primary && tonal -> Modifier.background(VsTealTint)
                     primary -> Modifier.background(VsEmerald)
-                    else -> Modifier.border(1.dp, VsLine, shape)
+                    else -> Modifier.border(1.dp, VsHair, shape)
                 }
             )
             .alpha(if (enabled) 1f else 0.4f)
-            .clickable(interactionSource = src, indication = ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(interactionSource = src, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val c = when { primary && tonal -> VsEmerald; primary -> VsBg; else -> VsInk }
+        val c = when { primary && tonal -> VsEmerald; primary -> VsOnAccent; else -> VsInk }
         Icon(icon, null, tint = c, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text(text, style = VsType.BodyMedium, color = c, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = c, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** Square 48 dp outlined icon action that sits next to a primary [KButton]. */
+/** Square 54 dp ground icon action that sits next to a primary [KButton]. */
 @Composable
 fun KIconAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    val src = remember { MutableInteractionSource() }
-    Box(
-        Modifier.size(48.dp).pressScale(src).clip(shape).border(1.dp, VsLine, shape)
-            .clickable(interactionSource = src, indication = ripple(), role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = label },
-        contentAlignment = Alignment.Center
-    ) { Icon(icon, null, tint = VsInk, modifier = Modifier.size(20.dp)) }
+    VsSecondaryButton(icon, label, onClick)
 }
 
 private class GroupingTransformation : VisualTransformation {
@@ -290,42 +300,46 @@ private class GroupingTransformation : VisualTransformation {
     }
 }
 
+/** Amount: VsType.Amount digits with a hairline that turns teal on focus. The unit is the currency name, spoken as a word. */
 @Composable
 private fun AmountField(currency: Currency, amountText: String, onAmount: (String) -> Unit) {
     val digits = amountText.filter { it.isDigit() }.trimStart('0').take(12)
     val label = tr("Summa, ${currency.code}", "Сумма, ${currency.code}", "Amount, ${currency.code}")
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val lineColor by animateColorAsState(if (focused) VsEmerald else VsLine, Motion.color(), label = "amtline")
-    val lineH by animateDpAsState(if (focused) 2.dp else 1.dp, tween(Motion.SHORT), label = "amth")
-    val big = VsType.Title.copy(fontSize = 28.sp, lineHeight = 34.sp)
-    BasicTextField(
-        value = digits,
-        onValueChange = { onAmount(it.filter { c -> c.isDigit() }.trimStart('0').take(12)) },
-        singleLine = true,
-        textStyle = big.copy(color = VsInk),
-        cursorBrush = SolidColor(VsEmerald),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        visualTransformation = GroupingTransformation(),
-        interactionSource = src,
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
-        decorationBox = { inner ->
-            Column(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) {
-                        if (digits.isEmpty()) Text("0", style = big, color = VsInkSoft.copy(alpha = 0.5f))
-                        inner()
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(currency.code, style = VsType.Body, color = VsInkSoft)
-                }
-                Box(Modifier.fillMaxWidth().height(2.dp), contentAlignment = Alignment.BottomStart) {
-                    Box(Modifier.fillMaxWidth().height(lineH).background(lineColor))
+    val lineColor by animateColorAsState(if (focused) VsEmerald else VsHair, Motion.color(), label = "amtline")
+    val style = VsType.Amount
+    // The unit sits right after the number (one phrase); the hairline runs under the number only.
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+        BasicTextField(
+            value = digits,
+            onValueChange = { onAmount(it.filter { c -> c.isDigit() }.trimStart('0').take(12)) },
+            singleLine = true,
+            textStyle = style.copy(color = VsInk),
+            cursorBrush = SolidColor(VsEmerald),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            visualTransformation = GroupingTransformation(),
+            interactionSource = src,
+            modifier = Modifier.width(IntrinsicSize.Max).widthIn(min = 96.dp, max = 240.dp).semantics { contentDescription = label },
+            decorationBox = { inner ->
+                Box(Modifier.heightIn(min = 48.dp).drawBehindLine(lineColor), contentAlignment = Alignment.CenterStart) {
+                    if (digits.isEmpty()) Text("0", style = style, color = VsInkSoft.copy(alpha = 0.5f))
+                    inner()
                 }
             }
-        }
-    )
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(currency.displayName(LocalLang.current).lowercase(), style = VsType.Body.copy(fontSize = 15.sp), color = VsInkSoft, modifier = Modifier.padding(bottom = 11.dp))
+    }
 }
+
+private fun Modifier.drawBehindLine(color: Color): Modifier = this.then(
+    Modifier.drawWithContent {
+        drawContent()
+        val h = 2.dp.toPx()
+        drawRect(color, topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - h), size = androidx.compose.ui.geometry.Size(size.width, h))
+    }
+)
 
 private fun quickAmounts(c: Currency): List<Long> =
     if (c == Currency.RUB) listOf(10_000, 50_000, 100_000, 500_000) else listOf(100, 500, 1_000, 5_000)
@@ -336,11 +350,23 @@ private enum class KursSort { SOM, DIST, RATE, OPEN }
 
 @Composable
 private fun sortLabel(s: KursSort): String = when (s) {
-    KursSort.SOM -> tr("Soʻm", "Сумма", "Amount")
+    KursSort.SOM -> tr("Summa", "Сумма", "Amount")
     KursSort.DIST -> tr("Masofa", "Расстояние", "Distance")
     KursSort.RATE -> tr("Kurs", "Курс", "Rate")
     KursSort.OPEN -> tr("Ochiq hozir", "Открыто сейчас", "Open now")
 }
+
+/** "OF" for "Orient Finans Bank", "BR" for "BRB", "MB" for "Milliy bank". */
+private fun bankInitials(name: String): String {
+    val words = name.trim().split(' ', '-', '.').filter { it.isNotEmpty() }
+    return when {
+        words.size >= 2 -> "${words[0].first()}${words[1].first()}"
+        words.size == 1 -> words[0].take(2)
+        else -> "?"
+    }.uppercase()
+}
+
+private const val PREVIEW_BANKS = 4
 
 /* ---------- screen ---------- */
 
@@ -378,7 +404,9 @@ fun KursScreen(
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var sortMenu by remember { mutableStateOf(false) }
+    var ccyMenu by remember { mutableStateOf(false) }
     var locChipDismissed by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     var sheetBank by remember { mutableStateOf<String?>(null) }
     var showAll by remember { mutableStateOf(false) }
 
@@ -398,6 +426,8 @@ fun KursScreen(
             KursSort.OPEN -> l.sortedBy { if (it.open.known && !it.open.open) 1 else 0 }
         }
     }
+    // The best bank lives in the exchange slip; the list below compares everyone else against it.
+    val others = remember(displayed, best) { displayed.filter { best == null || it.rate.bank != best.rate.bank } }
 
     val ageH = kAgeHours(payload.updatedAt)
     val stale6 = ageH != null && ageH > 6
@@ -420,20 +450,19 @@ fun KursScreen(
         LazyColumn(
             modifier = Modifier.fillMaxWidth().background(VsBg),
             contentPadding = PaddingValues(
-                start = 16.dp, end = 16.dp,
-                top = innerPadding.calculateTopPadding(),
+                start = 20.dp, end = 20.dp,
+                top = innerPadding.calculateTopPadding() + 6.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp
-            )
+            ),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Ticker header: freshness + currency cards (tap or swipe to switch)
+            // Topbar: live dot + "Rates at 13:34" + search + settings.
             item(key = "top") {
-                TickerBar(
-                    currency = currency, onCurrency = onCurrency, tickers = tickers,
+                TodayTopBar(
                     updatedAt = payload.updatedAt, offline = offline,
-                    onOpenSettings = onOpenSettings,
                     searchOpen = searchOpen,
                     onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
-                    onAllCurrencies = { showAll = true }
+                    onOpenSettings = onOpenSettings
                 )
             }
             if (searchOpen) {
@@ -443,10 +472,10 @@ fun KursScreen(
                     BasicTextField(
                         value = query, onValueChange = { query = it }, singleLine = true,
                         textStyle = VsType.Body.copy(color = VsInk), cursorBrush = SolidColor(VsEmerald),
-                        modifier = Modifier.animateItem().fillMaxWidth().padding(top = 4.dp).focusRequester(fr),
+                        modifier = Modifier.animateItem().fillMaxWidth().focusRequester(fr),
                         decorationBox = { inner ->
                             Row(
-                                Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface).padding(horizontal = 16.dp),
+                                Modifier.fillMaxWidth().heightIn(min = 48.dp).vsCard(VsShape.Pill).padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Outlined.Search, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
@@ -460,51 +489,28 @@ fun KursScreen(
                     )
                 }
             }
-            // Direction
-            item(key = "dir") {
-                Segmented(
-                    options = listOf(tr("Men sotaman", "Я продаю", "I sell"), tr("Men olaman", "Я покупаю", "I buy")),
-                    selected = if (sell) 0 else 1,
-                    onSelect = { onDirection(if (it == 0) ConvertMode.SELL_USD else ConvertMode.BUY_USD) },
-                    modifier = Modifier.padding(top = 12.dp)
-                )
-            }
-            // Amount + quick amounts
-            item(key = "amount") {
-                Box(Modifier.padding(top = 16.dp)) { AmountField(currency, amountText, onAmount) }
-            }
-            item(key = "quick") {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 4.dp).horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    quickAmounts(currency).forEach { v ->
-                        VsChip(kGroup(v), selected = amount == v.toDouble(), onClick = { onAmount(v.toString()) })
-                    }
-                }
-            }
             // Status lines
             if (offline) {
                 item(key = "offline") {
                     KBanner(Icons.Outlined.CloudOff, VsInk,
-                        pick(lang, "Oxirgi maʻlumot ${timeText ?: ""}, internet yoʻq",
-                            "Последние данные ${timeText?.let { "в $it" } ?: ""}, нет интернета",
-                            "Last data ${timeText?.let { "at $it" } ?: ""}, no internet").replace("  ", " "),
+                        pick(lang, "Internet yoʻq, oxirgi maʼlumot ${timeText ?: ""}",
+                            "Нет интернета, последние данные ${timeText?.let { "от $it" } ?: ""}",
+                            "No internet, last data ${timeText?.let { "from $it" } ?: ""}").replace("  ", " ").trim(),
                         Modifier.animateItem())
                 }
             } else if (stale12) {
                 item(key = "stale") {
                     val h = ageH.toInt()
                     KBanner(Icons.Outlined.Schedule, VsAmber,
-                        pick(lang, "Maʻlumot $h soat oldin yangilangan", "Данные обновлены $h ч назад", "Data updated $h h ago"),
+                        pick(lang, "Maʼlumot $h soat oldin yangilangan", "Данные обновлены $h ч назад", "Data updated $h h ago"),
                         Modifier.animateItem())
                 }
             }
 
             when {
                 showSkeleton -> {
-                    item(key = "sk-hero") { SkeletonHero() }
-                    items(6, key = { "sk$it" }) { SkeletonRow() }
+                    item(key = "sk-hero") { SkeletonSlip() }
+                    item(key = "sk-list") { SkeletonList() }
                 }
                 noData -> item(key = "empty") {
                     Text(
@@ -513,21 +519,63 @@ fun KursScreen(
                     )
                 }
                 else -> {
-                    // Hero
-                    item(key = "hero") {
+                    // Exchange slip: direction, currency, amount, result, best bank.
+                    item(key = "slip") {
                         Box(Modifier.animateItem()) {
-                            if (best != null) {
-                                HeroBlock(
-                                    best = best, amount = amount, currency = currency, sell = sell, ru = ru,
-                                    timeText = timeText,
-                                    onRoute = { best.lat?.let { la -> best.lng?.let { ln -> route(RouteTarget(la, ln, best.rate.bank)) } } },
-                                    shareText = kShareText(best, currency, amount, payload.updatedAt, true),
-                                )
-                            } else {
-                                Text(
-                                    tr("Mos bank topilmadi", "Подходящих банков нет", "No matching banks"),
-                                    style = VsType.Body, color = VsInkSoft, modifier = Modifier.padding(vertical = 24.dp)
-                                )
+                            VsCardBox {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    SegmentedHug(
+                                        options = listOf(tr("Sotish", "Продать", "Sell"), tr("Olish", "Купить", "Buy")),
+                                        selected = if (sell) 0 else 1,
+                                        onSelect = { onDirection(if (it == 0) ConvertMode.SELL_USD else ConvertMode.BUY_USD) }
+                                    )
+                                    Box {
+                                        VsCurrencyChip(
+                                            symbol = currency.symbol, code = currency.code,
+                                            description = tr("Valyuta: ${currency.code}, oʻzgartirish", "Валюта: ${currency.code}, изменить", "Currency: ${currency.code}, change"),
+                                            onClick = { ccyMenu = true }
+                                        )
+                                        DropdownMenu(
+                                            expanded = ccyMenu, onDismissRequest = { ccyMenu = false },
+                                            containerColor = VsCard, shape = VsShape.Panel
+                                        ) {
+                                            Currency.entries.forEach { c ->
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text("${c.symbol}  ${c.code}  ·  ${c.displayName(lang)}", style = VsType.Body, color = if (c == currency) VsEmerald else VsInk)
+                                                    },
+                                                    trailingIcon = { if (c == currency) Icon(Icons.Outlined.Check, null, tint = VsEmerald) },
+                                                    onClick = { ccyMenu = false; onCurrency(c) }
+                                                )
+                                            }
+                                            DropdownMenuItem(
+                                                text = { Text(tr("Boshqa valyutalar…", "Другие валюты…", "Other currencies…"), style = VsType.Body, color = VsInkSoft) },
+                                                onClick = { ccyMenu = false; showAll = true }
+                                            )
+                                        }
+                                    }
+                                }
+                                AmountField(currency, amountText, onAmount)
+                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    quickAmounts(currency).forEach { v ->
+                                        VsChip(kGroup(v), selected = amount == v.toDouble(), onClick = { onAmount(v.toString()) })
+                                    }
+                                }
+                                SlipDivider()
+                                if (best != null) {
+                                    SlipResult(
+                                        best = best, amount = amount, currency = currency, sell = sell, ru = ru,
+                                        bankCount = displayed.size,
+                                        onBank = { sheetBank = best.rate.bank },
+                                        onRoute = { best.lat?.let { la -> best.lng?.let { ln -> route(RouteTarget(la, ln, best.rate.bank)) } } },
+                                        shareText = kShareText(best, currency, amount, payload.updatedAt, true)
+                                    )
+                                } else {
+                                    Text(
+                                        tr("Mos bank topilmadi", "Подходящих банков нет", "No matching banks"),
+                                        style = VsType.Body, color = VsInkSoft, modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -536,7 +584,7 @@ fun KursScreen(
                         val msg = locMsg
                         if (msg != null) item(key = "loc") {
                             Row(
-                                Modifier.animateItem().fillMaxWidth().padding(top = 8.dp).heightIn(min = 40.dp),
+                                Modifier.animateItem().fillMaxWidth().heightIn(min = 40.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Outlined.LocationOff, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
@@ -546,7 +594,7 @@ fun KursScreen(
                                     style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f)
                                 )
                                 Box(
-                                    Modifier.size(40.dp).clip(RoundedCornerShape(999.dp))
+                                    Modifier.size(40.dp).clip(CircleShape)
                                         .clickable(role = Role.Button) { locChipDismissed = true }
                                         .semantics { contentDescription = pick(lang, "Yopish", "Закрыть", "Close") },
                                     contentAlignment = Alignment.Center
@@ -554,28 +602,22 @@ fun KursScreen(
                             }
                         }
                     }
-                    // List header
+                    // Section head + sort / filters
                     item(key = "header") {
-                        Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Row(Modifier.weight(1f)) {
-                                    Text(tr("Banklar", "Банки", "Banks"), style = VsType.Title, color = VsInk, modifier = Modifier.alignByBaseline())
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("${displayed.size}", style = VsType.Meta, color = VsInkSoft, modifier = Modifier.alignByBaseline())
-                                }
+                        Column(Modifier.fillMaxWidth().padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom) {
+                                Text(tr("Boshqa banklar", "Другие банки", "Other banks"), style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
+                                Text(
+                                    tr("Eng yaxshidan farqi", "Разница с лучшим", "Difference from the best"),
+                                    style = VsType.Meta, color = VsInkSoft
+                                )
+                            }
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Box {
-                                    Row(
-                                        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
-                                            .clickable(role = Role.Button) { sortMenu = true }.padding(start = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.AutoMirrored.Outlined.Sort, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(sortLabel(sort), style = VsType.Meta.copy(fontWeight = FontWeight.Medium), color = VsInk)
-                                    }
+                                    VsChip(sortLabel(sort), selected = false, onClick = { sortMenu = true }, trailing = Icons.Outlined.KeyboardArrowDown)
                                     DropdownMenu(
                                         expanded = sortMenu, onDismissRequest = { sortMenu = false },
-                                        containerColor = VsBg, shape = RoundedCornerShape(12.dp)
+                                        containerColor = VsCard, shape = VsShape.Panel
                                     ) {
                                         KursSort.entries.forEach { opt ->
                                             DropdownMenuItem(
@@ -586,41 +628,59 @@ fun KursScreen(
                                         }
                                     }
                                 }
-                            }
-                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 VsChip(tr("Ochiq hozir", "Открыто сейчас", "Open now"), onlyOpen, { onlyOpen = !onlyOpen })
-                                if (favorites.isNotEmpty()) VsChip(tr("Tanlanganlar", "Избранное", "Favourites"), onlyFav, { onlyFav = !onlyFav })
+                                if (favorites.isNotEmpty()) VsChip(tr("Sevimlilar", "Избранное", "Favourites"), onlyFav, { onlyFav = !onlyFav })
                             }
-                            Spacer(Modifier.height(4.dp))
-                            KHairline()
                         }
                     }
-                    if (displayed.isEmpty()) {
+                    if (others.isEmpty()) {
                         item(key = "none") {
                             Text(
                                 tr("Mos bank topilmadi", "Подходящих банков нет", "No matching banks"),
-                                style = VsType.Body, color = VsInkSoft, modifier = Modifier.animateItem().padding(vertical = 24.dp)
+                                style = VsType.Body, color = VsInkSoft, modifier = Modifier.animateItem().padding(vertical = 8.dp)
                             )
                         }
-                    }
-                    items(displayed.size, key = { displayed[it].rate.bank }) { idx ->
-                        val b = displayed[idx]
-                        Column(Modifier.animateItem(fadeInSpec = tween(Motion.MEDIUM), placementSpec = Motion.slide(), fadeOutSpec = tween(Motion.SHORT))) {
-                            BankListRow(
-                                rank = idx + 1, item = b, best = best, hasAmount = hasAmount,
-                                favorite = b.rate.bank in favorites, stale = stale6, ageH = ageH, ru = ru,
-                                showUnknownHours = onlyOpen,
-                                onClick = { sheetBank = b.rate.bank },
-                                onLongClick = { onToggleFavorite(b.rate.bank) }
-                            )
-                            KHairline()
+                    } else {
+                        item(key = "banks") {
+                            val full = expanded || query.isNotBlank() || others.size <= PREVIEW_BANKS + 1
+                            val shown = if (full) others else others.take(PREVIEW_BANKS)
+                            val maxLoss = shown.maxOfOrNull { b -> best?.let { abs(lossOf(b, it, hasAmount)) } ?: 0L } ?: 0L
+                            val showFooter = !full || (others.size > PREVIEW_BANKS + 1 && query.isBlank())
+                            VsPanel(Modifier.animateItem()) {
+                                shown.forEachIndexed { i, b ->
+                                    BankListRow(
+                                        rank = displayed.indexOfFirst { it.rate.bank == b.rate.bank } + 1, item = b, best = best,
+                                        hasAmount = hasAmount, sell = sell, maxLoss = maxLoss,
+                                        favorite = b.rate.bank in favorites, stale = stale6, ageH = ageH, ru = ru,
+                                        onClick = { sheetBank = b.rate.bank },
+                                        onLongClick = { onToggleFavorite(b.rate.bank) }
+                                    )
+                                    if (i < shown.lastIndex || showFooter) VsDivider()
+                                }
+                                if (showFooter) {
+                                    Row(
+                                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                            .clickable(role = Role.Button) { expanded = !full }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            if (!full) pick(lang, "Barcha ${displayed.size} bank", "Все ${displayed.size} банков", "All ${displayed.size} banks")
+                                            else pick(lang, "Kamroq koʻrsatish", "Свернуть", "Show fewer"),
+                                            style = VsType.BodyMedium, color = VsEmerald
+                                        )
+                                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsEmerald, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            }
                         }
                     }
                     item(key = "cbu") {
                         Text(
-                            (pick(lang, "Markaziy bank: ", "Центральный банк: ", "Central Bank: ")) + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
+                            (pick(lang, "Markaziy bank kursi: ", "Курс ЦБ: ", "Central Bank rate: ")) + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
                             style = VsType.Meta, color = VsInkSoft,
-                            modifier = Modifier.animateItem().fillMaxWidth().padding(top = 16.dp)
+                            modifier = Modifier.animateItem().fillMaxWidth().padding(horizontal = 4.dp)
                         )
                     }
                 }
@@ -642,10 +702,53 @@ fun KursScreen(
     }
 }
 
+/** Signed so'm difference vs the best bank (per-unit when no amount is typed). */
+private fun lossOf(item: RankedBank, best: RankedBank, hasAmount: Boolean): Long =
+    if (hasAmount) item.total - best.total else (item.perUnit - best.perUnit).toLong()
+
 @Composable
-private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: androidx.compose.ui.graphics.Color, text: String, modifier: Modifier = Modifier) {
+private fun TodayTopBar(
+    updatedAt: String?, offline: Boolean, searchOpen: Boolean,
+    onToggleSearch: () -> Unit, onOpenSettings: () -> Unit
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+        val ageMin = updatedAt?.let { kParseMillis(it) }?.let { (nowMillis() - it) / 60_000 }
+        val fresh = !offline && ageMin != null && ageMin < 30
+        FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60))
+        Spacer(Modifier.width(10.dp))
+        val time = updatedAt?.formatUpdatedAt()
+        Text(
+            when {
+                offline -> pick(lang, "Oflayn · ${time ?: "—"}", "Офлайн · ${time ?: "—"}", "Offline · ${time ?: "—"}")
+                time != null -> pick(lang, "$time yangilandi", "Обновлено в $time", "Updated at $time")
+                else -> ""
+            },
+            style = VsType.BodyMedium.copy(fontSize = 14.sp), color = VsInkSoft, modifier = Modifier.weight(1f)
+        )
+        VsIconButton(
+            icon = if (searchOpen) Icons.Outlined.Close else Icons.Outlined.Search,
+            description = tr("Qidirish", "Поиск", "Search"), onClick = onToggleSearch
+        )
+        Spacer(Modifier.width(8.dp))
+        VsIconButton(Icons.Outlined.Settings, tr("Sozlamalar", "Настройки", "Settings"), onOpenSettings)
+    }
+}
+
+@Composable
+private fun SlipDivider() {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.weight(1f).height(1.dp).background(VsHair))
+        Box(Modifier.size(28.dp).clip(CircleShape).background(VsTealTint), contentAlignment = Alignment.Center) {
+            Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = VsEmerald, modifier = Modifier.size(14.dp))
+        }
+        Box(Modifier.weight(1f).height(1.dp).background(VsHair))
+    }
+}
+
+@Composable
+private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, text: String, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface)
+        modifier.fillMaxWidth().vsCard(VsShape.Panel)
             .heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -655,83 +758,96 @@ private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint:
     }
 }
 
+/** Result of the slip: what you get, per-unit line, the best bank, and the two actions. */
 @Composable
-private fun HeroBlock(
-    best: RankedBank, amount: Double, currency: Currency, sell: Boolean, ru: Boolean,
-    timeText: String?, onRoute: () -> Unit, shareText: String
+private fun SlipResult(
+    best: RankedBank, amount: Double, currency: Currency, sell: Boolean, ru: Boolean, bankCount: Int,
+    onBank: () -> Unit, onRoute: () -> Unit, shareText: String
 ) {
     val has = amount > 0
-    val big = LocalDensity.current.fontScale > 1.5f
-    val heroStyle = VsType.Hero.copy(fontSize = if (big) 28.sp else 32.sp, lineHeight = if (big) 34.sp else 38.sp)
+    val bigFont = LocalDensity.current.fontScale > 1.5f
     val label = if (!has) (pick(lang, "1 ${currency.code} uchun", "Курс за 1 ${currency.code}", "Rate for 1 ${currency.code}"))
     else if (sell) (pick(lang, "Qoʻlingizga tegadi", "Вы получите", "You get"))
-    else (pick(lang, "Toʻlashingiz kerak", "Вам нужно заплатить", "You pay"))
+    else (pick(lang, "Toʻlashingiz kerak", "Вы заплатите", "You pay"))
     val value = if (has) best.total else best.perUnit.toLong()
     val som = kSom(ru)
-    val spoken = if (has) "$label, ${kSpokenSom(value, ru)}" else "$label, ${kSpokenSom(value, ru)}"
+    val spoken = "$label, ${kSpokenSom(value, ru)}"
+    val len = kGroup(value).length
+    val heroSize = (when { len <= 9 -> 46; len <= 11 -> 38; else -> 30 } - if (bigFont) 8 else 0).sp
+    val heroStyle = VsType.Hero.copy(fontSize = heroSize, lineHeight = heroSize)
 
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp)) {
-        // Data age lives in the ticker status line above.
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = VsType.Meta, color = VsInkSoft)
-        Row(modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = spoken }) {
+        Row(modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = spoken }, verticalAlignment = Alignment.Bottom) {
             AnimatedContent(
                 targetState = value,
                 transitionSpec = {
                     (fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)))
                         .using(SizeTransform(clip = false) { _, _ -> tween(Motion.SHORT, easing = Motion.Standard) })
                 },
-                label = "hero"
-                , modifier = Modifier.alignByBaseline()
+                label = "hero",
+                modifier = Modifier.alignByBaseline().weight(1f, fill = false)
             ) { v ->
-                Text(kGroup(v), style = heroStyle, color = VsEmerald)
+                Text(kGroup(v), style = heroStyle, color = VsEmerald, maxLines = 1, softWrap = false)
             }
-            Text("$NBSP$som", style = VsType.Body, color = VsInkSoft, modifier = Modifier.alignByBaseline())
+            Text("$NBSP$som", style = VsType.BodyMedium.copy(fontSize = 18.sp), color = VsInkSoft, modifier = Modifier.alignByBaseline().padding(start = 4.dp))
         }
-        Spacer(Modifier.height(12.dp))
-        Crossfade(best.rate.bank, animationSpec = tween(Motion.SHORT), label = "heroBank") { name ->
-            Text(name, style = VsType.Title, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            pick(
+                lang,
+                "$bankCount ta bankdan eng yaxshisi: 1 ${currency.code} = ${kGroup(best.perUnit)} $som",
+                "Лучший из $bankCount банков: 1 ${currency.code} = ${kGroup(best.perUnit)} $som",
+                "${kGroup(best.perUnit)} $som per ${currency.code}, the best of $bankCount banks"
+            ),
+            style = VsType.Meta, color = VsInkSoft
+        )
+    }
+    // Best bank row
+    val meta = listOfNotNull(
+        best.distanceKm?.let { kKm(it, ru) },
+        best.open.takeIf { it.known }?.let { kHoursShort(it, ru) }
+    ).joinToString(", ")
+    Row(
+        Modifier.fillMaxWidth().clip(VsShape.Panel)
+            .clickable(role = Role.Button, onClickLabel = tr("Batafsil", "Подробнее", "Details"), onClick = onBank)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        BankTile(bankInitials(best.rate.bank), best = true)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Crossfade(best.rate.bank, animationSpec = tween(Motion.SHORT), label = "heroBank") { name ->
+                Text(name, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        val meta = listOfNotNull(
-            if (has) "1 ${currency.code} = ${kGroup(best.perUnit)} $som" else null,
-            best.distanceKm?.let { kKm(it, ru) },
-            best.open.takeIf { it.known }?.let { kHoursShort(it, ru) }
-        ).joinToString("  ·  ")
-        if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft)
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KButton(
-                text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions, primary = true,
-                enabled = best.lat != null && best.lng != null, modifier = Modifier.weight(1f),
-                // Tonal, not filled: the currency cards on top are the first thing the eye should land on.
-                tonal = true, onClick = onRoute
-            )
-            KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share")) { kShare(shareText) }
-        }
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        KButton(
+            text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions, primary = true,
+            enabled = best.lat != null && best.lng != null, modifier = Modifier.weight(1f),
+            onClick = onRoute
+        )
+        KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share")) { kShare(shareText) }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BankListRow(
-    rank: Int, item: RankedBank, best: RankedBank?, hasAmount: Boolean,
-    favorite: Boolean, stale: Boolean, ageH: Double?, ru: Boolean, showUnknownHours: Boolean,
+    rank: Int, item: RankedBank, best: RankedBank?, hasAmount: Boolean, sell: Boolean, maxLoss: Long,
+    favorite: Boolean, stale: Boolean, ageH: Double?, ru: Boolean,
     onClick: () -> Unit, onLongClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    val isBest = best != null && item.rate.bank == best.rate.bank
     val shown = if (hasAmount) item.total else item.perUnit.toLong()
-    val delta = if (!isBest && best != null) {
-        if (hasAmount) item.total - best.total else (item.perUnit - best.perUnit).toLong()
-    } else null
-
-    // Unknown hours are the norm for most banks; repeating it on every row is noise. Shown only when filtering by "open now".
-    val hours = if (item.open.known || showUnknownHours) kHoursShort(item.open, ru) else null
-    val meta = listOfNotNull(
-        if (hasAmount) "${kGroup(item.perUnit)} ${kSom(ru)}" else null,
-        item.distanceKm?.let { kKm(it, ru) },
-        hours
-    ).joinToString("  ·  ")
-    val ageText = ageH?.toInt()?.let { pick(lang, "$it s oldin", "$it ч назад", "$it h ago") }
+    val loss = if (best != null) abs(lossOf(item, best, hasAmount)) else 0L
+    val lessText = if (loss <= 0L) null else if (sell)
+        pick(lang, "${kGroup(loss)} kam", "на ${kGroup(loss)} меньше", "${kGroup(loss)} less")
+    else pick(lang, "${kGroup(loss)} koʻp", "на ${kGroup(loss)} больше", "${kGroup(loss)} more")
+    val frac = if (loss <= 0L || maxLoss <= 0L) 0f else (loss.toFloat() / maxLoss).coerceIn(0.08f, 1f)
+    val ageText = ageH?.toInt()?.let { pick(lang, "$it soat oldin", "$it ч назад", "$it h ago") }
 
     val spoken = buildString {
         append(pick(lang, "$rank-oʻrin, ", "$rank-е место, ", "#$rank, "))
@@ -739,33 +855,28 @@ private fun BankListRow(
         append(kSpokenSom(shown, ru))
         item.distanceKm?.let { append(", ").append(kSpokenKm(it, ru)) }
         append(", ").append(kSpokenHours(item.open, ru))
-        if (delta != null && delta != 0L) append(", ").append(pick(lang, "farq ", "разница ", "difference ")).append(kDelta(delta))
-        if (favorite) append(", ").append(pick(lang, "tanlangan", "в избранном", "favourite"))
+        if (lessText != null) append(", ").append(lessText)
+        if (favorite) append(", ").append(pick(lang, "sevimli", "в избранном", "favourite"))
         if (stale && ageText != null) append(", ").append(ageText)
     }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
                 onClickLabel = tr("Batafsil", "Подробнее", "Details"),
-                onLongClickLabel = tr("Tanlanganlarga qoʻshish yoki olib tashlash", "Добавить в избранное или убрать", "Add to or remove from favourites"),
+                onLongClickLabel = tr("Sevimlilarga qoʻshish yoki olib tashlash", "Добавить в избранное или убрать", "Add to or remove from favourites"),
                 onClick = onClick,
                 onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() }
             )
             .clearAndSetSemantics { contentDescription = spoken }
-            .heightIn(min = 64.dp)
-            .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Line 1: rank · name · total — one shared baseline.
-        Row(Modifier.fillMaxWidth()) {
-            Text(
-                "$rank", style = VsType.Body,
-                color = if (isBest) VsEmerald else VsInkSoft,
-                modifier = Modifier.width(RANK_W).alignByBaseline()
-            )
-            Row(Modifier.weight(1f).alignByBaseline(), verticalAlignment = Alignment.CenterVertically) {
+        BankTile(bankInitials(item.rate.bank), size = 36.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     item.rate.bank, style = VsType.BodyMedium, color = VsInk,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
@@ -774,40 +885,28 @@ private fun BankListRow(
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Filled.Star, null, tint = VsInkSoft, modifier = Modifier.size(14.dp))
                 }
+                if (stale && ageText != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Outlined.Schedule, null, tint = VsAmber, modifier = Modifier.size(14.dp))
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            AnimatedContent(
-                shown, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) },
-                label = "rowv", modifier = Modifier.alignByBaseline()
-            ) { v ->
-                Text(
-                    kGroup(v), style = VsType.BodyMedium.copy(fontWeight = if (isBest) FontWeight.SemiBold else FontWeight.Medium),
-                    color = if (isBest) VsEmerald else VsInk, textAlign = TextAlign.End
-                )
+            Box(Modifier.width(120.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(VsGround)) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(frac).clip(RoundedCornerShape(2.dp)).background(VsRoseMark))
             }
         }
-        // Line 2: meta · delta — indented to the name column, shared baseline.
-        if (meta.isNotEmpty() || stale || delta != null) {
-            Row(Modifier.fillMaxWidth().padding(start = RANK_W, top = 2.dp)) {
-                Row(Modifier.weight(1f).alignByBaseline(), verticalAlignment = Alignment.CenterVertically) {
-                    if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    if (stale && ageText != null) {
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.Outlined.Schedule, null, tint = VsAmber, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(ageText, style = VsType.Meta, color = VsAmber)
-                    }
-                }
-                if (delta != null) {
-                    Spacer(Modifier.width(12.dp))
-                    Text(kDelta(delta), style = VsType.Meta, color = VsInkSoft, textAlign = TextAlign.End, modifier = Modifier.alignByBaseline())
-                }
-            }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            AnimatedContent(
+                shown, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) },
+                label = "rowv"
+            ) { v -> Text(kGroup(v), style = VsType.Value, color = VsInk, textAlign = TextAlign.End, maxLines = 1) }
+            if (lessText != null) Text(
+                lessText,
+                style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp),
+                color = VsRoseText, textAlign = TextAlign.End, maxLines = 1
+            )
         }
     }
 }
-
-private val RANK_W = 28.dp
 
 /* ---------- skeleton ---------- */
 
@@ -819,29 +918,33 @@ private fun skeletonAlpha(): Float {
 }
 
 @Composable
-private fun SkeletonHero() {
+private fun SkeletonSlip() {
     val a = skeletonAlpha()
-    Column(Modifier.fillMaxWidth().padding(top = 16.dp).alpha(a), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.width(120.dp).height(13.dp).clip(RoundedCornerShape(4.dp)).background(VsSurface))
-        Box(Modifier.width(220.dp).height(32.dp).clip(RoundedCornerShape(4.dp)).background(VsSurface))
-        Box(Modifier.width(160.dp).height(20.dp).clip(RoundedCornerShape(4.dp)).background(VsSurface))
-        Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface))
-        Spacer(Modifier.height(8.dp))
-        KHairline()
+    VsCardBox(Modifier.alpha(a)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Box(Modifier.width(170.dp).height(40.dp).clip(CircleShape).background(VsGround))
+            Box(Modifier.width(100.dp).height(44.dp).clip(CircleShape).background(VsTile))
+        }
+        Box(Modifier.width(140.dp).height(40.dp).clip(RoundedCornerShape(8.dp)).background(VsGround))
+        Box(Modifier.width(220.dp).height(46.dp).clip(RoundedCornerShape(8.dp)).background(VsTealTint))
+        Box(Modifier.fillMaxWidth().height(56.dp).clip(VsShape.Panel).background(VsGround))
     }
 }
 
 @Composable
-private fun SkeletonRow() {
+private fun SkeletonList() {
     val a = skeletonAlpha()
-    Column(Modifier.fillMaxWidth().alpha(a)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.width(140.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(VsSurface))
-                Box(Modifier.width(200.dp).height(13.dp).clip(RoundedCornerShape(4.dp)).background(VsSurface))
+    VsPanel(Modifier.alpha(a)) {
+        repeat(5) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(VsTile))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.width(110.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(VsTile))
+                    Box(Modifier.width(120.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(VsGround))
+                }
+                Box(Modifier.width(72.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(VsTile))
             }
-            Box(Modifier.width(80.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(VsSurface))
+            VsDivider()
         }
-        KHairline()
     }
 }

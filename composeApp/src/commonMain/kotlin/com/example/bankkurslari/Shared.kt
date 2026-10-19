@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.TextMeasurer
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.bankkurslari.ui.theme.VsBg
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsInk
@@ -94,12 +98,12 @@ fun Segmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     cellWidth: Dp? = null,
-    height: Dp = 44.dp
+    height: Dp = 40.dp
 ) {
     val pad = 3.dp
     val trackMod = if (cellWidth == null) modifier.fillMaxWidth() else modifier.width(cellWidth * options.size + pad * 2)
     BoxWithConstraints(
-        trackMod.height(height).clip(RoundedCornerShape(12.dp)).background(VsSurface).padding(pad)
+        trackMod.height(height).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsGround).padding(pad)
     ) {
         val w = cellWidth ?: (maxWidth / options.size)
         val x by animateDpAsState(w * selected.coerceIn(0, options.lastIndex), Motion.slide(), label = "thumb")
@@ -107,8 +111,8 @@ fun Segmented(
         val thumbA by animateFloatAsState(if (selected in options.indices) 1f else 0f, tween(Motion.SHORT), label = "thumbA")
         Box(
             Modifier.offset(x = x).width(w).fillMaxHeight().graphicsLayer { alpha = thumbA }
-                .clip(RoundedCornerShape(10.dp)).background(VsBg)
-                .border(1.dp, VsLine, RoundedCornerShape(10.dp))
+                .shadow(1.dp, CircleShape, clip = false)
+                .clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsCard)
         )
         Row(Modifier.fillMaxWidth().fillMaxHeight()) {
             options.forEachIndexed { i, label ->
@@ -116,7 +120,7 @@ fun Segmented(
                 val c by animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "seg")
                 Box(
                     Modifier.width(w).fillMaxHeight()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -128,6 +132,42 @@ fun Segmented(
                         label, style = VsType.BodyMedium.copy(fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Medium),
                         color = c, maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Pill segmented control whose cells hug their label (16 dp side padding, as in the redesign) so text never touches the thumb edge.
+ * The thumb slides between measured cell bounds.
+ */
+@Composable
+fun SegmentedHug(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, height: Dp = 40.dp) {
+    val density = LocalDensity.current
+    val widths = remember(options) { mutableStateMapOf<Int, Int>() }
+    val idx = selected.coerceIn(0, options.lastIndex)
+    val startPx = (0 until idx).sumOf { widths[it] ?: 0 }
+    val x by animateDpAsState(with(density) { startPx.toDp() }, Motion.slide(), label = "hugx")
+    val w by animateDpAsState(with(density) { (widths[idx] ?: 0).toDp() }, Motion.slide(), label = "hugw")
+    Box(modifier.height(height).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsGround).padding(3.dp)) {
+        Box(
+            Modifier.offset(x = x).width(w).fillMaxHeight()
+                .shadow(1.dp, CircleShape, clip = false).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsCard)
+        )
+        Row(Modifier.fillMaxHeight()) {
+            options.forEachIndexed { i, label ->
+                val sel = i == idx
+                val c by animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "hugc")
+                Box(
+                    Modifier.fillMaxHeight().clip(CircleShape)
+                        .onSizeChanged { widths[i] = it.width }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(i) }
+                        .padding(horizontal = 14.dp)
+                        .semantics { role = Role.Tab; this.selected = sel },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, style = VsType.BodyMedium.copy(fontSize = 14.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Medium), color = c, maxLines = 1)
                 }
             }
         }
