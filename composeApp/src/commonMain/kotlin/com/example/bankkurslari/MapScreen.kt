@@ -36,6 +36,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import com.example.bankkurslari.ui.theme.VsGround
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MyLocation
@@ -110,7 +112,6 @@ fun MapScreen(
     var bestOnly by remember { mutableStateOf(false) }
     var atmOn by remember { mutableStateOf(false) }
     var listMode by remember { mutableStateOf(false) }
-    var legendOpen by remember { mutableStateOf(true) }
     var labelMode by remember {
         // Every visit starts with bank name + rate; the switch only changes the current visit.
         mutableStateOf(MapLabel.BOTH)
@@ -209,6 +210,10 @@ fun MapScreen(
     ).dp
     val bottomInset = innerPadding.calculateBottomPadding()
     val bankNames = remember(ranked) { ranked.map { it.rate.bank } }
+    val shownCity = cityName ?: userLocation?.takeIf { !locationBad }?.let { u ->
+        mapCities.minByOrNull { distanceMeters(u.first, u.second, it.lat, it.lng) }
+            ?.takeIf { distanceMeters(u.first, u.second, it.lat, it.lng) < 60_000.0 }
+    }
 
     // Peek card: the tapped bank, else the nearest best-priced branch. Hidden while the list is open.
     val peekPin = remember(selectedId, pricedPins, bankSel, openNow) {
@@ -219,7 +224,7 @@ fun MapScreen(
     val route = LocalRoute.current
     var filtersOpen by remember { mutableStateOf(false) }
     val showPeek = peekPin?.rb != null && !listMode
-    val peekGap = if (showPeek) 104.dp else 16.dp
+    val peekGap = if (showPeek) 112.dp else 16.dp
 
     Box(modifier = Modifier.fillMaxSize().background(VsBg)) {
       Box(modifier = Modifier.fillMaxSize().padding(bottom = bottomInset).clipToBounds()) {
@@ -275,37 +280,24 @@ fun MapScreen(
                     tint = if (filtersOpen || openNow || bestOnly || bankSel != null || atmOn || listMode) VsEmerald else VsInk
                 )
             }
-            if (locationBad) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().vsFloating(VsShape.Pill).padding(start = 16.dp, end = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // City pill (replaces the wide "location not found" banner): the city around you, or the one you picked.
+            Box(Modifier.align(Alignment.Start)) {
+                MapCityPill(
+                    label = shownCity?.let { tr(it.uz, it.ru) } ?: tr("Shahar tanlang", "Выберите город", "Choose a city"),
+                    onClick = { cityMenu = true }
+                )
+                DropdownMenu(
+                    expanded = cityMenu, onDismissRequest = { cityMenu = false },
+                    containerColor = VsCard, shape = VsShape.Stat
                 ) {
-                    Text(
-                        tr("Joylashuv aniqlanmadi", "Местоположение не определено", "Location not found"),
-                        style = VsType.Meta, color = VsAmber, modifier = Modifier.weight(1f)
-                    )
-                    Box {
-                        MapChip(
-                            label = cityName?.let { tr(it.uz, it.ru) } ?: tr("Shahar tanlang", "Выберите город", "Choose a city"),
-                            selected = cityName != null,
-                            onClick = { cityMenu = true },
-                            trailing = Icons.Outlined.ExpandMore
-                        )
-                        DropdownMenu(
-                            expanded = cityMenu, onDismissRequest = { cityMenu = false },
-                            containerColor = VsCard, shape = VsShape.Stat
-                        ) {
-                            mapCities.forEach { c ->
-                                DropdownMenuItem(
-                                    text = { Text(tr(c.uz, c.ru), style = VsType.Body, color = if (cityName === c) VsEmerald else VsInk) },
-                                    onClick = {
-                                        cityName = c; cityMenu = false
-                                        map?.animateTo(c.lat, c.lng, 12.0)
-                                    }
-                                )
+                    mapCities.forEach { c ->
+                        DropdownMenuItem(
+                            text = { Text(tr(c.uz, c.ru), style = VsType.Body, color = if (shownCity === c) VsEmerald else VsInk) },
+                            onClick = {
+                                cityName = c; cityMenu = false
+                                map?.animateTo(c.lat, c.lng, 12.0)
                             }
-                        }
+                        )
                     }
                 }
             }
@@ -356,6 +348,21 @@ fun MapScreen(
                         MapChip(tr("Bankomat", "Банкомат", "ATMs"), atmOn, { atmOn = !atmOn }, loading = atmOn && atmsLoading)
                         MapChip(tr("Roʻyxat", "Список", "List"), listMode, { listMode = !listMode })
                     }
+                    val legendDesc = tr("narx yaxshi, boshqa, yopiq", "цена хорошая, другие, закрыто", "good rate, other, closed")
+                    Row(
+                        Modifier.padding(horizontal = 16.dp).heightIn(min = 32.dp).semantics { contentDescription = legendDesc },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        LegendSwatch(fill = VsEmerald, stroke = VsEmerald)
+                        Text(tr("yaxshi narx", "лучшая цена", "best rate"), style = VsType.Meta, color = VsInk, maxLines = 1)
+                        Spacer(Modifier.width(6.dp))
+                        LegendSwatch(fill = VsCard, stroke = VsHair)
+                        Text(tr("boshqa", "другие", "other"), style = VsType.Meta, color = VsInk, maxLines = 1)
+                        Spacer(Modifier.width(6.dp))
+                        LegendSwatch(fill = VsTile, stroke = VsHair, dashed = true)
+                        Text(tr("yopiq", "закрыто", "closed"), style = VsType.Meta, color = VsInkSoft, maxLines = 1)
+                    }
                 }
             }
             MapReveal(visible = tileFailed, fromTop = true) {
@@ -367,55 +374,11 @@ fun MapScreen(
             }
         }
 
-        // ---------- Legend (one line, collapsible) + locate button ----------
+        // ---------- Locate button: floating circle above the peek card ----------
         Row(
-            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, bottom = peekGap),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = peekGap),
+            verticalAlignment = Alignment.Bottom
         ) {
-            val legendText = tr("narx yaxshi, boshqa, yopiq", "цена хорошая, другие, закрыто", "good rate, other, closed")
-            Box(
-                modifier = Modifier.heightIn(min = 48.dp)
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null, role = Role.Button
-                    ) { legendOpen = !legendOpen }
-                    .semantics { contentDescription = legendText },
-                contentAlignment = Alignment.CenterStart
-            ) {
-                AnimatedContent(
-                    legendOpen,
-                    transitionSpec = {
-                        (fadeIn(tween(Motion.MEDIUM, easing = Motion.Decelerate)) + expandHorizontally(tween(Motion.MEDIUM, easing = Motion.Decelerate), expandFrom = Alignment.Start)) togetherWith
-                            (fadeOut(tween(Motion.SHORT)) + shrinkHorizontally(tween(Motion.MEDIUM), shrinkTowards = Alignment.Start))
-                    },
-                    label = "legend"
-                ) { open ->
-                    if (open) {
-                        Row(
-                            Modifier.vsFloating(VsShape.Pill).padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            LegendSwatch(fill = VsEmerald, stroke = VsEmerald)
-                            Text(tr("yaxshi narx", "лучшая цена", "best rate"), style = VsType.Meta, color = VsInk, maxLines = 1)
-                            Spacer(Modifier.width(4.dp))
-                            LegendSwatch(fill = VsCard, stroke = VsHair)
-                            Text(tr("boshqa", "другие", "other"), style = VsType.Meta, color = VsInk, maxLines = 1)
-                            Spacer(Modifier.width(4.dp))
-                            LegendSwatch(fill = VsTile, stroke = VsHair, dashed = true)
-                            Text(tr("yopiq", "закрыто", "closed"), style = VsType.Meta, color = VsInkSoft, maxLines = 1)
-                        }
-                    } else {
-                        Box(Modifier.size(40.dp).vsFloating(CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.Info, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            // Locate-me: floating 48 dp circle, neutral (teal is reserved for "best" / primary action).
             val fabSrc = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             Box(
                 modifier = Modifier.size(48.dp).pressScale(fabSrc).vsFloating(CircleShape)
@@ -445,7 +408,9 @@ fun MapScreen(
                 } else {
                     "${mapRateText(rb.perUnit)} $unit"
                 }
-                val line = listOfNotNull(sub, dist).joinToString(", ")
+                val nBranches = pricedPins.count { it.bankKey == pin.bankKey }
+                val branchesText = if (nBranches > 1) pick(lang, "$nBranches filial", "$nBranches филиала", "$nBranches branches") else null
+                val line = listOfNotNull(sub, branchesText ?: dist).joinToString(", ")
                 val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
@@ -458,18 +423,18 @@ fun MapScreen(
                     BankTile(mapInitials(pin.title), best = pin.good)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(pin.title, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(line, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(line, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     val goSrc = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     Box(
-                        Modifier.heightIn(min = 40.dp).pressScale(goSrc).clip(RoundedCornerShape(14.dp)).background(VsEmerald)
+                        Modifier.heightIn(min = 44.dp).pressScale(goSrc).clip(VsShape.Pill).background(VsEmerald)
                             .clickable(interactionSource = goSrc, indication = null, role = Role.Button) {
                                 route(RouteTarget(pin.lat, pin.lng, pin.title))
                             }
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(tr("Yoʻnalish", "Маршрут", "Go"), style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp)), color = androidx.compose.ui.graphics.Color.White)
+                        Text(tr("Yoʻnalish", "Маршрут", "Go"), style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp)), color = VsOnAccent)
                     }
                 }
             }
@@ -486,7 +451,8 @@ fun MapScreen(
             updatedAt = payload.updatedAt,
             favorite = favorites.contains(rb.rate.bank),
             onToggleFavorite = { onToggleFavorite(rb.rate.bank) },
-            onDismiss = { sheetBank = null; selectedId = null }
+            onDismiss = { sheetBank = null; selectedId = null },
+            best = ranked.firstOrNull()
         )
     }
     infoPin?.let { p -> MapInfoSheet(p) { infoPin = null; selectedId = null } }
@@ -585,7 +551,7 @@ private fun mapInitials(name: String): String {
     }.uppercase()
 }
 
-/** Floating currency capsule: selected = ink fill, inverted text. */
+/** Floating currency capsule: white pill, the selected cell is a ground thumb with a hairline shadow. */
 @Composable
 private fun MapCapsule(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(
@@ -594,8 +560,8 @@ private fun MapCapsule(options: List<String>, selected: Int, onSelect: (Int) -> 
     ) {
         options.forEachIndexed { i, label ->
             val sel = i == selected
-            val bg by androidx.compose.animation.animateColorAsState(if (sel) VsInk else androidx.compose.ui.graphics.Color.Transparent, Motion.color(), label = "capbg")
-            val fg by androidx.compose.animation.animateColorAsState(if (sel) VsBg else VsInkSoft, Motion.color(), label = "capfg")
+            val bg by androidx.compose.animation.animateColorAsState(if (sel) VsGround else androidx.compose.ui.graphics.Color.Transparent, Motion.color(), label = "capbg")
+            val fg by androidx.compose.animation.animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "capfg")
             Box(
                 Modifier.heightIn(min = 40.dp).clip(VsShape.Pill).background(bg)
                     .clickable(
@@ -603,12 +569,29 @@ private fun MapCapsule(options: List<String>, selected: Int, onSelect: (Int) -> 
                         indication = null, role = Role.Tab
                     ) { onSelect(i) }
                     .semantics { this.selected = sel }
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(label, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp)), color = fg, maxLines = 1)
             }
         }
+    }
+}
+
+/** Floating city pill: pin icon + city name + chevron. */
+@Composable
+private fun MapCityPill(label: String, onClick: () -> Unit) {
+    val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Row(
+        Modifier.heightIn(min = 44.dp).pressScale(src).vsFloating(VsShape.Pill)
+            .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
+            .padding(start = 12.dp, end = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Icon(Icons.Outlined.LocationOn, null, tint = VsInk, modifier = Modifier.size(18.dp))
+        Text(label, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(15f, androidx.compose.ui.unit.TextUnitType.Sp)), color = VsInk, maxLines = 1)
+        Icon(Icons.Outlined.ExpandMore, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
     }
 }
 

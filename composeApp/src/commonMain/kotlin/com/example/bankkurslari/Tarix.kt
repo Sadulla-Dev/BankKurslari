@@ -128,14 +128,12 @@ fun TarixScreen(
             VsIconButton(Icons.Outlined.IosShare, shareDesc, onClick = {
                 shareText("${currency.code} · MB / CBU: ${cur.formatRate()} ${unit}" + if (time.isNotEmpty()) " · $time" else "")
             })
-            Spacer(Modifier.width(8.dp))
-            VsIconButton(Icons.Outlined.Tune, pick(lang, "Sozlamalar", "Настройки", "Settings"), onClick = onOpenSettings)
         }
 
         if (series.size >= 2) {
             InteractiveHistory(series = series, today = cur, currency = currency, amount = amount, ru = ru, unit = unit)
         } else {
-            TrendHero(label = pick(lang, "Markaziy bank kursi, 1 $name", "Курс ЦБ, 1 $name", "Central Bank rate, 1 $name"), today = cur, unit = unit, delta = null)
+            TrendHero(label = pick(lang, "Markaziy bank kursi", "Курс ЦБ", "Central Bank rate"), today = cur, unit = unit, delta = null)
             Box(
                 modifier = Modifier.fillMaxWidth().height(200.dp).clip(VsShape.Panel).background(VsCard),
                 contentAlignment = Alignment.Center
@@ -160,9 +158,9 @@ fun TarixScreen(
         }
         val spread = if (bestBuy?.sell != null && bestSell?.buy != null && bestBuy.sell!! > bestSell.buy!!) bestBuy.sell!! - bestSell.buy!! else null
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TrendStat(pick(lang, "Bank oladi", "Банк покупает", "Best buy"), bestSell?.buy.formatUzs(), bestSell?.bank, Modifier.weight(1f))
-            TrendStat(pick(lang, "Bank sotadi", "Банк продаёт", "Best sell"), bestBuy?.sell.formatUzs(), bestBuy?.bank, Modifier.weight(1f))
-            if (spread != null) TrendStat(pick(lang, "Farq", "Разница", "Spread"), spread.toLong().formatUzsL(), null, Modifier.weight(1f))
+            TrendStat(pick(lang, "Bank oladi", "Банк покупает", "Best buy"), bestSell?.buy.formatUzs(), bestSell?.bank?.let(::shortBank), Modifier.weight(1f))
+            TrendStat(pick(lang, "Bank sotadi", "Банк продаёт", "Best sell"), bestBuy?.sell.formatUzs(), bestBuy?.bank?.let(::shortBank), Modifier.weight(1f))
+            if (spread != null) TrendStat(pick(lang, "Farq", "Разница", "Spread"), spread.toLong().formatUzsL(), unit, Modifier.weight(1f))
         }
 
         GoldSection(ru = ru, unit = unit)
@@ -239,15 +237,20 @@ fun TarixScreen(
     }
 }
 
-/** Ground stat tile for the three-up "At banks today" row (same shape and tokens as VsStat, 18 sp figure to fit a third of the width). */
+/** White stat card for the three-up "At banks today" row: label, figure, grey sub line. */
 @Composable
 private fun TrendStat(label: String, value: String, note: String?, modifier: Modifier = Modifier) {
-    Column(modifier.clip(VsShape.Stat).background(VsCard).border(1.dp, VsHair, VsShape.Stat).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val shape = RoundedCornerShape(20.dp)
+    Column(modifier.clip(shape).background(VsCard).border(1.dp, VsHair, shape).padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, style = VsType.Value.copy(fontSize = 18.sp), color = VsInk, maxLines = 1)
-        if (note != null) Text(note, style = VsType.Meta.copy(fontSize = 12.sp), color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, style = VsType.Title.copy(fontSize = 24.sp, lineHeight = 30.sp), color = VsInk, maxLines = 1)
+        if (note != null) Text(note, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
+
+/** "Asia Alliance Bank" -> "Asia Alliance", "Xalq Banki" -> "Xalq". */
+private fun shortBank(name: String): String =
+    name.replace(Regex("\\s+(Bank|Banki|bank|banki|Банк)$"), "").ifBlank { name }
 
 @Composable
 private fun AlertRow(a: RateAlert, ru: Boolean, unit: String, onDelete: () -> Unit) {
@@ -492,7 +495,7 @@ private val ThousandsTransformation = VisualTransformation { input ->
 fun epochDay(iso: String): Long =
     runCatching { LocalDate.parse(iso.take(10)).toEpochDays() }.getOrDefault(0L)
 
-private fun todayIso(): String = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+internal fun todayIso(): String = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
 
 /** History points + today's official rate as the last point; empty when the points do not belong to [cur]. */
 private fun buildSeries(points: List<HistoryPoint>, cur: Double, todayIso: String): List<HistoryPoint> {

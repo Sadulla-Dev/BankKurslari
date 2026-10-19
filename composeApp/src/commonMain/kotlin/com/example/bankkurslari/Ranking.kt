@@ -128,6 +128,8 @@ fun rankBanks(
 
     return rows.sortedWith(
         compareBy<Row> { it.sortValue }
+            // Equal price: a bank that is open now beats one known to be closed.
+            .thenBy { if (it.item.open.known && !it.item.open.open) 1 else 0 }
             .thenBy { it.item.distanceKm ?: Double.MAX_VALUE }
     ).map { it.item }
 }

@@ -48,15 +48,18 @@ fun GoldSection(ru: Boolean, unit: String) {
 
     val g = gold
     Column(
-        Modifier.fillMaxWidth().vsCard(VsShape.Panel).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp),
+        Modifier.fillMaxWidth().vsCard(androidx.compose.foundation.shape.RoundedCornerShape(24.dp)).padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column {
-            Text(pick(lang, "Markaziy bank oltin quymalari", "Золотые слитки ЦБ", "CBU gold bars"), style = VsType.Value, color = VsInk)
-            val updated = if (g == null) "" else listOfNotNull(g.date, g.time).joinToString(", ")
-            if (updated.isNotEmpty()) {
-                Text((pick(lang, "Yangilandi: ", "Обновлено: ", "Updated: ")) + updated + " · cbu.uz", style = VsType.Meta, color = VsInkSoft)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(pick(lang, "Markaziy bank oltin quymalari", "Золотые слитки ЦБ", "CBU gold bars"), style = VsType.Title.copy(fontSize = 19.sp, lineHeight = 24.sp), color = VsInk)
+            val isToday = g?.date?.let { it == todayIso() || it.startsWith(todayIso()) || it == formatFullDate(todayIso()) } == true
+            val stamp = when {
+                g == null -> ""
+                isToday && g.time != null -> pick(lang, "Bugun ${g.time} da narxlangan", "Цены на сегодня, ${g.time}", "Priced today at ${g.time}")
+                else -> listOfNotNull(g.date, g.time).joinToString(", ").let { if (it.isEmpty()) "" else pick(lang, "$it da narxlangan", "Цены на $it", "Priced $it") }
             }
+            if (stamp.isNotEmpty()) Text(stamp, style = VsType.Meta, color = VsInkSoft)
         }
         if (g == null || g.bars.isEmpty()) {
             Text(
@@ -71,13 +74,17 @@ fun GoldSection(ru: Boolean, unit: String) {
         val ref = g.bars.maxBy { it.grams }
         val perGram = (ref.sell / ref.grams).roundToLong()
         val loss = ref.buyback?.let { (ref.sell - it).toDouble() / ref.sell * 100 }
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(perGram.formatUzsL(), style = VsType.Title.copy(fontSize = 26.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold), color = VsInk, modifier = Modifier.alignByBaseline())
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+            Text(perGram.formatUzsL(), style = VsType.Display.copy(fontSize = 36.sp, lineHeight = 38.sp), color = VsInk, maxLines = 1, modifier = Modifier.alignByBaseline())
             Text(
-                "$unit " + pick(lang, "gramm uchun, ${gramsText(ref.grams)} g quymada", "за грамм, в слитке ${gramsText(ref.grams)} г", "per gram, in a ${gramsText(ref.grams)} g bar"),
-                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f).alignByBaseline()
+                pick(lang, "$unit, 1 gramm", "$unit, 1 грамм", "$unit, 1 gram"),
+                style = VsType.Body.copy(fontSize = 15.sp), color = VsInkSoft, modifier = Modifier.alignByBaseline()
             )
         }
+        Text(
+            pick(lang, "${gramsText(ref.grams)} g quyma narxi boʻyicha", "по цене слитка ${gramsText(ref.grams)} г", "based on the ${gramsText(ref.grams)} g bar"),
+            style = VsType.Meta, color = VsInkSoft
+        )
         if (loss != null) {
             VsNote(
                 pick(lang, "Quymani darhol qaytarib sotsangiz, ${loss.fixed(1)}% yoʻqotasiz",
@@ -104,9 +111,9 @@ fun GoldSection(ru: Boolean, unit: String) {
 private fun GoldRow(bar: GoldBar, ru: Boolean, unit: String, last: Boolean) {
     var open by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        Modifier.fillMaxWidth().heightIn(min = 44.dp)
             .clickable(role = Role.Button) { open = !open }
-            .padding(vertical = 10.dp)
+            .padding(vertical = 4.dp)
     ) {
         Row(Modifier.fillMaxWidth()) {
             Text("${gramsText(bar.grams)} g", style = VsType.Value.copy(fontSize = 15.sp), color = VsInk, modifier = Modifier.weight(0.8f).alignByBaseline())
@@ -159,19 +166,4 @@ private fun GoldTrend(ru: Boolean, unit: String) {
             "${formatShortDate(first.first)} – ${formatShortDate(last.first)}",
         style = VsType.Meta, color = VsInkSoft
     )
-    val accent = VsEmerald; val card = VsCard
-    val lo = p.minOf { it.second }; val hi = p.maxOf { it.second }
-    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-        val pad = 6.dp.toPx()
-        val span = (hi - lo).takeIf { it > 1e-9 } ?: 1.0
-        fun x(i: Int) = pad + i * (size.width - 2 * pad) / (p.size - 1)
-        fun y(v: Double) = pad + (1f - ((v - lo) / span).toFloat()) * (size.height - 2 * pad)
-        val path = androidx.compose.ui.graphics.Path()
-        p.forEachIndexed { i, (_, v) -> if (i == 0) path.moveTo(x(i), y(v)) else path.lineTo(x(i), y(v)) }
-        val area = androidx.compose.ui.graphics.Path().apply { addPath(path); lineTo(x(p.lastIndex), size.height); lineTo(x(0), size.height); close() }
-        drawPath(area, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(accent.copy(alpha = 0.16f), accent.copy(alpha = 0f))))
-        drawPath(path, accent, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-        drawCircle(card, 6.dp.toPx(), androidx.compose.ui.geometry.Offset(x(p.lastIndex), y(last.second)))
-        drawCircle(accent, 4.dp.toPx(), androidx.compose.ui.geometry.Offset(x(p.lastIndex), y(last.second)))
-    }
 }

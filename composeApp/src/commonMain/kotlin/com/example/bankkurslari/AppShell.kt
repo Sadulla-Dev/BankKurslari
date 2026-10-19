@@ -1,6 +1,9 @@
 package com.example.bankkurslari
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -245,7 +248,9 @@ fun CurrencyTrackerApp(
                             userLocation = userLocation,
                             tickers = tickersView,
                             onOpenSettings = { showSettings = true },
-                            onRefresh = { refresh() }
+                            onShowOnMap = { tab = HomeTab.MAP },
+                            onRefresh = { refresh() },
+                            onRequestLocation = { locationLauncher() }
                         )
                         HomeTab.MAP -> MapScreen(
                             innerPadding = innerPadding,
@@ -296,8 +301,14 @@ fun CurrencyTrackerApp(
 
     }
 
-    if (showSettings) {
-        SettingsSheet(
+    // Settings: full-screen overlay above the tab bar; back / back button closes it.
+    AnimatedVisibility(
+        visible = showSettings,
+        enter = slideInHorizontally(tween(Motion.MEDIUM, easing = Motion.Decelerate)) { it / 4 } + fadeIn(tween(Motion.MEDIUM)),
+        exit = slideOutHorizontally(tween(Motion.SHORT)) { it / 4 } + fadeOut(tween(Motion.SHORT)),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        SettingsScreen(
             onDismiss = { showSettings = false },
             lang = lang,
             onLang = onLang,
@@ -305,6 +316,12 @@ fun CurrencyTrackerApp(
             onThemeMode = onThemeMode,
             defaultCurrency = currency,
             onDefaultCurrency = onCurrency,
+            amountText = amountText,
+            onAmount = {
+                amountText = it.filter(Char::isDigit).take(9)
+                appStore().putString("amount", amountText)
+            },
+            onLocationGranted = { userLocation = lastKnownLocation() },
             onOpenAlerts = { showSettings = false; tab = HomeTab.TREND }
         )
     }

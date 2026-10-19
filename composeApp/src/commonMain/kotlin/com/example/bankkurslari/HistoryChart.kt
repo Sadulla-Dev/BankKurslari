@@ -12,6 +12,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -22,8 +27,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -173,58 +178,48 @@ fun InteractiveHistory(
     val lo = inside.minOf { series[it].rate }
     val hi = inside.maxOf { series[it].rate }
 
-    // ---- header: title + change over the visible window ----
-    val a = series[inside.first()]
-    val b = series[inside.last()]
-    val pct = if (a.rate > 0) (b.rate - a.rate) / a.rate * 100 else 0.0
-    val arrow = when { abs(pct) < 0.005 -> "–"; pct > 0 -> "▲"; else -> "▼" }
-    val gain = b.rate >= a.rate
-    val deltaText = if (amountMode) {
-        val d = (b.rate - a.rate) * amt
-        "${fmtSom(abs(d), 1000.0)} $unit · ${abs(pct).fixed(2)}%"
-    } else "${fmtSom(abs(b.rate - a.rate), today)} · ${abs(pct).fixed(2)}%"
-    val periodText = "${shortDay(a.date)} – ${shortDay(b.date)}"
-    val heroName = currency.displayName(lang).let { if (lang == Lang.RU) it.lowercase() else it }
-
-    TrendHero(
-        label = pick(lang, "Markaziy bank kursi, 1 $heroName", "Курс ЦБ, 1 $heroName", "Central Bank rate, 1 $heroName"),
-        today = today, unit = unit,
-        delta = HeroDelta(deltaText, gain, flat = abs(pct) < 0.005, period = periodText)
-    )
-
-    // ---- presets ----
+    // ---- presets (computed first: the hero names the period) ----
     val labels = when (lang) {
-        Lang.RU -> listOf("1Н", "1М", "3М", "1Г", "Всё")
-        Lang.UZ_CYRL -> listOf("7к", "30к", "90к", "1й", "Ҳаммаси")
+        Lang.RU -> listOf("1 нед", "1 мес", "3 мес", "1 год", "Всё")
+        Lang.UZ_CYRL -> listOf("1 ҳафта", "1 ой", "3 ой", "1 йил", "Ҳаммаси")
         Lang.EN -> listOf("1W", "1M", "3M", "1Y", "All")
-        Lang.UZ -> listOf("7k", "30k", "90k", "1y", "Hammasi")
+        Lang.UZ -> listOf("1 hafta", "1 oy", "3 oy", "1 yil", "Hammasi")
     }
     val presetIdx = PRESETS.indexOfFirst { p ->
         val want = if (p == null) last - first else min(p.toDouble(), last - first)
         abs(vp.end - last) < 0.5 && abs(vp.span - want) < 1.0
     }
-    Segmented(
-        options = labels,
-        selected = presetIdx,
-        onSelect = { i ->
-            val p = PRESETS[i]
-            goTo(if (p == null) first else max(first, last - p), last)
-        },
-        modifier = Modifier.padding(top = 4.dp),
-        height = 40.dp
-    )
 
-    // ---- 1 unit / my amount ----
-    Segmented(
-        options = listOf("1 ${currency.code}", "${kGroup(amt.roundToLong())} ${currency.code}"),
-        selected = if (amountMode) 1 else 0,
-        onSelect = {
-            amountMode = it == 1
-            appStore().putBoolean("chart_amount_mode", amountMode)
-        },
-        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-        cellWidth = 104.dp,
-        height = 36.dp
+    // ---- header: title + change over the visible window ----
+    val a = series[inside.first()]
+    val b = series[inside.last()]
+    val pct = if (a.rate > 0) (b.rate - a.rate) / a.rate * 100 else 0.0
+    val gain = b.rate >= a.rate
+    val pctText = abs(pct).fixed(2).let { if (lang == Lang.EN) it else it.replace('.', ',') }
+    val deltaText = if (amountMode) {
+        val d = (b.rate - a.rate) * amt
+        "${fmtSom(abs(d), 1000.0)} $unit, $pctText%"
+    } else "${fmtSom(abs(b.rate - a.rate), today)}, $pctText%"
+    val periodText = when (presetIdx) {
+        0 -> pick(lang, "oxirgi 7 kunda", "за 7 дней", "over 7 days")
+        1 -> pick(lang, "oxirgi 30 kunda", "за 30 дней", "over 30 days")
+        2 -> pick(lang, "oxirgi 3 oyda", "за 3 месяца", "over 3 months")
+        3 -> pick(lang, "oxirgi 1 yilda", "за год", "over 1 year")
+        4 -> pick(lang, "butun davr uchun", "за всё время", "over all time")
+        else -> "${shortDay(a.date)} – ${shortDay(b.date)}"
+    }
+    val heroName = currency.displayName(lang).lowercase()
+
+    TrendHero(
+        label = pick(lang, "Markaziy bank kursi", "Курс ЦБ", "Central Bank rate"),
+        today = today, unit = unit,
+        delta = HeroDelta(deltaText, gain, flat = abs(pct) < 0.005, period = periodText),
+        trailing = {
+            UnitChip(
+                one = "1 $heroName", many = "${kGroup(amt.roundToLong())} $heroName", amountMode = amountMode,
+                onSelect = { m -> amountMode = m; appStore().putBoolean("chart_amount_mode", m) }
+            )
+        }
     )
 
     // ---- main chart ----
@@ -235,6 +230,7 @@ fun InteractiveHistory(
     val bubbleStyle = VsType.Value.copy(fontSize = 13.sp)
     val noteStyle = VsType.Meta.copy(fontSize = 12.sp)
     val lowLabel = pick(lang, "eng past", "минимум", "the low")
+    val todayLabel = pick(lang, "bugun", "сегодня", "today")
 
     // Y range follows the visible slice smoothly.
     val pad = if (hi - lo < 1e-6) hi * 0.01 else (hi - lo) * 0.1
@@ -335,7 +331,8 @@ fun InteractiveHistory(
         for (k in 0..3) {
             val tv = vp.start + vp.span * k / 3.0
             val anchor = when (k) { 0 -> TextAnchor.LEFT; 3 -> TextAnchor.RIGHT; else -> TextAnchor.CENTER }
-            drawTextAt(measurer, dayLabelOf(tv.toLong(), withYear), xOf(tv), h - 4.dp.toPx(), axisStyle, anchor)
+            val txt = if (k == 3 && vp.end >= last - 0.5) todayLabel else dayLabelOf(tv.toLong(), withYear)
+            drawTextAt(measurer, txt, xOf(tv), h - 4.dp.toPx(), axisStyle, anchor)
         }
 
         // line + soft area
@@ -366,7 +363,11 @@ fun InteractiveHistory(
             val idleA = (1f - selA) * dotA
             if (idleA > 0f) {
                 val v = series[lowIdx].rate
-                val txt = (if (amountMode) (v * amt).roundToLong().formatUzsL() else v.formatRate()) + " · " + dayLabelOf(t[lowIdx].toLong(), false) + ", " + lowLabel
+                val vText = if (amountMode) (v * amt).roundToLong().formatUzsL() else if (today >= 1000) v.roundToLong().formatUzsL() else v.formatRate()
+                val txt = "$vText, ${dayMonthOf(t[lowIdx].toLong())}, $lowLabel"
+                // Dotted guide from the chip down to the marker.
+                drawLine(ink.copy(alpha = 0.7f * idleA), Offset(lx, topPx), Offset(lx, ly - 6.dp.toPx()), strokeWidth = hair,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(2f, 6f)))
                 drawChip(measurer, listOf(txt to bubbleStyle.copy(fontSize = 12.sp, color = bg.copy(alpha = idleA))), lx, ly, leftPx, w - rightPx, topPx, plotB, ink, idleA)
             }
         }
@@ -402,6 +403,18 @@ fun InteractiveHistory(
             )
         }
     }
+
+    // ---- range presets ----
+    Segmented(
+        options = labels,
+        selected = presetIdx,
+        onSelect = { i ->
+            val p = PRESETS[i]
+            goTo(if (p == null) first else max(first, last - p), last)
+        },
+        modifier = Modifier.padding(top = 12.dp),
+        height = 40.dp
+    )
 
     // ---- navigator: whole history, draggable window ----
     Navigator(series, t, vp, onInteract = { stopAnim(); markInteracted() }, onJump = { c ->
@@ -508,11 +521,14 @@ class HeroDelta(val text: String, val gain: Boolean, val flat: Boolean, val peri
 
 /** Screen hero: caption, the rate in the display face with its unit at the baseline, delta chip + period. */
 @Composable
-fun TrendHero(label: String, today: Double, unit: String, delta: HeroDelta?) {
+fun TrendHero(label: String, today: Double, unit: String, delta: HeroDelta?, trailing: (@Composable () -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, style = VsType.Meta, color = VsInkSoft)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = VsType.Body, color = VsInkSoft, modifier = Modifier.weight(1f))
+            trailing?.invoke()
+        }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(today.formatRate(), style = VsType.Display, color = VsInk, maxLines = 1, modifier = Modifier.alignByBaseline())
+            Text(if (today >= 1000) today.roundToLong().formatUzsL() else today.formatRate(), style = VsType.Display, color = VsInk, maxLines = 1, modifier = Modifier.alignByBaseline())
             Text(unit, style = VsType.Body.copy(fontSize = 18.sp, fontWeight = FontWeight.Medium), color = VsInkSoft, modifier = Modifier.alignByBaseline())
         }
         if (delta != null) {
@@ -524,11 +540,35 @@ fun TrendHero(label: String, today: Double, unit: String, delta: HeroDelta?) {
                         Modifier.clip(CircleShape).background(bgc).padding(start = 7.dp, end = 9.dp, top = 3.dp, bottom = 3.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        if (!delta.flat) Icon(if (delta.gain) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward, null, tint = fg, modifier = Modifier.size(12.dp))
+                        if (!delta.flat) Icon(if (delta.gain) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = fg, modifier = Modifier.size(12.dp))
                         Text(txt, style = VsType.Value.copy(fontSize = 12.sp), color = fg, maxLines = 1)
                     }
                 }
                 Text(delta.period, style = VsType.Meta, color = VsInkSoft, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Pill dropdown beside the hero caption: show the chart for 1 unit or for the Kurs amount. */
+@Composable
+private fun UnitChip(one: String, many: String, amountMode: Boolean, onSelect: (Boolean) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier.vsCard(CircleShape).clip(CircleShape).clickable(role = Role.Button) { open = true }
+                .padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(if (amountMode) many else one, style = VsType.BodyMedium.copy(fontSize = 14.sp), color = VsInk, maxLines = 1)
+            Icon(Icons.Outlined.KeyboardArrowDown, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = VsCard, shape = VsShape.Panel) {
+            listOf(false to one, true to many).forEach { (m, text) ->
+                DropdownMenuItem(
+                    text = { Text(text, style = VsType.Body, color = if (m == amountMode) VsEmerald else VsInk) },
+                    onClick = { open = false; onSelect(m) }
+                )
             }
         }
     }
@@ -563,6 +603,16 @@ private fun navWindow(sx: Float, ex: Float, minW: Float): Pair<Float, Float> {
 private fun shortDay(iso: String): String {
     val p = iso.take(10).split("-")
     return if (p.size == 3) "${p[2]}.${p[1]}.${p[0].takeLast(2)}" else iso
+}
+
+/** "3 oktabr" / "3 октября" / "3 Oct". */
+private fun dayMonthOf(epochDay: Long): String {
+    val d = LocalDate.fromEpochDays(epochDay.toInt())
+    val i = d.month.number - 1
+    val uz = listOf("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr")
+    val ru = listOf("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря")
+    val en = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    return "${d.day} " + pick(lang, uz[i], ru[i], en[i])
 }
 
 /** "dd.MM" or, with [withYear], "dd.MM.yy". */

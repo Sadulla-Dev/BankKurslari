@@ -35,6 +35,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -390,7 +393,9 @@ fun KursScreen(
     userLocation: Pair<Double, Double>?,
     tickers: Map<Currency, TickerData>,
     onOpenSettings: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onRequestLocation: () -> Unit = {},
+    onShowOnMap: () -> Unit = {}
 ) {
     val route = LocalRoute.current
     val ru = kursIsRu()
@@ -556,19 +561,21 @@ fun KursScreen(
                                     }
                                 }
                                 AmountField(currency, amountText, onAmount)
-                                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    quickAmounts(currency).forEach { v ->
-                                        VsChip(kGroup(v), selected = amount == v.toDouble(), onClick = { onAmount(v.toString()) })
-                                    }
-                                }
+                                val quick = quickAmounts(currency)
+                                Segmented(
+                                    options = quick.map { kGroup(it) },
+                                    selected = quick.indexOfFirst { it.toDouble() == amount },
+                                    onSelect = { onAmount(quick[it].toString()) },
+                                    height = 40.dp
+                                )
                                 SlipDivider()
                                 if (best != null) {
                                     SlipResult(
                                         best = best, amount = amount, currency = currency, sell = sell, ru = ru,
                                         bankCount = displayed.size,
+                                        locationOff = userLocation == null,
                                         onBank = { sheetBank = best.rate.bank },
-                                        onRoute = { best.lat?.let { la -> best.lng?.let { ln -> route(RouteTarget(la, ln, best.rate.bank)) } } },
-                                        shareText = kShareText(best, currency, amount, payload.updatedAt, true)
+                                        onRoute = { best.lat?.let { la -> best.lng?.let { ln -> route(RouteTarget(la, ln, best.rate.bank)) } } }
                                     )
                                 } else {
                                     Text(
@@ -579,27 +586,21 @@ fun KursScreen(
                             }
                         }
                     }
-                    // Location hint: one quiet line, dismissible, never blocking.
-                    if (!locChipDismissed) {
-                        val msg = locMsg
-                        if (msg != null) item(key = "loc") {
-                            Row(
-                                Modifier.animateItem().fillMaxWidth().heightIn(min = 40.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.LocationOff, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    msg + tr(" — masofa koʻrsatilmaydi", " — расстояние не показывается", " — distances are not shown"),
-                                    style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f)
-                                )
-                                Box(
-                                    Modifier.size(40.dp).clip(CircleShape)
-                                        .clickable(role = Role.Button) { locChipDismissed = true }
-                                        .semantics { contentDescription = pick(lang, "Yopish", "Закрыть", "Close") },
-                                    contentAlignment = Alignment.Center
-                                ) { Icon(Icons.Outlined.Close, null, tint = VsInkSoft, modifier = Modifier.size(16.dp)) }
-                            }
+                    // Location prompt: one quiet card, never blocking. Disappears once a position is known.
+                    if (!locChipDismissed && locMsg != null) {
+                        item(key = "loc") {
+                            val askMsg = tr(
+                                "Joylashuvni yoqsangiz, masofa va eng yaqin filial koʻrinadi",
+                                "Включите геолокацию — покажем расстояние и ближайший филиал",
+                                "Turn on location to see distances and the nearest branch"
+                            )
+                            LocationPrompt(
+                                text = if (userLocation == null) askMsg else locMsg + tr(" — masofa koʻrsatilmaydi", " — расстояние не показывается", " — distances are not shown"),
+                                action = if (userLocation == null) tr("Yoqish", "Включить", "Turn on") else null,
+                                onAction = { locChipDismissed = true; onRequestLocation() },
+                                onDismiss = { locChipDismissed = true },
+                                modifier = Modifier.animateItem()
+                            )
                         }
                     }
                     // Section head + sort / filters
@@ -608,7 +609,7 @@ fun KursScreen(
                             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom) {
                                 Text(tr("Boshqa banklar", "Другие банки", "Other banks"), style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
                                 Text(
-                                    tr("Eng yaxshidan farqi", "Разница с лучшим", "Difference from the best"),
+                                    tr("eng yaxshidan farq", "разница с лучшим", "difference from the best"),
                                     style = VsType.Meta, color = VsInkSoft
                                 )
                             }
@@ -697,6 +698,8 @@ fun KursScreen(
             updatedAt = payload.updatedAt,
             favorite = sheetItem.rate.bank in favorites,
             onToggleFavorite = { onToggleFavorite(sheetItem.rate.bank) },
+            best = best,
+            onShowOnMap = { sheetBank = null; onShowOnMap() },
             onDismiss = { sheetBank = null }
         )
     }
@@ -730,7 +733,7 @@ private fun TodayTopBar(
             description = tr("Qidirish", "Поиск", "Search"), onClick = onToggleSearch
         )
         Spacer(Modifier.width(8.dp))
-        VsIconButton(Icons.Outlined.Settings, tr("Sozlamalar", "Настройки", "Settings"), onOpenSettings)
+        VsIconButton(Icons.Outlined.Tune, tr("Sozlamalar", "Настройки", "Settings"), onOpenSettings)
     }
 }
 
@@ -762,7 +765,7 @@ private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint:
 @Composable
 private fun SlipResult(
     best: RankedBank, amount: Double, currency: Currency, sell: Boolean, ru: Boolean, bankCount: Int,
-    onBank: () -> Unit, onRoute: () -> Unit, shareText: String
+    locationOff: Boolean, onBank: () -> Unit, onRoute: () -> Unit
 ) {
     val has = amount > 0
     val bigFont = LocalDensity.current.fontScale > 1.5f
@@ -795,41 +798,64 @@ private fun SlipResult(
         Text(
             pick(
                 lang,
-                "$bankCount ta bankdan eng yaxshisi: 1 ${currency.code} = ${kGroup(best.perUnit)} $som",
-                "Лучший из $bankCount банков: 1 ${currency.code} = ${kGroup(best.perUnit)} $som",
-                "${kGroup(best.perUnit)} $som per ${currency.code}, the best of $bankCount banks"
+                "$bankCount ta bankdan eng yaxshisi: 1 ${currency.displayName(lang).lowercase()} ${kGroup(best.perUnit)} $som",
+                "Лучший из $bankCount банков: 1 ${currency.displayName(lang).lowercase()} = ${kGroup(best.perUnit)} $som",
+                "${kGroup(best.perUnit)} $som per ${currency.displayName(lang).lowercase()}, the best of $bankCount banks"
             ),
             style = VsType.Meta, color = VsInkSoft
         )
     }
-    // Best bank row
+    // Best bank row: tile, name + meta, compact Directions pill.
+    val hint = tr("Masofa: joylashuvni yoqing", "Расстояние: включите геолокацию", "Distance: turn on location")
     val meta = listOfNotNull(
-        best.distanceKm?.let { kKm(it, ru) },
+        best.distanceKm?.let { kKm(it, ru) } ?: hint.takeIf { locationOff },
         best.open.takeIf { it.known }?.let { kHoursShort(it, ru) }
     ).joinToString(", ")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            Modifier.weight(1f).clip(VsShape.Panel)
+                .clickable(role = Role.Button, onClickLabel = tr("Batafsil", "Подробнее", "Details"), onClick = onBank)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            BankTile(bankInitials(best.rate.bank), best = true)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Crossfade(best.rate.bank, animationSpec = tween(Motion.SHORT), label = "heroBank") { name ->
+                    Text(name, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        VsPillButton(
+            text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions,
+            enabled = best.lat != null && best.lng != null, onClick = onRoute
+        )
+    }
+}
+
+/** Location prompt card: dashed hairline, pin icon, text and one teal action (or a dismiss cross when there is no action). */
+@Composable
+private fun LocationPrompt(text: String, action: String?, onAction: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        Modifier.fillMaxWidth().clip(VsShape.Panel)
-            .clickable(role = Role.Button, onClickLabel = tr("Batafsil", "Подробнее", "Details"), onClick = onBank)
-            .padding(vertical = 4.dp),
+        modifier.fillMaxWidth().vsDashedBorder(22.dp).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        BankTile(bankInitials(best.rate.bank), best = true)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Crossfade(best.rate.bank, animationSpec = tween(Motion.SHORT), label = "heroBank") { name ->
-                Text(name, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(Icons.Outlined.LocationOn, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
+        Text(text, style = VsType.Body, color = VsInk, modifier = Modifier.weight(1f))
+        if (action != null) {
+            Text(
+                action, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsEmerald,
+                modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onAction).heightIn(min = 40.dp).wrapContentHeight(Alignment.CenterVertically).padding(horizontal = 6.dp)
+            )
+        } else {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onDismiss)
+                    .semantics { contentDescription = pick(lang, "Yopish", "Закрыть", "Close") },
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Outlined.Close, null, tint = VsInkSoft, modifier = Modifier.size(16.dp)) }
         }
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        KButton(
-            text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions, primary = true,
-            enabled = best.lat != null && best.lng != null, modifier = Modifier.weight(1f),
-            onClick = onRoute
-        )
-        KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share")) { kShare(shareText) }
     }
 }
 
@@ -901,7 +927,7 @@ private fun BankListRow(
             ) { v -> Text(kGroup(v), style = VsType.Value, color = VsInk, textAlign = TextAlign.End, maxLines = 1) }
             if (lessText != null) Text(
                 lessText,
-                style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp),
+                style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
                 color = VsRoseText, textAlign = TextAlign.End, maxLines = 1
             )
         }

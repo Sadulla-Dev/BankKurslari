@@ -343,10 +343,10 @@ private fun Sparkline(points: List<HistoryPoint>, modifier: Modifier) {
 /** Accent dot with a soft expanding ring while data is fresh; amber when stale/offline; grey otherwise. */
 @Composable
 fun FreshDot(fresh: Boolean, stale: Boolean) {
-    val color = when { stale -> VsAmber; fresh -> VsEmerald; else -> VsInkSoft }
+    val color = if (stale) VsAmber else VsEmerald
     // 8 dp box so the dot itself sits on the content edge; the ring grows outside it (graphicsLayer does not clip).
     Box(Modifier.size(8.dp), contentAlignment = Alignment.Center) {
-        if (fresh || !stale) Box(Modifier.size(16.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)))
+        Box(Modifier.size(16.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)))
         if (fresh) {
             val t = rememberInfiniteTransition(label = "pulse")
             val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2200, easing = Motion.Decelerate), RepeatMode.Restart), label = "p")

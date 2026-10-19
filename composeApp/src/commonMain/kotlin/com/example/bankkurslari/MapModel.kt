@@ -123,6 +123,8 @@ fun mapBuildPins(
     user: Pair<Double, Double>?,
     best: Int?
 ): List<MapPin> {
+    // The ONE teal bank: best-ranked bank that is not known to be closed (ties go to the first in ranking order).
+    val bestKey = (ranked.firstOrNull { !mapIsClosed(it.open) } ?: ranked.firstOrNull())?.let { bankKey(it.rate.bank) }
     val byKey = HashMap<String, RankedBank>()
     ranked.forEach { if (bankKey(it.rate.bank) !in byKey) byKey[bankKey(it.rate.bank)] = it }
     val withBranch = HashSet<String>()
@@ -146,7 +148,7 @@ fun mapBuildPins(
             )
             out.add(
                 MapPin("p$i", MapPinKind.PRICED, br.lat, br.lng, base.rate.bank, rb.address, hours, key, raw, rb,
-                    best != null && abs(base.perUnit - best) <= MAP_BEST_TOLERANCE, mapIsClosed(st))
+                    key == bestKey && best != null && abs(base.perUnit - best) <= MAP_BEST_TOLERANCE, mapIsClosed(st))
             )
         } else {
             val st = openState(br.hours)
@@ -166,7 +168,7 @@ fun mapBuildPins(
             val rb = r.copy(distanceKm = raw?.takeIf { it <= MAP_FAR_KM })
             out.add(
                 MapPin("r$key", MapPinKind.PRICED, la, ln, r.rate.bank, r.address, r.hours, key, raw, rb,
-                    best != null && abs(r.perUnit - best) <= MAP_BEST_TOLERANCE, mapIsClosed(r.open))
+                    key == bestKey && best != null && abs(r.perUnit - best) <= MAP_BEST_TOLERANCE, mapIsClosed(r.open))
             )
         }
     }
@@ -277,13 +279,13 @@ fun buildMarkerSpecs(
     // worst-priced; zooming in brings them back).
     groups.take(MAX_LABELS).asReversed().forEach { g ->
         val group = g.pins
-        val lead = group[0]
+        val lead = group.firstOrNull { it.good && !it.closed } ?: group[0]
         if (group.size == 1) out += pinSpec(lead, false, labelMode) else {
             val rates = group.map { it.rb!!.perUnit }
             val groupBest = if (sell) rates.max() else rates.min()
             val style = when {
                 group.all { it.closed } -> MapPinStyle.CLOSED
-                best != null && abs(groupBest - best) <= MAP_BEST_TOLERANCE -> MapPinStyle.GOOD
+                lead.good -> MapPinStyle.GOOD
                 else -> MapPinStyle.NEUTRAL
             }
             // Lead = best-priced pin of the group (ordering above), so its name matches the shown rate.
@@ -408,24 +410,18 @@ class PinRenderer(
         val labelStyle = TextStyle(fontFamily = fonts.body, fontSize = (if (big) 13 else 12).sp, fontWeight = FontWeight.Normal, color = softColor)
         val label = labelText?.let { measurer.measure(it, labelStyle) }
         val value = measurer.measure(valueText, valueStyle)
+        // Branches hidden behind this pill: small grey "×N" after the value (teal is reserved for the best pin).
+        val count = if (s.more > 0) measurer.measure("×${s.more + 1}", TextStyle(fontFamily = fonts.body, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = softColor)) else null
 
         val padL = (if (big) 12 else 10) * d
         val padR = (if (big) 14 else 12) * d
         val gap = 6 * d
         val pillH = (if (big) 38 else 34) * d
-        val pillW = padL + padR + value.size.width + (label?.let { it.size.width + gap } ?: 0f)
+        val pillW = padL + padR + value.size.width + (label?.let { it.size.width + gap } ?: 0f) + (count?.let { it.size.width + 5 * d } ?: 0f)
         val tipH = if (s.tip) 6 * d else 0f
         val shadow = 8 * d
-        // Badge: hidden-pin count in a small ink circle overlapping the top-right corner.
-        val badge = if (s.more > 0) measurer.measure(
-            if (s.more > 99) "99+" else "+${s.more}",
-            TextStyle(fontFamily = fonts.display, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = c.bg, fontFeatureSettings = "tnum")
-        ) else null
-        val badgeH = 16 * d
-        val badgeW = badge?.let { max(badgeH, it.size.width + 8 * d) } ?: 0f
-        val overhang = if (badge != null) badgeW / 2f else 0f
-        val contentW = pillW + 2 * overhang + 2 * shadow
-        val contentH = pillH + tipH + (if (badge != null) badgeH / 2f else 0f) + 2 * shadow
+        val contentW = pillW + 2 * shadow
+        val contentH = pillH + tipH + 2 * shadow
         val bw = pad(contentW).toInt() + 1
         val bh = pad(contentH).toInt() + 1
 
@@ -469,14 +465,7 @@ class PinRenderer(
                 x += label.size.width + gap
             }
             drawText(value, topLeft = Offset(x, (top + bottom) / 2f - value.size.height / 2f))
-            if (badge != null) {
-                val bl = left + pillW - badgeW / 2f
-                val bt = top - badgeH / 2f
-                drawRoundRect(c.bg, Offset(bl - 1.5f * d, bt - 1.5f * d), Size(badgeW + 3 * d, badgeH + 3 * d), CornerRadius(badgeH))
-                // Neutral ink badge: teal is reserved for "best rate".
-                drawRoundRect(if (s.selected) c.accent else c.ink, Offset(bl, bt), Size(badgeW, badgeH), CornerRadius(badgeH / 2f))
-                drawText(badge, topLeft = Offset(bl + badgeW / 2f - badge.size.width / 2f, bt + badgeH / 2f - badge.size.height / 2f))
-            }
+            if (count != null) drawText(count, topLeft = Offset(x + value.size.width + 5 * d, (top + bottom) / 2f - count.size.height / 2f + 1 * d))
         }
     }
 

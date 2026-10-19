@@ -43,6 +43,7 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.material3)
             implementation(libs.compose.resources)
+            implementation(libs.compose.backhandler)
             implementation(libs.compose.icons.extended)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)

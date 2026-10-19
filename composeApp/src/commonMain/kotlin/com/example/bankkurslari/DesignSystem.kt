@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -94,7 +96,7 @@ fun VsPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -
 
 @Composable
 fun VsDivider(modifier: Modifier = Modifier) {
-    Box(modifier.height(1.dp).background(VsGround))
+    Box(modifier.padding(horizontal = 16.dp).fillMaxWidth().height(1.dp).background(VsHair.copy(alpha = 0.7f)))
 }
 
 /** Two-letter bank mark. [best] = the one teal tile on screen. */
@@ -197,5 +199,37 @@ fun VsCurrencyChip(symbol: String, code: String, description: String, onClick: (
         }
         Text(code, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp)), color = com.example.bankkurslari.ui.theme.VsBg)
         Icon(androidx.compose.material.icons.Icons.Outlined.KeyboardArrowDown, null, tint = com.example.bankkurslari.ui.theme.VsBg.copy(alpha = 0.75f), modifier = Modifier.size(16.dp))
+    }
+}
+
+/** Compact teal action (40 dp) for in-row actions such as Directions. */
+@Composable
+fun VsPillButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true) {
+    val src = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier.heightIn(min = 40.dp).pressScale(src).clip(shape).background(VsEmerald.copy(alpha = if (enabled) 1f else 0.4f))
+            .clickable(interactionSource = src, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+    ) {
+        if (icon != null) Icon(icon, null, tint = VsOnAccent, modifier = Modifier.size(18.dp))
+        Text(text, style = VsType.Body.copy(fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = VsOnAccent, maxLines = 1)
+    }
+}
+
+/** Dashed hairline outline for "empty / prompt" cards. */
+@Composable
+fun Modifier.vsDashedBorder(radius: Dp = 22.dp): Modifier {
+    val c = VsHair
+    return this.drawBehind {
+        val sw = 1.5.dp.toPx()
+        drawRoundRect(
+            color = c, topLeft = androidx.compose.ui.geometry.Offset(sw / 2, sw / 2),
+            size = androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius.toPx()),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(sw, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
+        )
     }
 }

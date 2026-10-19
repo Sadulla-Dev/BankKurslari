@@ -213,7 +213,7 @@ fun CurrencySegmented(currency: Currency, onCurrency: (Currency) -> Unit, modifi
 
 /* ---------- chip ---------- */
 
-/** Filter / quick-value chip: hairline outline, selected = accent outline + accent text. No fill, no check glyph. */
+/** Filter chip: white pill with hairline; selected = teal tint fill + teal text (no outline, no check glyph). */
 @Composable
 fun VsChip(
     text: String,
@@ -223,7 +223,8 @@ fun VsChip(
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     val src = remember { MutableInteractionSource() }
-    val border by animateColorAsState(if (selected) VsEmerald else VsLine, Motion.color(), label = "chipb")
+    val border by animateColorAsState(if (selected) Color.Transparent else com.example.bankkurslari.ui.theme.VsHair, Motion.color(), label = "chipb")
+    val fill by animateColorAsState(if (selected) com.example.bankkurslari.ui.theme.VsTealTint else com.example.bankkurslari.ui.theme.VsCard, Motion.color(), label = "chipfill")
     val fg by animateColorAsState(if (selected) VsEmerald else VsInk, Motion.color(), label = "chipf")
     val shape = RoundedCornerShape(999.dp)
     Box(
@@ -237,8 +238,8 @@ fun VsChip(
         Row(
             modifier = Modifier
                 .clip(shape)
-                .background(Color.Transparent)
-                .border(if (selected) 1.5.dp else 1.dp, border, shape)
+                .background(fill)
+                .border(1.dp, border, shape)
                 .padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
