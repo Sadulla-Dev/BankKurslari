@@ -12,6 +12,8 @@ import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
 import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSLock
+import platform.Foundation.NSLocale
+import platform.Foundation.preferredLanguages
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSString
 import platform.Foundation.NSTemporaryDirectory
@@ -62,6 +64,9 @@ actual fun platformServerBase(lan: String): String =
     if (platform.Foundation.NSProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != null) "http://localhost:8080" else lan
 
 /** NSLog's varargs do not bridge Kotlin strings (passing one as %@ crashes), so the text goes in as the format itself. */
+actual fun deviceLanguageTag(): String =
+    (NSLocale.preferredLanguages.firstOrNull() as? String) ?: "uz"
+
 actual fun debugLog(msg: String) {
     platform.Foundation.NSLog("QK " + msg.replace("%", "%%"))
     println("QK $msg")

@@ -87,12 +87,12 @@ private val shortNames = listOf(
     Regex("(?i)milliy") to "NBU",
     Regex("(?i)sanoatqurilish|промстрой") to "SQB",
     Regex("(?i)mikrokredit|mkbank") to "MKBank",
-    Regex("(?i)orient\\s*finans") to "OFB",
-    Regex("(?i)asia\\s*alliance") to "AAB",
+    Regex("(?i)orient\\s*finans") to "Orient Finans",
+    Regex("(?i)asia\\s*alliance") to "Asia Alliance",
     Regex("(?i)ipak\\s*yo") to "Ipak Yo‘li"
 )
 
-/** Short map label: "Oʻzbekiston Milliy banki" -> "NBU", "Asia Alliance Bank" -> "AAB", "Hamkorbank" -> "Hamkorbank". */
+/** Short map label: "Oʻzbekiston Milliy banki" -> "NBU", "Asia Alliance Bank" -> "Asia Alliance", "Hamkorbank" -> "Hamkorbank". */
 fun shortBankName(name: String): String {
     shortNames.firstOrNull { it.first.containsMatchIn(name) }?.let { return it.second }
     val t = name.trim().replace(bankSuffix, "").trim().ifEmpty { name.trim() }
@@ -219,10 +219,14 @@ private fun pinSpec(p: MapPin, selected: Boolean, labelMode: MapLabel): MarkerSp
     MapPinKind.ATM -> MarkerSpec(MarkerKind.ATM, p.lat, p.lng, pin = p)
 }
 
+/** Below this zoom each bank is one pin (its nearest / best branch); from here on every branch shows. */
+const val MAP_BRANCH_ZOOM = 14.0
+
 /**
- * Markers for the pins currently in view, back-to-front. Priced pins are greedily clustered in screen space so labels
- * never overlap; best-priced pins claim space first and a cluster shows the BEST rate inside + count ("11 905 · 40").
- * [project] maps a coordinate to screen pixels; [density] converts the label box from dp.
+ * Markers for the pins currently in view, back-to-front. Zoomed out, each bank collapses to one pin (nearest branch),
+ * so the map shows which bank is where instead of fifteen identical labels. Pins are then greedily placed in screen
+ * space, best-priced first; a pin whose label would overlap one already placed is left out (zooming in brings it back).
+ * No count badges. [project] maps a coordinate to screen pixels; [density] converts the label box from dp.
  */
 fun buildMarkerSpecs(
     inView: List<MapPin>,
@@ -236,48 +240,35 @@ fun buildMarkerSpecs(
 ): List<MarkerSpec> {
     val out = ArrayList<MarkerSpec>()
     val selPin = selectedId?.let { id -> inView.firstOrNull { it.id == id } }
-    val priced = inView.filter { it.kind == MapPinKind.PRICED && it.id != selectedId }
+    var priced = inView.filter { it.kind == MapPinKind.PRICED && it.id != selectedId }
+    if (zoom < MAP_BRANCH_ZOOM) {
+        priced = priced.groupBy { it.bankKey }.values.map { g -> g.minByOrNull { it.rawKm ?: Double.MAX_VALUE } ?: g.first() }
+            .filter { selPin == null || it.bankKey != selPin.bankKey }
+    }
     val extras = inView.filter { it.kind != MapPinKind.PRICED && it.id != selectedId }
-    // Rate-less branches only when zoomed in close; ATMs (opt-in chip) from city zoom.
+    // Rate-less branches only when zoomed in close; ATMs (opt-in) from city zoom.
     extras.filter { if (it.kind == MapPinKind.ATM) zoom >= 12.0 else zoom >= 15.0 }.take(300)
         .forEach { out += pinSpec(it, false, labelMode) }
 
-    // Label footprint incl. tip and cluster badge, plus a little air between labels.
     val boxW = (if (labelMode == MapLabel.BOTH) 150 else 96) * density
-    val boxH = 46 * density
+    val boxH = 40 * density
     val ordered = priced.sortedWith(
         compareByDescending<MapPin> { it.good && !it.closed }
+            .thenBy { it.closed }
             .thenBy { if (sell) -it.rb!!.perUnit else it.rb!!.perUnit }
     )
-    class Group(val x: Float, val y: Float, val pins: MutableList<MapPin>)
-    val groups = ArrayList<Group>()
-    ordered.forEach { p ->
+    val placed = ArrayList<Pair<Float, Float>>()
+    val kept = ArrayList<MapPin>()
+    selPin?.let { placed += project(it.lat, it.lng) }
+    for (p in ordered) {
+        if (kept.size >= MAX_LABELS) break
         val (px, py) = project(p.lat, p.lng)
-        val g = groups.firstOrNull { abs(it.x - px) < boxW && abs(it.y - py) < boxH }
-        if (g != null) g.pins.add(p) else groups.add(Group(px, py, mutableListOf(p)))
+        if (placed.any { abs(it.first - px) < boxW && abs(it.second - py) < boxH }) continue
+        placed += px to py
+        kept += p
     }
-    // Lowest priority first so the best labels end up on top. Groups beyond the cap are dropped (they are the
-    // worst-priced; zooming in brings them back).
-    groups.take(MAX_LABELS).asReversed().forEach { g ->
-        val group = g.pins
-        val lead = group[0]
-        if (group.size == 1) out += pinSpec(lead, false, labelMode) else {
-            val rates = group.map { it.rb!!.perUnit }
-            val groupBest = if (sell) rates.max() else rates.min()
-            val style = when {
-                group.all { it.closed } -> MapPinStyle.CLOSED
-                best != null && abs(groupBest - best) <= MAP_BEST_TOLERANCE -> MapPinStyle.GOOD
-                else -> MapPinStyle.NEUTRAL
-            }
-            // Lead = best-priced pin of the group (ordering above), so its name matches the shown rate.
-            // The number of hidden pins is drawn as a badge (MarkerSpec.more).
-            out += when (labelMode) {
-                MapLabel.RATE -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, mapRateText(groupBest), null, style, tip = true, cluster = group)
-                MapLabel.BANK -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), null, style, tip = true, cluster = group)
-                MapLabel.BOTH -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), mapRateText(groupBest), style, tip = true, cluster = group)
-            }
-        }
-    }
+    // Lowest priority first so the best labels end up on top.
+    kept.asReversed().forEach { out += pinSpec(it, false, labelMode) }
     selPin?.let { out += pinSpec(it, true, labelMode) }
     return out
 }
@@ -359,21 +350,19 @@ class PinRenderer(
 
     private fun pill(s: MarkerSpec): ImageBitmap {
         val d = density.density
-        // GOOD = accent fill; selected = ink fill (inverted, reads as "this one"); CLOSED = muted.
+        // Best = accent fill; selected = ink fill; others = white; closed = the same white pin at 40 %.
+        val closedA = if (s.style == MapPinStyle.CLOSED && !s.selected) 0.4f else 1f
         val fill = when {
             s.selected -> c.ink
             s.style == MapPinStyle.GOOD -> c.accent
-            s.style == MapPinStyle.CLOSED -> c.line
             else -> c.bg
-        }
+        }.let { it.copy(alpha = it.alpha * (0.6f + 0.4f * closedA)) }
         val strong = when {
             s.selected -> c.bg
             s.style == MapPinStyle.GOOD -> c.onAccent
-            s.style == MapPinStyle.CLOSED -> c.inkSoft
             else -> c.ink
-        }
-        val soft = strong.copy(alpha = if (s.style == MapPinStyle.NEUTRAL && !s.selected) 1f else 0.78f)
-        val softColor = if (s.style == MapPinStyle.NEUTRAL && !s.selected) c.inkSoft else soft
+        }.let { it.copy(alpha = it.alpha * closedA) }
+        val softColor = if (s.style == MapPinStyle.GOOD || s.selected) strong.copy(alpha = 0.8f * strong.alpha) else c.inkSoft.copy(alpha = c.inkSoft.alpha * closedA)
 
         val big = s.selected
         // Two parts on one line: label (bank, regular) + value (rate, semibold). Single-part pins use the strong style.
@@ -430,7 +419,7 @@ class PinRenderer(
                 drawPath(path, fill)
             }
             drawRoundRect(fill, Offset(left, top), Size(pillW, pillH), r)
-            if (s.style == MapPinStyle.NEUTRAL && !s.selected) {
+            if ((s.style == MapPinStyle.NEUTRAL || s.style == MapPinStyle.CLOSED) && !s.selected) {
                 drawRoundRect(c.line, Offset(left, top), Size(pillW, pillH), r, style = Stroke(1 * d))
             }
             var x = left + padX

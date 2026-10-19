@@ -71,6 +71,21 @@ private class BranchIndex(val source: List<OsmBranch>) {
 
 private var branchIndex: BranchIndex? = null
 
+/** One physical branch of a bank, with its distance from the user when known. */
+data class NearBranch(val address: String?, val hours: String?, val open: OpenState, val lat: Double, val lng: Double, val km: Double?)
+
+/** Branches of [bank], nearest first when the user location is known. */
+fun branchesOf(bank: BankRate, osmBranches: List<OsmBranch>, user: Pair<Double, Double>?): List<NearBranch> {
+    val list = branchIndexFor(osmBranches).forBank(bankKey(bank.bank)).map {
+        NearBranch(it.address, it.hours, openState(it.hours), it.lat, it.lng, user?.let { u -> kmBetween(u.first, u.second, it.lat, it.lng) })
+    }.ifEmpty {
+        listOfNotNull(bank.branch?.let { NearBranch(it.address, null, openState(null), it.lat, it.lng, user?.let { u -> kmBetween(u.first, u.second, it.lat, it.lng) }) })
+    }
+    // Sources overlap (OSM + bank list): the same branch can appear twice with the same address or coordinates.
+    val unique = list.distinctBy { it.address?.lowercase()?.filter(Char::isLetterOrDigit)?.takeIf { a -> a.isNotEmpty() } ?: "${(it.lat * 2000).toLong()}:${(it.lng * 2000).toLong()}" }
+    return if (user == null) unique else unique.sortedBy { it.km ?: Double.MAX_VALUE }
+}
+
 /** Reuses the index while the app holds the same branch list instance. */
 private fun branchIndexFor(list: List<OsmBranch>): BranchIndex =
     branchIndex?.takeIf { it.source === list } ?: BranchIndex(list).also { branchIndex = it }

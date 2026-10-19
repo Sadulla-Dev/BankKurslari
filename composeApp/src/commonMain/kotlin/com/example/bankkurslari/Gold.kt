@@ -42,7 +42,7 @@ fun GoldSection(ru: Boolean, unit: String) {
         runCatching { fetchGold() }.onSuccess { gold = it; failed = false }.onFailure { if (gold == null) failed = true }
     }
 
-    Text(pick(lang, "Markaziy bank oltin quymalari", "Золотые слитки ЦБ", "CBU gold bars"), style = VsType.Title, color = VsInk)
+    Text(pick(lang, "Markaziy bank oltin quymalari", "Золотые слитки Центрального банка", "Central Bank gold bars"), style = VsType.Title, color = VsInk)
     val g = gold
     if (g == null || g.bars.isEmpty()) {
         Text(

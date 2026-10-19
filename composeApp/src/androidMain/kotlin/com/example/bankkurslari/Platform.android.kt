@@ -68,6 +68,8 @@ private val isEmulator: Boolean by lazy {
 /** 10.0.2.2 is the emulator's fixed alias for the host machine, so it survives network/IP changes. */
 actual fun platformServerBase(lan: String): String = if (isEmulator) "http://10.0.2.2:8080" else lan
 
+actual fun deviceLanguageTag(): String = java.util.Locale.getDefault().toLanguageTag()
+
 actual fun debugLog(msg: String) { android.util.Log.d("QK", msg) }
 
 private val cacheDir: File by lazy {

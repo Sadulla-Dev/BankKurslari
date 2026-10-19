@@ -5,18 +5,19 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// Dark scheme seeds (Material3 color scheme)
-val Green80 = Color(0xFF8FD8BD)
+// Material3 color scheme seeds (system widgets only: sheets, menus, radio buttons).
+val Green80 = Color(0xFF6CC4B8)
 val Blue80 = Color(0xFF9FC4F2)
 val Amber80 = Color(0xFFFFD27A)
-
-// Light scheme seeds
-val Green40 = Color(0xFF0E9F6E)
+val Green40 = Color(0xFF0F6B63)
 val Blue40 = Color(0xFF4F46E5)
 val Amber40 = Color(0xFFD1951D)
 
-/** ValyutaStat design tokens. Resolved through [LocalVsPalette] so the whole UI
- *  can switch between light and dark without touching call sites. */
+/**
+ * Design tokens. One ink, one accent. Secondary text, hairlines and quiet fills are the ink at lower opacity
+ * (no separate grey tokens). The accent appears once per screen: on the answer or on the primary action.
+ * Field names are historical; read `emerald` as "accent".
+ */
 data class VsPalette(
     val bg: Color,
     val surface: Color,
@@ -35,40 +36,46 @@ data class VsPalette(
     val heroBot: Color
 )
 
+private val InkLight = Color(0xFF111111)
+private val AccentLight = Color(0xFF0F6B63)   // ink-teal: desaturated, reads as ink with a tint
+
 val LightVsPalette = VsPalette(
-    bg = Color(0xFFFFFFFF),
-    surface = Color(0xFFF5F6F7),
-    ink = Color(0xFF0E1113),
-    inkSoft = Color(0xFF565E64),
-    line = Color(0xFFE3E6E8),
-    emerald = Color(0xFF0A7F56),        // accent: best result / primary action / selected
-    emeraldDeep = Color(0xFF0A7F56),
-    emeraldSoft = Color(0xFFE8F3EE),    // subtle selected fill only, never a card background
-    indigo = Color(0xFF565E64),
-    indigoSoft = Color(0xFFF5F6F7),
-    danger = Color(0xFFB3261E),         // worse than reference only
-    amber = Color(0xFF8A5A00),          // warn: stale data
-    heroTop = Color(0xFF0A7F56),
-    heroMid = Color(0xFF0A7F56),
-    heroBot = Color(0xFF0A7F56)
+    bg = Color(0xFFFAFAF8),
+    surface = InkLight.copy(alpha = 0.04f),
+    ink = InkLight,
+    inkSoft = InkLight.copy(alpha = 0.55f),
+    line = InkLight.copy(alpha = 0.08f),
+    emerald = AccentLight,
+    emeraldDeep = AccentLight,
+    emeraldSoft = AccentLight.copy(alpha = 0.08f),
+    indigo = InkLight.copy(alpha = 0.55f),
+    indigoSoft = InkLight.copy(alpha = 0.04f),
+    danger = Color(0xFFB3261E),
+    amber = Color(0xFF8A5A00),          // real errors only (offline, stale data)
+    heroTop = AccentLight,
+    heroMid = AccentLight,
+    heroBot = AccentLight
 )
 
+private val InkDark = Color(0xFFF2F2EF)
+private val AccentDark = Color(0xFF6CC4B8)
+
 val DarkVsPalette = VsPalette(
-    bg = Color(0xFF0E1113),
-    surface = Color(0xFF171B1E),
-    ink = Color(0xFFF2F4F5),
-    inkSoft = Color(0xFFA3ACB2),
-    line = Color(0xFF262C30),
-    emerald = Color(0xFF3DD6A0),
-    emeraldDeep = Color(0xFF3DD6A0),
-    emeraldSoft = Color(0xFF12281F),
-    indigo = Color(0xFFA3ACB2),
-    indigoSoft = Color(0xFF171B1E),
+    bg = Color(0xFF111211),
+    surface = InkDark.copy(alpha = 0.06f),
+    ink = InkDark,
+    inkSoft = InkDark.copy(alpha = 0.55f),
+    line = InkDark.copy(alpha = 0.10f),
+    emerald = AccentDark,
+    emeraldDeep = AccentDark,
+    emeraldSoft = AccentDark.copy(alpha = 0.12f),
+    indigo = InkDark.copy(alpha = 0.55f),
+    indigoSoft = InkDark.copy(alpha = 0.06f),
     danger = Color(0xFFFF8A80),
     amber = Color(0xFFF2C14E),
-    heroTop = Color(0xFF3DD6A0),
-    heroMid = Color(0xFF3DD6A0),
-    heroBot = Color(0xFF3DD6A0)
+    heroTop = AccentDark,
+    heroMid = AccentDark,
+    heroBot = AccentDark
 )
 
 val LocalVsPalette = staticCompositionLocalOf { LightVsPalette }

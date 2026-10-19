@@ -8,7 +8,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -81,11 +80,12 @@ fun Modifier.pressScale(source: MutableInteractionSource): Modifier = composed {
     graphicsLayer { scaleX = s; scaleY = s }
 }
 
-/* ---------- segmented control with a sliding thumb ---------- */
+/* ---------- text tabs with a sliding underline ---------- */
 
 /**
- * Surface track + one sliding thumb. [cellWidth] = null spreads cells evenly across the width,
- * otherwise each cell is that wide and the control hugs its content.
+ * Options as plain text; the active one is ink with a short underline, the rest ink at 55 %. No track, no thumb box.
+ * [cellWidth] = null spreads cells evenly across the width, otherwise each cell is that wide and the row hugs its content.
+ * selected = -1: nothing matches -> the underline fades out.
  */
 @Composable
 fun Segmented(
@@ -94,29 +94,19 @@ fun Segmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     cellWidth: Dp? = null,
-    height: Dp = 44.dp
+    height: Dp = 48.dp
 ) {
-    val pad = 3.dp
-    val trackMod = if (cellWidth == null) modifier.fillMaxWidth() else modifier.width(cellWidth * options.size + pad * 2)
-    BoxWithConstraints(
-        trackMod.height(height).clip(RoundedCornerShape(12.dp)).background(VsSurface).padding(pad)
-    ) {
+    val trackMod = if (cellWidth == null) modifier.fillMaxWidth() else modifier.width(cellWidth * options.size)
+    BoxWithConstraints(trackMod.height(height)) {
         val w = cellWidth ?: (maxWidth / options.size)
         val x by animateDpAsState(w * selected.coerceIn(0, options.lastIndex), Motion.slide(), label = "thumb")
-        // selected = -1: nothing matches (e.g. a custom chart zoom) -> thumb fades out.
         val thumbA by animateFloatAsState(if (selected in options.indices) 1f else 0f, tween(Motion.SHORT), label = "thumbA")
-        Box(
-            Modifier.offset(x = x).width(w).fillMaxHeight().graphicsLayer { alpha = thumbA }
-                .clip(RoundedCornerShape(10.dp)).background(VsBg)
-                .border(1.dp, VsLine, RoundedCornerShape(10.dp))
-        )
         Row(Modifier.fillMaxWidth().fillMaxHeight()) {
             options.forEachIndexed { i, label ->
                 val sel = i == selected
                 val c by animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "seg")
                 Box(
                     Modifier.width(w).fillMaxHeight()
-                        .clip(RoundedCornerShape(10.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -124,56 +114,40 @@ fun Segmented(
                         .semantics { role = Role.Tab; this.selected = sel },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        label, style = VsType.BodyMedium.copy(fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Medium),
-                        color = c, maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Shared by Kurs / Xarita / Tarix. USD · EUR · RUB as header tabs with a sliding accent underline (spec 4). */
-@Composable
-fun CurrencySegmented(currency: Currency, onCurrency: (Currency) -> Unit, modifier: Modifier = Modifier) {
-    val cell = 72.dp
-    val density = LocalDensity.current
-    val idx = Currency.entries.indexOf(currency)
-    val widths = remember { mutableStateMapOf<Int, Dp>() }
-    val x by animateDpAsState(cell * idx, Motion.slide(), label = "ccy")
-    val w by animateDpAsState(widths[idx] ?: 40.dp, Motion.slide(), label = "ccyw")
-    Box(modifier.heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
-        Row {
-            Currency.entries.forEachIndexed { i, c ->
-                val sel = c == currency
-                val color by animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "ccyc")
-                Box(
-                    Modifier.width(cell).height(48.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { onCurrency(c) }
-                        .semantics { role = Role.Tab; selected = sel },
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        c.code, style = VsType.Title, color = color,
-                        onTextLayout = { r -> widths[i] = with(density) { r.size.width.toDp() } }
-                    )
+                    Text(label, style = VsType.Body, color = c, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
         Box(
-            Modifier.align(Alignment.BottomStart).offset(x = x).padding(bottom = 6.dp)
-                .width(w).height(2.dp).clip(RoundedCornerShape(1.dp)).background(VsEmerald)
+            Modifier.align(Alignment.BottomStart).offset(x = x + w / 2 - 12.dp).padding(bottom = 6.dp)
+                .width(24.dp).height(2.dp).graphicsLayer { alpha = thumbA }
+                .clip(RoundedCornerShape(1.dp)).background(VsInk)
         )
+    }
+}
+
+/** USD · EUR · RUB as plain text; active = ink, others ink at 55 %. */
+@Composable
+fun CurrencySegmented(currency: Currency, onCurrency: (Currency) -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Currency.entries.forEach { c ->
+            val sel = c == currency
+            val color by animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "ccyc")
+            Box(
+                Modifier.heightIn(min = 48.dp)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCurrency(c) }
+                    .semantics { role = Role.Tab; selected = sel },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(c.code, style = if (sel) VsType.Title else VsType.Body, color = color)
+            }
+        }
     }
 }
 
 /* ---------- chip ---------- */
 
-/** Filter / quick-value chip: hairline outline, selected = accent outline + accent text. No fill, no check glyph. */
+/** Quiet text toggle: selected = ink + semibold, otherwise ink at 55 %. No outline, no fill. */
 @Composable
 fun VsChip(
     text: String,
@@ -183,30 +157,20 @@ fun VsChip(
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     val src = remember { MutableInteractionSource() }
-    val border by animateColorAsState(if (selected) VsEmerald else VsLine, Motion.color(), label = "chipb")
-    val fg by animateColorAsState(if (selected) VsEmerald else VsInk, Motion.color(), label = "chipf")
-    val shape = RoundedCornerShape(999.dp)
-    Box(
+    val fg by animateColorAsState(if (selected) VsInk else VsInkSoft, Motion.color(), label = "chipf")
+    Row(
         modifier = Modifier
             .heightIn(min = 48.dp)
             .pressScale(src)
             .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
-            .semantics { this.selected = selected },
-        contentAlignment = Alignment.Center
+            .semantics { this.selected = selected }
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .clip(shape)
-                .background(Color.Transparent)
-                .border(if (selected) 1.5.dp else 1.dp, border, shape)
-                .padding(horizontal = 14.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(text, style = VsType.Meta.copy(fontWeight = FontWeight.Medium), color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            trailingContent?.invoke()
-            if (trailing != null) Icon(trailing, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
-        }
+        Text(text, style = if (selected) VsType.Title else VsType.Body, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        trailingContent?.invoke()
+        if (trailing != null) Icon(trailing, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
     }
 }
 

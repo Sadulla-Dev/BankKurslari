@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -66,7 +67,10 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 
 
-/** Tarix (spec 6.3): "Is today normal?" History, facts and alerts. No forecast, no advice. */
+/**
+ * Tarix: "is today's rate normal?" The Central Bank rate as the hero with its chart, then the one insight History adds
+ * over Home: today's best buy / best sell across banks and the gap between them. Gold and alerts below. No forecast.
+ */
 @Composable
 fun TarixScreen(
     innerPadding: PaddingValues,
@@ -77,15 +81,14 @@ fun TarixScreen(
     analytics: Analytics?,
     analyticsLoading: Boolean,
     tickers: Map<Currency, TickerData>,
-    offline: Boolean,
-    amount: Double,
-    onOpenSettings: () -> Unit
+    offline: Boolean
 ) {
     val ru = lang == Lang.RU
     val unit = somUnit()
     var alerts by remember { mutableStateOf(Alerts.load()) }
     var showAdd by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
+    val hPad = 24.dp
 
     val cur = payload.cbu.rate
     val tickerHistory = tickers[currency]?.history.orEmpty()
@@ -93,114 +96,95 @@ fun TarixScreen(
         buildSeries(analytics?.points.orEmpty(), cur, todayIso()).ifEmpty { buildSeries(tickerHistory, cur, todayIso()) }
     }
 
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(VsBg)
             .padding(innerPadding)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp)
+            .padding(bottom = 32.dp)
     ) {
-        // Ticker header (same as Kurs): the selected card already carries today's CBU rate and day change.
-        TickerBar(
-            currency = currency, onCurrency = onCurrency, tickers = tickers,
-            updatedAt = payload.updatedAt, offline = offline, onOpenSettings = onOpenSettings
-        )
+        CurrencySegmented(currency, onCurrency, Modifier.padding(horizontal = hPad))
+        Spacer(Modifier.height(16.dp))
         if (series.size >= 2) {
-            InteractiveHistory(series = series, today = cur, currency = currency, amount = amount, ru = ru, unit = unit)
+            HistoryBlock(series = series, currency = currency, ru = ru, hPad = hPad)
         } else {
-            Box(
-                modifier = Modifier.padding(top = 24.dp).fillMaxWidth().height(240.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.fillMaxWidth().height(320.dp).padding(horizontal = hPad), contentAlignment = Alignment.CenterStart) {
                 Text(
-                    when {
-                        analyticsLoading -> pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…")
-                        else -> pick(lang, "Tarix hozircha mavjud emas. Keyinroq urinib koʻring.", "История пока недоступна. Попробуйте позже.", "History is not available yet. Please try again later.")
-                    },
-                    style = VsType.Meta, color = VsInkSoft
+                    if (analyticsLoading) pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…")
+                    else pick(lang, "Tarix hozircha mavjud emas.", "История пока недоступна.", "History is not available yet."),
+                    style = VsType.Body, color = VsInkSoft
                 )
             }
         }
 
-        SectionDivider()
-
-        // Bugun bozorda
-        val name = currency.displayName(lang).let { if (ru) it.lowercase() else it }
-        val time = payload.updatedAt?.formatUpdatedAt().orEmpty()
-        val bestSell = payload.banks.filter { it.buy != null }.maxByOrNull { it.buy!! }
-        val bestBuy = payload.banks.filter { it.sell != null }.minByOrNull { it.sell!! }
-        Text(pick(lang, "Bugun bozorda", "Сегодня на рынке", "In the market today"), style = VsType.Title, color = VsInk)
-        MarketRow(
-            title = pick(lang, "$name sotsangiz — eng koʻp toʻlaydi", "Если продаёте $name — больше всех платит", "Selling ${name.lowercase()}? Pays the most"),
-            value = bestSell?.buy.formatUzs(), unit = unit,
-            meta = listOfNotNull(bestSell?.bank, time.ifEmpty { null }).joinToString(" · ")
-        )
-        HorizontalDivider(color = VsLine)
-        MarketRow(
-            title = pick(lang, "$name olsangiz — eng arzon sotadi", "Если покупаете $name — дешевле всех продаёт", "Buying ${name.lowercase()}? Sells the cheapest"),
-            value = bestBuy?.sell.formatUzs(), unit = unit,
-            meta = listOfNotNull(bestBuy?.bank, time.ifEmpty { null }).joinToString(" · ")
-        )
-
-        SectionDivider()
-
-        GoldSection(ru = ru, unit = unit)
-
-        SectionDivider()
-
-        // Alerts
-        Text(pick(lang, "Ogohlantirishlar", "Оповещения", "Alerts"), style = VsType.Title, color = VsInk)
-        if (alerts.isEmpty()) {
-            Text(
-                pick(lang, "Kurs kerakli qiymatga yetganda xabar beramiz.", "Сообщим, когда курс достигнет нужного значения.", "We will notify you when the rate reaches your target."),
-                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-        alerts.forEach { a ->
-            AlertRow(a, ru, unit) {
-                Alerts.remove(a.id)
-                alerts = Alerts.load()
+        Column(Modifier.padding(horizontal = hPad)) {
+            // Today across banks: the spread between the best buy and the best sell.
+            val bestBuyFromBank = payload.banks.mapNotNull { it.sell }.minOrNull()   // cheapest place to buy
+            val bestSellToBank = payload.banks.mapNotNull { it.buy }.maxOrNull()     // best place to sell
+            if (bestBuyFromBank != null && bestSellToBank != null) {
+                Spacer(Modifier.height(40.dp))
+                Text(pick(lang, "Bugun banklarda", "Сегодня в банках", "Today at banks"), style = VsType.Caption, color = VsInkSoft)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    SpreadCell(pick(lang, "Eng arzon olish", "Купить дешевле всего", "Best buy"), kGroup(bestBuyFromBank), Modifier.weight(1f))
+                    SpreadCell(pick(lang, "Eng qimmat sotish", "Продать дороже всего", "Best sell"), kGroup(bestSellToBank), Modifier.weight(1f))
+                    SpreadCell(pick(lang, "Farq", "Разница", "Spread"), kGroup(bestBuyFromBank - bestSellToBank), Modifier.weight(0.7f))
+                }
             }
-            HorizontalDivider(color = VsLine)
-        }
-        val full = alerts.size >= Alerts.MAX
-        Spacer(Modifier.height(12.dp))
-        KButton(
-            text = pick(lang, "Ogohlantirish qoʻshish", "Добавить оповещение", "Add alert"),
-            icon = Icons.Outlined.NotificationsNone, primary = false, enabled = !full,
-            modifier = Modifier.fillMaxWidth()
-        ) { showAdd = true }
-        if (full) {
-            Text(
-                pick(lang, "Eng koʻpi bilan ${Alerts.MAX} ta ogohlantirish. Yangisini qoʻshish uchun birini oʻchiring.",
-                    "Не больше ${Alerts.MAX} оповещений. Удалите одно, чтобы добавить новое.",
-                    "Up to ${Alerts.MAX} alerts. Delete one to add a new one."),
-                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
-            )
-        }
 
-        SectionDivider()
+            Spacer(Modifier.height(48.dp))
+            GoldSection(ru = ru, unit = unit)
 
-        // Sources
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { sourcesOpen = !sourcesOpen },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                (pick(lang, "Manba: bank.uz, cbu.uz", "Источник: bank.uz, cbu.uz", "Source: bank.uz, cbu.uz")) + if (time.isNotEmpty()) " · $time" else "",
-                style = VsType.Meta, color = VsInkSoft
-            )
-        }
-        if (sourcesOpen) {
-            Text(
-                pick(lang, "bank.uz — tijorat banklarining naqd kurslari.\ncbu.uz — Markaziy bankning rasmiy kursi va uning tarixi.",
-                    "bank.uz — курсы коммерческих банков (наличные).\ncbu.uz — официальный курс Центрального банка и его история.",
-                    "bank.uz — commercial banks’ cash rates.\ncbu.uz — the Central Bank’s official rate and its history."),
-                style = VsType.Meta, color = VsInkSoft
-            )
+            Spacer(Modifier.height(48.dp))
+            Text(pick(lang, "Ogohlantirishlar", "Оповещения", "Alerts"), style = VsType.Title, color = VsInk)
+            if (alerts.isEmpty()) {
+                Text(
+                    pick(lang, "Kurs kerakli qiymatga yetganda xabar beramiz.", "Сообщим, когда курс достигнет нужного значения.", "We will notify you when the rate reaches your target."),
+                    style = VsType.Caption, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            alerts.forEachIndexed { i, a ->
+                if (i > 0) HorizontalDivider(color = VsLine)
+                AlertRow(a, ru, unit) {
+                    Alerts.remove(a.id)
+                    alerts = Alerts.load()
+                }
+            }
+            val full = alerts.size >= Alerts.MAX
+            Box(Modifier.offset(x = (-16).dp)) {
+                KButton(
+                    text = pick(lang, "Ogohlantirish qoʻshish", "Добавить оповещение", "Add alert"),
+                    icon = Icons.Outlined.NotificationsNone, primary = false, enabled = !full
+                ) { showAdd = true }
+            }
+            if (full) {
+                Text(
+                    pick(lang, "Eng koʻpi bilan ${Alerts.MAX} ta ogohlantirish. Yangisini qoʻshish uchun birini oʻchiring.",
+                        "Не больше ${Alerts.MAX} оповещений. Удалите одно, чтобы добавить новое.",
+                        "Up to ${Alerts.MAX} alerts. Delete one to add a new one."),
+                    style = VsType.Caption, color = VsInkSoft
+                )
+            }
+
+            Spacer(Modifier.height(40.dp))
+            val time = payload.updatedAt?.formatUpdatedAt().orEmpty()
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { sourcesOpen = !sourcesOpen },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    (pick(lang, "Manba: bank.uz, cbu.uz", "Источник: bank.uz, cbu.uz", "Source: bank.uz, cbu.uz")) + if (time.isNotEmpty()) " · $time" else "",
+                    style = VsType.Caption, color = VsInkSoft
+                )
+            }
+            if (sourcesOpen) {
+                Text(
+                    pick(lang, "bank.uz — tijorat banklarining naqd kurslari.\ncbu.uz — Markaziy bankning rasmiy kursi va uning tarixi.",
+                        "bank.uz — курсы коммерческих банков (наличные).\ncbu.uz — официальный курс Центрального банка и его история.",
+                        "bank.uz — commercial banks’ cash rates.\ncbu.uz — the Central Bank’s official rate and its history."),
+                    style = VsType.Caption, color = VsInkSoft
+                )
+            }
         }
     }
 
@@ -219,25 +203,10 @@ fun TarixScreen(
 }
 
 @Composable
-private fun SectionDivider() {
-    Spacer(Modifier.height(16.dp))
-    HorizontalDivider(color = VsLine)
-    Spacer(Modifier.height(16.dp))
-}
-
-@Composable
-private fun MarketRow(title: String, value: String, unit: String, meta: String) {
-    // Two baseline-aligned lines (same grid as the Kurs list): title · value, meta · unit.
-    Column(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 12.dp)) {
-        Row(Modifier.fillMaxWidth()) {
-            Text(title, style = VsType.Body, color = VsInk, modifier = Modifier.weight(1f).alignByBaseline())
-            Spacer(Modifier.width(12.dp))
-            Text(value, style = VsType.BodyMedium, color = VsInk, modifier = Modifier.alignByBaseline())
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-            Text(meta, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f).alignByBaseline())
-            Text(unit, style = VsType.Meta, color = VsInkSoft, modifier = Modifier.alignByBaseline())
-        }
+private fun SpreadCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(value, style = VsType.Body, color = VsInk)
+        Text(label, style = VsType.Caption, color = VsInkSoft, maxLines = 2)
     }
 }
 

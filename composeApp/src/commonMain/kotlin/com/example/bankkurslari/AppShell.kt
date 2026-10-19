@@ -96,6 +96,7 @@ fun CurrencyTrackerApp(
     var offline by remember { mutableStateOf(false) }
     var favorites by remember { mutableStateOf(RateService.favorites()) }
     var showSettings by remember { mutableStateOf(false) }
+    var showAll by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<Pair<Double, Double>?>(lastKnownLocation()) }
     val scope = rememberCoroutineScope()
     val saveable = rememberSaveableStateHolder()
@@ -122,16 +123,13 @@ fun CurrencyTrackerApp(
         }
     }
 
-    // Ask for location once (non-blocking); distances are simply omitted without it.
+    // Location is asked in context (first tap on a distance, or opening the map), never on launch.
     val locationLauncher = rememberLocationPermissionRequest {
         userLocation = lastKnownLocation()
     }
-    LaunchedEffect(Unit) {
-        val asked = appStore().getBoolean("loc_asked", false)
-        if (userLocation == null && !asked && !hasLocationPermission()) {
-            appStore().putBoolean("loc_asked", true)
-            locationLauncher()
-        }
+    val requestLocation: () -> Unit = {
+        appStore().putBoolean("loc_asked", true)
+        locationLauncher()
     }
     LaunchedEffect(tab) { userLocation = lastKnownLocation() ?: userLocation }
 
@@ -236,8 +234,8 @@ fun CurrencyTrackerApp(
                                 appStore().putString("direction", if (it == ConvertMode.BUY_USD) "buy" else "sell")
                             },
                             userLocation = userLocation,
-                            tickers = tickersView,
                             onOpenSettings = { showSettings = true },
+                            onRequestLocation = requestLocation,
                             onRefresh = { refresh() }
                         )
                         HomeTab.MAP -> MapScreen(
@@ -253,7 +251,8 @@ fun CurrencyTrackerApp(
                             onToggleFavorite = { favorites = RateService.toggleFavorite(it) },
                             amountText = amountText,
                             direction = direction,
-                            userLocation = userLocation
+                            userLocation = userLocation,
+                            onRequestLocation = requestLocation
                         )
                         HomeTab.TREND -> TarixScreen(
                             innerPadding = innerPadding,
@@ -264,9 +263,7 @@ fun CurrencyTrackerApp(
                             analytics = analytics,
                             analyticsLoading = analyticsLoading,
                             tickers = tickersView,
-                            offline = offline,
-                            amount = amountText.filter { it.isDigit() }.toDoubleOrNull() ?: 0.0,
-                            onOpenSettings = { showSettings = true }
+                            offline = offline
                         )
                     }
                     }
@@ -298,16 +295,18 @@ fun CurrencyTrackerApp(
             onThemeMode = onThemeMode,
             defaultCurrency = currency,
             onDefaultCurrency = onCurrency,
-            onOpenAlerts = { showSettings = false; tab = HomeTab.TREND }
+            onOpenAlerts = { showSettings = false; tab = HomeTab.TREND },
+            onOpenAllCurrencies = { showSettings = false; showAll = true }
         )
     }
+    if (showAll) AllCurrenciesSheet(onDismiss = { showAll = false })
 }
 
 @Composable
 private fun isDarkTheme(themeMode: Int): Boolean =
     when (themeMode) { 1 -> false; 2 -> true; else -> androidx.compose.foundation.isSystemInDarkTheme() }
 
-/* ---------- Bottom navigation: flat, hairline top, 3 tabs ---------- */
+/* ---------- Bottom navigation: three tabs, outline icons, active = filled. No colour change. ---------- */
 
 @Composable
 private fun BottomBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
@@ -319,8 +318,6 @@ private fun BottomBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
         ) {
             HomeTab.entries.forEach { item ->
                 val active = item == selected
-                val tint by animateColorAsState(if (active) VsEmerald else VsInkSoft, Motion.color(), label = "navtint")
-                val iconScale by animateFloatAsState(if (active) 1f else 0.92f, Motion.slide(), label = "navscale")
                 val label = item.label()
                 Column(
                     modifier = Modifier
@@ -334,13 +331,11 @@ private fun BottomBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(item.icon, null, tint = tint, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale })
+                    Crossfade(active, animationSpec = tween(Motion.SHORT), label = "navicon") { a ->
+                        Icon(if (a) item.iconActive else item.icon, null, tint = VsInk, modifier = Modifier.size(24.dp))
+                    }
                     Spacer(Modifier.height(2.dp))
-                    Text(
-                        label, color = tint, style = VsType.Meta,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1
-                    )
+                    Text(label, color = VsInk, style = VsType.Caption, maxLines = 1)
                 }
             }
         }

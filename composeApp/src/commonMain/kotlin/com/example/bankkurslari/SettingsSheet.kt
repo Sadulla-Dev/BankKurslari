@@ -70,7 +70,8 @@ fun SettingsSheet(
     onThemeMode: (Int) -> Unit,
     defaultCurrency: Currency,
     onDefaultCurrency: (Currency) -> Unit,
-    onOpenAlerts: () -> Unit
+    onOpenAlerts: () -> Unit,
+    onOpenAllCurrencies: () -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var city by remember { mutableStateOf(RateService.city()) }
@@ -171,6 +172,14 @@ fun SettingsSheet(
                 title = tr("Ogohlantirishlar", "Оповещения", "Alerts"),
                 value = if (alertCount > 0) tr("$alertCount ta", "$alertCount шт.", "$alertCount") else "",
                 onClick = onOpenAlerts
+            )
+            HorizontalDivider(color = VsLine)
+
+            // Boshqa valyutalar (Markaziy bank kursi)
+            SettingsRow(
+                title = tr("Boshqa valyutalar", "Другие валюты", "Other currencies"),
+                value = tr("Markaziy bank", "Центральный банк", "Central Bank"),
+                onClick = onOpenAllCurrencies
             )
             HorizontalDivider(color = VsLine)
 

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,6 +37,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.bankkurslari.ui.theme.VsBg
 import com.example.bankkurslari.ui.theme.VsEmerald
@@ -43,8 +50,12 @@ import com.example.bankkurslari.ui.theme.VsInk
 import com.example.bankkurslari.ui.theme.VsInkSoft
 import com.example.bankkurslari.ui.theme.VsType
 
-/** Bottom sheet shared by Kurs list rows and Xarita pins (spec 6.4). Primary action = route. */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+/**
+ * Bank detail, opened from a Home row or a map pin. Total for the user's amount, the bank's two rates,
+ * the nearest branches (tap one to route there), then one primary action: directions to the nearest branch.
+ * Location is asked here, in context, the first time the user wants distances.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BankSheet(
     item: RankedBank,
@@ -54,6 +65,9 @@ fun BankSheet(
     updatedAt: String?,
     favorite: Boolean,
     onToggleFavorite: () -> Unit,
+    branches: List<OsmBranch> = emptyList(),
+    userLocation: Pair<Double, Double>? = null,
+    onRequestLocation: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val route = LocalRoute.current
@@ -61,118 +75,104 @@ fun BankSheet(
     val sell = direction == ConvertMode.SELL_USD
     val som = kSom(ru)
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var explain by remember { mutableStateOf(false) }
-    val buy = item.rate.buy
-    val sellRate = item.rate.sell
-    val spread = item.rate.spread
-    val time = updatedAt?.formatUpdatedAt()
     val shareText = kShareText(item, currency, amount, updatedAt, false)
-    val schedule = formatHours(item.hours, ru) ?: item.hours?.takeIf { it.isNotBlank() }
+    val near = remember(item.rate, branches, userLocation) { branchesOf(item.rate, branches, userLocation).take(3) }
+    val target = near.firstOrNull()?.let { RouteTarget(it.lat, it.lng, item.rate.bank) }
+        ?: item.lat?.let { la -> item.lng?.let { ln -> RouteTarget(la, ln, item.rate.bank) } }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = state,
         containerColor = VsBg,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         tonalElevation = 0.dp
     ) {
-        Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(item.rate.bank, style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
                 IconButton(onClick = onToggleFavorite) {
                     Icon(
                         if (favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                         contentDescription = if (favorite) tr("Tanlanganlardan olib tashlash", "Убрать из избранного", "Remove from favourites") else tr("Tanlanganlarga qoʻshish", "Добавить в избранное", "Add to favourites"),
-                        tint = if (favorite) VsEmerald else VsInkSoft
+                        tint = VsInk
                     )
                 }
             }
-            val addrLine = listOfNotNull(item.address?.takeIf { it.isNotBlank() }, item.distanceKm?.let { kKm(it, ru) }).joinToString(" · ")
-            if (addrLine.isNotEmpty()) Text(addrLine, style = VsType.Meta, color = VsInkSoft)
-            Text(
-                kHoursLong(item.open, ru),
-                style = if (item.open.known) VsType.Body else VsType.Meta,
-                color = when { !item.open.known -> VsInkSoft; item.open.open -> VsEmerald; else -> VsInk }
-            )
-            if (schedule != null && item.open.known) Text(schedule, style = VsType.Meta, color = VsInkSoft)
-
-            KHairline()
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                SideCell(
-                    label = tr("Sotib olish", "Покупка", "Buy"), hint = tr("bank sotib oladi", "банк покупает", "bank buys"),
-                    value = buy, highlight = sell, modifier = Modifier.weight(1f)
-                )
-                SideCell(
-                    label = tr("Sotish", "Продажа", "Sell"), hint = tr("bank sotadi", "банк продаёт", "bank sells"),
-                    value = sellRate, highlight = !sell, modifier = Modifier.weight(1f)
-                )
-            }
-            if (spread != null) {
-                Row(
-                    Modifier.fillMaxWidth().heightIn(min = 48.dp).combinedClickable(
-                        onClickLabel = tr("Izoh", "Пояснение", "Explanation"),
-                        onLongClickLabel = tr("Izoh", "Пояснение", "Explanation"),
-                        onClick = { explain = !explain },
-                        onLongClick = { explain = !explain }
-                    ),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val diff = (pick(lang, "Farq ", "Разница ", "Spread ")) + "${kGroup(spread)} $som"
-                    Text(diff + (time?.let { " · " + (pick(lang, "Yangilandi $it", "Обновлено $it", "Updated $it")) } ?: ""), style = VsType.Meta, color = VsInkSoft)
-                }
-                if (explain) {
-                    Text(
-                        tr("Sotish va sotib olish orasidagi farq", "Разница между продажей и покупкой", "Difference between the sell and buy rates"),
-                        style = VsType.Meta, color = VsInkSoft
-                    )
-                }
-            } else if (time != null) {
-                Text(pick(lang, "Yangilandi $time", "Обновлено $time", "Updated $time"), style = VsType.Meta, color = VsInkSoft)
-            }
-
-            YesterdayLine(item, currency, ru)
 
             if (amount > 0) {
                 val amt = kGroup(amount.toLong())
-                val head = if (sell) (pick(lang, "Sizning $amt ${currency.code}", "Ваши $amt ${currency.code}", "Your $amt ${currency.code}"))
-                else (pick(lang, "$amt ${currency.code} uchun toʻlov", "Оплата за $amt ${currency.code}", "Payment for $amt ${currency.code}"))
-                Text("$head: ${kGroup(item.total)} $som", style = VsType.BodyMedium, color = VsInk)
+                Text("$amt ${currency.code} → ${kGroup(item.total)} $som", style = VsType.Body, color = VsInk, modifier = Modifier.padding(top = 8.dp))
+            }
+            val rates = listOfNotNull(
+                item.rate.buy?.let { pick(lang, "Sotib oladi ${kGroup(it)}", "Покупает ${kGroup(it)}", "Buys at ${kGroup(it)}") },
+                item.rate.sell?.let { pick(lang, "Sotadi ${kGroup(it)}", "Продаёт ${kGroup(it)}", "Sells at ${kGroup(it)}") }
+            ).joinToString(" · ")
+            if (rates.isNotEmpty()) Text(rates, style = VsType.Caption, color = VsInkSoft)
+            YesterdayLine(item, currency, ru)
+
+            // Nearest branches
+            if (near.isNotEmpty()) {
+                Spacer(Modifier.height(32.dp))
+                Text(
+                    if (userLocation != null) tr("Eng yaqin filiallar", "Ближайшие отделения", "Nearest branches") else tr("Filiallar", "Отделения", "Branches"),
+                    style = VsType.Caption, color = VsInkSoft
+                )
+                near.forEachIndexed { i, b ->
+                    if (i > 0) KHairline()
+                    BranchRow(b, ru) { route(RouteTarget(b.lat, b.lng, item.rate.bank)) }
+                }
+                if (userLocation == null && onRequestLocation != null) {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onRequestLocation),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.NearMe, null, tint = VsInk, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            tr("Eng yaqin filialni koʻrsatish uchun joylashuvga ruxsat bering",
+                                "Разрешите геолокацию, чтобы показать ближайшее отделение",
+                                "Allow location to show the nearest branch"),
+                            style = VsType.Caption, color = VsInk
+                        )
+                    }
+                }
             }
 
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(32.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 KButton(
                     text = tr("Yoʻnalish", "Маршрут", "Directions"), icon = Icons.Outlined.Directions, primary = true,
-                    enabled = item.lat != null && item.lng != null,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    val la = item.lat
-                    val ln = item.lng
-                    if (la != null && ln != null) route(RouteTarget(la, ln, item.rate.bank))
-                }
+                    enabled = target != null, modifier = Modifier.weight(1f)
+                ) { target?.let(route) }
+                Spacer(Modifier.width(8.dp))
                 KIconAction(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share")) { kShare(shareText) }
             }
-            Spacer(Modifier.height(8.dp))
+            updatedAgo(updatedAt)?.let {
+                Text(it, style = VsType.Caption, color = VsInkSoft, modifier = Modifier.padding(top = 16.dp))
+            }
+            Spacer(Modifier.height(16.dp))
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
 }
 
 @Composable
-private fun SideCell(label: String, hint: String, value: Int?, highlight: Boolean, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Text(label, style = VsType.Meta, color = VsInkSoft)
-        Text(
-            value?.let { kGroup(it) } ?: "—",
-            style = VsType.Title, color = if (highlight) VsEmerald else VsInk
-        )
-        Text(hint, style = VsType.Meta, color = VsInkSoft)
+private fun BranchRow(b: NearBranch, ru: Boolean, onClick: () -> Unit) {
+    val meta = listOfNotNull(
+        b.km?.takeIf { it <= 100 }?.let { kKm(it, ru) },
+        b.open.takeIf { it.known }?.let { kHoursShort(it, ru) }
+    ).joinToString(" · ")
+    Column(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClickLabel = tr("Yoʻnalish", "Маршрут", "Directions"), onClick = onClick)
+            .alpha(if (mapIsClosed(b.open)) 0.4f else 1f)
+            .padding(vertical = 10.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(b.address?.takeIf { it.isNotBlank() } ?: tr("Manzil koʻrsatilmagan", "Адрес не указан", "No address"), style = VsType.Body, color = VsInk, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (meta.isNotEmpty()) Text(meta, style = VsType.Caption, color = VsInkSoft)
     }
 }
-
 
 /** "Kecha: 12 020 (+20) · 12 100 (−10)" from our own collected history; hidden until a previous day exists. */
 @Composable

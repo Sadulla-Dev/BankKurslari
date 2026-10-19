@@ -66,7 +66,7 @@ class RateWidgetProvider : AppWidgetProvider() {
             }
             views.setTextViewText(
                 R.id.widget_cbu,
-                if (snap != null) "${trSaved("MB", "ЦБ", "CBU")} ${RateService.formatRate(snap.rate)} $som${if (snap.date.isNotEmpty()) " · ${snap.date}" else ""}" else ""
+                if (snap != null) "${trSaved("Markaziy bank", "Центробанк", "Central Bank")} ${RateService.formatRate(snap.rate)} $som${if (snap.date.isNotEmpty()) " · ${snap.date}" else ""}" else ""
             )
 
             val openApp = PendingIntent.getActivity(

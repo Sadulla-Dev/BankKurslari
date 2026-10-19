@@ -68,6 +68,9 @@ object PlatformHooks {
     var onAlertsChanged: () -> Unit = {}
 }
 
+/** Device UI language as a BCP-47 tag ("ru-RU", "uz-Cyrl-UZ", "en-US"). */
+expect fun deviceLanguageTag(): String
+
 /** Diagnostics to the device console (Logcat / Xcode console), tag "QK". */
 expect fun debugLog(msg: String)
 

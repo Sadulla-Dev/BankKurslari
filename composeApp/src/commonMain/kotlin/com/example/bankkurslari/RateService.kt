@@ -113,7 +113,15 @@ object RateService {
 
     fun setAlertsJson(json: String) = prefs.putString("alerts_json", json)
 
-    fun language(): String = prefs.getString("lang") ?: "uz"
+    /** Saved choice, else the device language (no language step on first launch). */
+    fun language(): String = prefs.getString("lang") ?: deviceLanguageTag().lowercase().let { t ->
+        when {
+            t.startsWith("ru") -> "ru"
+            t.startsWith("en") -> "en"
+            t.startsWith("uz") && "cyrl" in t -> "uz-cyrl"
+            else -> "uz"
+        }
+    }
 
     fun setLanguage(code: String) = prefs.putString("lang", code)
 

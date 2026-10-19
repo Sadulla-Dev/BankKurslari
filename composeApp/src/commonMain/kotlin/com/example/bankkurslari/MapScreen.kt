@@ -39,6 +39,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Directions
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -84,6 +89,10 @@ import kotlin.math.max
 
 /* ---------- Screen ---------- */
 
+/**
+ * "Which branch near me has a good rate?" One currency control (shared with Home), one filter button, the map.
+ * Zoomed out each bank is one pin; zooming in reveals its branches. Tap a pin -> the same bank sheet as Home.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
@@ -99,22 +108,15 @@ fun MapScreen(
     onToggleFavorite: (String) -> Unit,
     amountText: String,
     direction: ConvertMode,
-    userLocation: Pair<Double, Double>?
+    userLocation: Pair<Double, Double>?,
+    onRequestLocation: () -> Unit
 ) {
-
     var openNow by remember { mutableStateOf(false) }
     var bestOnly by remember { mutableStateOf(false) }
     var atmOn by remember { mutableStateOf(false) }
     var listMode by remember { mutableStateOf(false) }
-    var legendOpen by remember { mutableStateOf(true) }
-    var labelMode by remember {
-        // Every visit starts with bank name + rate; the switch only changes the current visit.
-        mutableStateOf(MapLabel.BOTH)
-    }
+    var filters by remember { mutableStateOf(false) }
     var bankSel by remember { mutableStateOf<String?>(null) }       // bankKey
-    var bankMenu by remember { mutableStateOf(false) }
-    var cityMenu by remember { mutableStateOf(false) }
-    var cityName by remember { mutableStateOf<MapCity?>(null) }
     var selectedId by remember { mutableStateOf<String?>(null) }
     var sheetBank by remember { mutableStateOf<RankedBank?>(null) }
     var infoPin by remember { mutableStateOf<MapPin?>(null) }
@@ -123,16 +125,18 @@ fun MapScreen(
     var didCenter by remember { mutableStateOf(false) }
     var tileFailed by remember { mutableStateOf(false) }
 
-    val requestLocation = rememberLocationPermissionRequest { granted -> hasLocation = granted }
-    LaunchedEffect(Unit) { if (!hasLocation) requestLocation() }
+    // First visit to the map is the moment a location makes sense: ask once, here.
+    LaunchedEffect(Unit) {
+        if (!hasLocation && !appStore().getBoolean("loc_asked", false)) onRequestLocation()
+    }
+    LaunchedEffect(userLocation) { hasLocation = hasLocationPermission() }
 
-    // ----- ranking: SAME call as the Kurs tab (acceptance 6) -----
+    // ----- ranking: SAME call as the Home tab -----
     val amount = (amountText.toLongOrNull() ?: 0L).toDouble()
     val ranked = remember(payload, direction, amount, userLocation, branches) {
         rankBanks(payload.banks, direction, amount, userLocation, branches)
     }
     val best = remember(ranked, direction) { mapBestRate(ranked, direction) }
-    // Thousands of branches: build pins off the main thread.
     val allPins by produceState(emptyList<MapPin>(), ranked, branches, userLocation, best) {
         value = withContext(Dispatchers.Default) { mapBuildPins(ranked, branches, userLocation, best) }
     }
@@ -147,12 +151,10 @@ fun MapScreen(
         if (sel != null && ranked.none { bankKey(it.rate.bank) == sel }) bankSel = null
     }
 
-    // ----- location sanity (spec 6.2: never present absurd distances) -----
     val pricedPins = remember(allPins) { allPins.filter { it.kind == MapPinKind.PRICED } }
     val nearestKm = remember(pricedPins) { pricedPins.mapNotNull { it.rawKm }.minOrNull() }
     val locationBad = userLocation == null || (nearestKm != null && nearestKm > MAP_FAR_KM)
 
-    // ----- filters -----
     val visiblePins = remember(allPins, atmPins, openNow, bestOnly, atmOn, bankSel) {
         val sel = bankSel
         buildList {
@@ -165,7 +167,7 @@ fun MapScreen(
                     MapPinKind.ATM -> {}
                 }
             }
-            if (atmOn && !bestOnly) atmPins.forEach { if (bankSel == null || it.bankKey == bankSel) add(it) }
+            if (atmOn && !bestOnly) atmPins.forEach { if (sel == null || it.bankKey == sel) add(it) }
         }
     }
     val listItems = remember(ranked, openNow, bestOnly, bankSel, best) {
@@ -176,6 +178,7 @@ fun MapScreen(
             if (ok) Triple(i + 1, rb, good) else null
         }
     }
+    val activeFilters = listOf(openNow, bestOnly, atmOn, listMode, bankSel != null).count { it }
 
     val onPinTap: (MapPin) -> Unit = { p ->
         selectedId = p.id
@@ -183,17 +186,19 @@ fun MapScreen(
         map?.animateTo(p.lat, p.lng)
     }
 
-    // Default camera (spec 6.2): centred on the user with the radius of the 5th nearest priced pin (>= 5 pins in view).
-    // Skipped entirely when the location is unusable (null, or nearest priced branch > 100 km) -> banner + city picker.
-    // Keyed on the pin list itself: pins are built in the background and may first arrive without distances
-    // (location not known yet). Centre only once real distances exist.
-    LaunchedEffect(map, userLocation, pricedPins) {
+    // Default camera: the user's neighbourhood (about 1.5 km around). Without a usable location: the saved city's
+    // centre at district level, never the whole city.
+    LaunchedEffect(map, userLocation, pricedPins, locationBad) {
         val mv = map ?: return@LaunchedEffect
-        if (didCenter || userLocation == null || pricedPins.isEmpty() || locationBad) return@LaunchedEffect
-        val ds = pricedPins.mapNotNull { it.rawKm }.sorted()
-        if (ds.isEmpty()) return@LaunchedEffect
+        if (didCenter || pricedPins.isEmpty()) return@LaunchedEffect
+        if (locationBad || userLocation == null) {
+            val city = mapCities.firstOrNull { it.uz == RateService.city() } ?: mapCities.first()
+            mv.animateTo(city.lat, city.lng, 13.5)
+            return@LaunchedEffect
+        }
         didCenter = true
-        val r = (ds.getOrNull(4) ?: ds.last()).coerceIn(0.5, MAP_FAR_KM) * 1.15
+        val ds = pricedPins.mapNotNull { it.rawKm }.sorted()
+        val r = (ds.getOrNull(2) ?: 1.5).coerceIn(0.8, 2.5)
         val dLat = r / 111.0
         val dLng = r / (111.0 * cos(toRadians(userLocation.first)).coerceAtLeast(0.2))
         mv.fitBounds(userLocation.first + dLat, userLocation.second + dLng, userLocation.first - dLat, userLocation.second - dLng, 48, false)
@@ -204,107 +209,35 @@ fun MapScreen(
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value
     ).dp
     val bottomInset = innerPadding.calculateBottomPadding()
-    val bankNames = remember(ranked) { ranked.map { it.rate.bank } }
 
     Column(modifier = Modifier.fillMaxSize().background(VsBg)) {
-        // ---------- Header: below the status bar, never over the map ----------
-        Column(
-            modifier = Modifier.fillMaxWidth().background(VsBg)
-                .padding(top = topInset + 8.dp, bottom = 8.dp)
+        // Header: currency + one filter button. Nothing else above the map.
+        Row(
+            Modifier.fillMaxWidth().background(VsBg).padding(top = topInset, start = 24.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CurrencySegmented(
-                currency, onCurrency,
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 48.dp)
-            )
-            val chipScroll = rememberScrollState()
-            Box(Modifier.fillMaxWidth()) {
+            CurrencySegmented(currency, onCurrency, Modifier.weight(1f))
             Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(chipScroll).padding(horizontal = 16.dp).heightIn(min = 52.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp))
+                    .clickable(role = Role.Button) { filters = true }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MapChip(tr("Ochiq hozir", "Открыто сейчас", "Open now"), openNow, { openNow = !openNow })
-                MapChip(tr("Eng yaxshi", "Лучшие", "Best"), bestOnly, { bestOnly = !bestOnly })
-                Box {
-                    MapChip(
-                        label = bankSel?.let { k -> bankNames.firstOrNull { bankKey(it) == k } } ?: tr("Bank", "Банк", "Bank"),
-                        selected = bankSel != null,
-                        onClick = { bankMenu = true },
-                        trailing = Icons.Outlined.ExpandMore
-                    )
-                    DropdownMenu(
-                        expanded = bankMenu, onDismissRequest = { bankMenu = false },
-                        containerColor = VsBg, shape = RoundedCornerShape(12.dp)
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(tr("Barcha banklar", "Все банки", "All banks"), style = VsType.Body, color = if (bankSel == null) VsEmerald else VsInk) },
-                            onClick = { bankSel = null; bankMenu = false }
-                        )
-                        bankNames.forEach { n ->
-                            val active = bankSel == bankKey(n)
-                            DropdownMenuItem(
-                                text = { Text(n, style = VsType.Body, color = if (active) VsEmerald else VsInk) },
-                                onClick = { bankSel = bankKey(n); bankMenu = false }
-                            )
-                        }
-                    }
-                }
-                MapChip(tr("Bankomat", "Банкомат", "ATMs"), atmOn, { atmOn = !atmOn }, loading = atmOn && atmsLoading)
-                MapChip(tr("Roʻyxat", "Список", "List"), listMode, { listMode = !listMode })
-            }
-            // Fade on the trailing edge while more chips are off-screen: tells the row scrolls.
-            val fadeA by androidx.compose.animation.core.animateFloatAsState(
-                if (chipScroll.value < chipScroll.maxValue) 1f else 0f, tween(Motion.SHORT), label = "chipfade"
-            )
-            Box(
-                Modifier.align(Alignment.CenterEnd).width(40.dp).height(52.dp).alpha(fadeA)
-                    .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(VsBg.copy(alpha = 0f), VsBg)))
-            )
-            }
-            if (locationBad) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        tr("Joylashuv aniqlanmadi", "Местоположение не определено", "Location not found"),
-                        style = VsType.Meta, color = VsAmber, modifier = Modifier.weight(1f)
-                    )
-                    Box {
-                        MapChip(
-                            label = cityName?.let { tr(it.uz, it.ru) } ?: tr("Shahar tanlang", "Выберите город", "Choose a city"),
-                            selected = cityName != null,
-                            onClick = { cityMenu = true },
-                            trailing = Icons.Outlined.ExpandMore
-                        )
-                        DropdownMenu(
-                            expanded = cityMenu, onDismissRequest = { cityMenu = false },
-                            containerColor = VsBg, shape = RoundedCornerShape(12.dp)
-                        ) {
-                            mapCities.forEach { c ->
-                                DropdownMenuItem(
-                                    text = { Text(tr(c.uz, c.ru), style = VsType.Body, color = if (cityName === c) VsEmerald else VsInk) },
-                                    onClick = {
-                                        cityName = c; cityMenu = false
-                                        map?.animateTo(c.lat, c.lng, 12.0)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+                Icon(Icons.Outlined.Tune, null, tint = VsInk, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    tr("Filtr", "Фильтр", "Filter") + if (activeFilters > 0) " · $activeFilters" else "",
+                    style = VsType.Body, color = VsInk
+                )
             }
         }
 
-        // ---------- Map / list ----------
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             BankMapView(
                 modifier = Modifier.fillMaxSize(),
                 darkMode = darkMode,
                 pins = visiblePins,
                 selectedId = selectedId,
-                labelMode = labelMode,
+                labelMode = MapLabel.BOTH,
                 sell = direction == ConvertMode.SELL_USD,
                 best = best,
                 showMyLocation = hasLocation,
@@ -313,105 +246,30 @@ fun MapScreen(
                 onTileFailure = { tileFailed = it }
             )
 
-            // Pin label switch: what each pin shows.
-            Box(
-                Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = 12.dp)
-                    .clip(RoundedCornerShape(12.dp)).background(VsBg)
-                    .border(1.dp, VsLine, RoundedCornerShape(12.dp))
-            ) {
-                Segmented(
-                    options = listOf(tr("Kurs", "Курс", "Rate"), tr("Bank", "Банк", "Bank"), tr("Ikkalasi", "Оба", "Both")),
-                    selected = labelMode.ordinal,
-                    onSelect = {
-                        labelMode = MapLabel.entries[it]
-                    },
-                    cellWidth = 76.dp,
-                    height = 40.dp
-                )
-            }
-
-            MapReveal(visible = tileFailed, fromTop = true, modifier = Modifier.align(Alignment.TopCenter).padding(top = 52.dp)) {
+            MapReveal(visible = tileFailed, fromTop = true, modifier = Modifier.align(Alignment.TopCenter)) {
                 Text(
                     tr("Xarita yuklanmadi — qayta urinmoqda", "Карта не загрузилась — повторяем попытку", "Map failed to load — retrying"),
-                    style = VsType.Meta, color = VsInk,
-                    modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp)
-                        .clip(RoundedCornerShape(999.dp)).background(VsBg)
-                        .border(1.dp, VsLine, RoundedCornerShape(999.dp))
+                    style = VsType.Caption, color = VsAmber,
+                    modifier = Modifier.padding(top = 12.dp).clip(RoundedCornerShape(999.dp)).background(VsBg)
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
 
-            // Legend (one line, collapsible) + the single FAB.
-            Row(
-                modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = bottomInset + 16.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Locate me (or ask for location when there is none).
+            val fabSrc = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            Box(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset + 16.dp)
+                    .size(48.dp).pressScale(fabSrc).shadow(4.dp, CircleShape).clip(CircleShape).background(VsBg)
+                    .clickable(interactionSource = fabSrc, indication = androidx.compose.material3.ripple(), role = Role.Button) {
+                        val gp = userLocation ?: map?.myLocation()
+                        if (gp != null) map?.animateTo(gp.first, gp.second, 15.0) else onRequestLocation()
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                val legendText = tr("narx yaxshi, boshqa, yopiq", "цена хорошая, другие, закрыто", "good rate, other, closed")
-                Box(
-                    modifier = Modifier.heightIn(min = 48.dp)
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null, role = Role.Button
-                        ) { legendOpen = !legendOpen }
-                        .semantics { contentDescription = legendText },
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    AnimatedContent(
-                        legendOpen,
-                        transitionSpec = {
-                            (fadeIn(tween(Motion.MEDIUM, easing = Motion.Decelerate)) + expandHorizontally(tween(Motion.MEDIUM, easing = Motion.Decelerate), expandFrom = Alignment.Start)) togetherWith
-                                (fadeOut(tween(Motion.SHORT)) + shrinkHorizontally(tween(Motion.MEDIUM), shrinkTowards = Alignment.Start))
-                        },
-                        label = "legend"
-                    ) { open ->
-                        if (open) {
-                            Row(
-                                Modifier.clip(RoundedCornerShape(999.dp)).background(VsBg)
-                                    .border(1.dp, VsLine, RoundedCornerShape(999.dp))
-                                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                LegendSwatch(fill = VsEmerald, stroke = VsEmerald)
-                                Text(tr("yaxshi narx", "лучшая цена", "best rate"), style = VsType.Meta, color = VsInk, maxLines = 1)
-                                Spacer(Modifier.width(4.dp))
-                                LegendSwatch(fill = VsSurface, stroke = VsInkSoft)
-                                Text(tr("boshqa", "другие", "other"), style = VsType.Meta, color = VsInk, maxLines = 1)
-                                Spacer(Modifier.width(4.dp))
-                                LegendSwatch(fill = VsLine, stroke = VsInkSoft, dashed = true)
-                                Text(tr("yopiq", "закрыто", "closed"), style = VsType.Meta, color = VsInkSoft, maxLines = 1)
-                            }
-                        } else {
-                            Box(
-                                Modifier.size(40.dp).clip(CircleShape).background(VsBg).border(1.dp, VsLine, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) { Icon(Icons.Outlined.Info, null, tint = VsInkSoft, modifier = Modifier.size(20.dp)) }
-                        }
-                    }
-                }
-                Spacer(Modifier.width(8.dp))
-                // Locate-me: neutral surface (accent is reserved for "best" / primary action).
-                val fabSrc = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                Box(
-                    modifier = Modifier.size(52.dp).pressScale(fabSrc).clip(RoundedCornerShape(14.dp)).background(VsBg)
-                        .border(1.dp, VsLine, RoundedCornerShape(14.dp))
-                        .clickable(interactionSource = fabSrc, indication = androidx.compose.material3.ripple(), role = Role.Button) {
-                            val gp = userLocation ?: map?.myLocation()
-                            if (gp != null) {
-                                map?.animateTo(gp.first, gp.second, 15.0)
-                            } else if (!hasLocation) {
-                                requestLocation()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Outlined.MyLocation, contentDescription = tr("Mening joylashuvim", "Моё местоположение", "My location"), tint = VsInk, modifier = Modifier.size(22.dp))
-                }
+                Icon(Icons.Outlined.MyLocation, contentDescription = tr("Mening joylashuvim", "Моё местоположение", "My location"), tint = VsInk, modifier = Modifier.size(22.dp))
             }
 
-            // Accessible equivalent of the pins: same order as the Kurs tab (rankBanks), row -> bank sheet.
+            // List view: same order as Home (rankBanks), row -> bank sheet.
             MapReveal(visible = listMode, fromTop = false) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().background(VsBg),
@@ -426,26 +284,34 @@ fun MapScreen(
                             )
                         }
                     }
-                    items(listItems, key = { it.second.rate.bank + it.first }) { (rank, rb, good) ->
-                        MapListRow(rank, rb, good) {
-                            sheetBank = rb; infoPin = null
-                            selectedId = null
-                        }
+                    items(listItems, key = { it.second.rate.bank + it.first }) { (_, rb, good) ->
+                        MapListRow(rb, good) { sheetBank = rb; infoPin = null; selectedId = null }
                     }
                 }
             }
         }
     }
 
+    if (filters) {
+        MapFilterSheet(
+            openNow = openNow, onOpenNow = { openNow = it },
+            bestOnly = bestOnly, onBestOnly = { bestOnly = it },
+            atmOn = atmOn, onAtm = { atmOn = it }, atmsLoading = atmsLoading,
+            listMode = listMode, onListMode = { listMode = it },
+            banks = ranked.map { it.rate.bank }, bankSel = bankSel, onBank = { bankSel = it },
+            showCity = locationBad,
+            onCity = { c -> map?.animateTo(c.lat, c.lng, 13.5); RateService.setCity(c.uz) },
+            onDismiss = { filters = false }
+        )
+    }
+
     sheetBank?.let { rb ->
         BankSheet(
-            item = rb,
-            currency = currency,
-            amount = amount,
-            direction = direction,
+            item = rb, currency = currency, amount = amount, direction = direction,
             updatedAt = payload.updatedAt,
             favorite = favorites.contains(rb.rate.bank),
             onToggleFavorite = { onToggleFavorite(rb.rate.bank) },
+            branches = branches, userLocation = userLocation, onRequestLocation = onRequestLocation,
             onDismiss = { sheetBank = null; selectedId = null }
         )
     }
@@ -454,17 +320,88 @@ fun MapScreen(
 
 /* ---------- Pieces ---------- */
 
+/** Every map filter in one sheet: toggles as plain rows with a switch, bank and city as lists. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MapChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    trailing: ImageVector? = null,
-    loading: Boolean = false
-) = VsChip(
-    text = label, selected = selected, onClick = onClick, trailing = trailing,
-    trailingContent = if (loading) { { CircularProgressIndicator(color = VsEmerald, strokeWidth = 2.dp, modifier = Modifier.size(14.dp)) } } else null
-)
+private fun MapFilterSheet(
+    openNow: Boolean, onOpenNow: (Boolean) -> Unit,
+    bestOnly: Boolean, onBestOnly: (Boolean) -> Unit,
+    atmOn: Boolean, onAtm: (Boolean) -> Unit, atmsLoading: Boolean,
+    listMode: Boolean, onListMode: (Boolean) -> Unit,
+    banks: List<String>, bankSel: String?, onBank: (String?) -> Unit,
+    showCity: Boolean, onCity: (MapCity) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var bankMenu by remember { mutableStateOf(false) }
+    var cityMenu by remember { mutableStateOf(false) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = VsBg,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        tonalElevation = 0.dp
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
+            FilterSwitch(tr("Hozir ochiq", "Открыто сейчас", "Open now"), openNow, onOpenNow)
+            KHairline()
+            FilterSwitch(tr("Faqat eng yaxshi kurs", "Только лучший курс", "Best rate only"), bestOnly, onBestOnly)
+            KHairline()
+            FilterSwitch(tr("Bankomatlar", "Банкоматы", "ATMs") + if (atmOn && atmsLoading) " …" else "", atmOn, onAtm)
+            KHairline()
+            FilterSwitch(tr("Roʻyxat koʻrinishi", "Списком", "Show as list"), listMode, onListMode)
+            KHairline()
+            Box {
+                FilterValue(tr("Bank", "Банк", "Bank"), bankSel?.let { k -> banks.firstOrNull { bankKey(it) == k } } ?: tr("Hammasi", "Все", "All")) { bankMenu = true }
+                DropdownMenu(expanded = bankMenu, onDismissRequest = { bankMenu = false }, containerColor = VsBg, shape = RoundedCornerShape(12.dp)) {
+                    DropdownMenuItem(text = { Text(tr("Hammasi", "Все", "All"), style = VsType.Body, color = VsInk) }, onClick = { onBank(null); bankMenu = false })
+                    banks.forEach { n ->
+                        DropdownMenuItem(
+                            text = { Text(n, style = if (bankSel == bankKey(n)) VsType.Title else VsType.Body, color = VsInk) },
+                            onClick = { onBank(bankKey(n)); bankMenu = false }
+                        )
+                    }
+                }
+            }
+            if (showCity) {
+                KHairline()
+                Box {
+                    val city = mapCities.firstOrNull { it.uz == RateService.city() }
+                    FilterValue(tr("Shahar", "Город", "City"), city?.let { tr(it.uz, it.ru) } ?: tr("Toshkent", "Ташкент", "Tashkent")) { cityMenu = true }
+                    DropdownMenu(expanded = cityMenu, onDismissRequest = { cityMenu = false }, containerColor = VsBg, shape = RoundedCornerShape(12.dp)) {
+                        mapCities.forEach { c ->
+                            DropdownMenuItem(text = { Text(tr(c.uz, c.ru), style = VsType.Body, color = VsInk) }, onClick = { onCity(c); cityMenu = false; onDismiss() })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Switch) { onChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = VsType.Body, color = VsInk, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked, onCheckedChange = null,
+            colors = SwitchDefaults.colors(checkedTrackColor = VsInk, checkedThumbColor = VsBg, uncheckedTrackColor = VsLine, uncheckedThumbColor = VsInkSoft, uncheckedBorderColor = VsLine)
+        )
+    }
+}
+
+@Composable
+private fun FilterValue(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = VsType.Body, color = VsInk, modifier = Modifier.weight(1f))
+        Text("$value ›", style = VsType.Body, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
 
 /** Fade + short slide for overlays on the map (tile banner from the top, list panel from below). */
 @Composable
@@ -476,21 +413,6 @@ private fun MapReveal(visible: Boolean, fromTop: Boolean, modifier: Modifier = M
             slideInVertically(tween(Motion.MEDIUM, easing = Motion.Decelerate)) { if (fromTop) -it else it / 12 },
         exit = fadeOut(tween(Motion.SHORT)) + slideOutVertically(tween(Motion.SHORT)) { if (fromTop) -it else it / 12 }
     ) { content() }
-}
-
-@Composable
-private fun LegendSwatch(fill: androidx.compose.ui.graphics.Color, stroke: androidx.compose.ui.graphics.Color, dashed: Boolean = false) {
-    androidx.compose.foundation.Canvas(Modifier.size(width = 16.dp, height = 10.dp)) {
-        val r = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx())
-        drawRoundRect(fill, cornerRadius = r)
-        drawRoundRect(
-            stroke, cornerRadius = r,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = 1.dp.toPx(),
-                pathEffect = if (dashed) androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx())) else null
-            )
-        )
-    }
 }
 
 /** "1.2 km" / "350 m"; null for unknown or > 100 km (never an exact absurd value). */
@@ -508,33 +430,29 @@ private fun mapOpenText(o: OpenState): String? = when {
 }
 
 @Composable
-private fun MapListRow(rank: Int, rb: RankedBank, good: Boolean, onClick: () -> Unit) {
+private fun MapListRow(rb: RankedBank, good: Boolean, onClick: () -> Unit) {
     val dist = mapDistanceText(rb.distanceKm)
     val open = mapOpenText(rb.open)
     val meta = listOfNotNull(dist, open).joinToString(" · ")
-    val unit = tr("soʻm", "сум", "UZS")
-    val desc = tr("$rank-oʻrin", "место $rank", "#$rank") + ", ${rb.rate.bank}, ${mapRateText(rb.perUnit)} $unit" +
+    val desc = "${rb.rate.bank}, ${mapRateText(rb.perUnit)} " + tr("soʻm", "сум", "UZS") +
         (dist?.let { ", $it" } ?: "") + (open?.let { ", $it" } ?: "")
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
                 .clickable(role = Role.Button, onClick = onClick)
                 .semantics(mergeDescendants = true) { contentDescription = desc }
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .alpha(if (mapIsClosed(rb.open)) 0.4f else 1f)
+                .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("$rank", style = VsType.Meta, color = VsInkSoft, modifier = Modifier.width(24.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(rb.rate.bank, style = VsType.BodyMedium, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(rb.rate.bank, style = VsType.Body, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (meta.isNotEmpty()) Text(meta, style = VsType.Caption, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(mapRateText(rb.perUnit), style = VsType.BodyMedium, color = if (good) VsEmerald else VsInk)
-                Text(unit, style = VsType.Meta, color = VsInkSoft)
-            }
+            Text(mapRateText(rb.perUnit), style = if (good) VsType.Title else VsType.Body, color = VsInk)
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(VsLine))
+        KHairline()
     }
 }
 
@@ -548,10 +466,11 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
         containerColor = VsBg,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        tonalElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(pin.title, style = VsType.Title, color = VsInk)
@@ -563,14 +482,8 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
             dist?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             pin.hours?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             Spacer(Modifier.height(8.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).background(VsEmerald)
-                    .clickable(role = Role.Button) {
-                        route(RouteTarget(pin.lat, pin.lng, pin.title))
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(tr("Yoʻnalish", "Маршрут", "Directions"), style = VsType.BodyMedium, color = VsBg)
+            KButton(tr("Yoʻnalish", "Маршрут", "Directions"), Icons.Outlined.Directions, primary = true, enabled = true, modifier = Modifier.fillMaxWidth()) {
+                route(RouteTarget(pin.lat, pin.lng, pin.title))
             }
         }
     }

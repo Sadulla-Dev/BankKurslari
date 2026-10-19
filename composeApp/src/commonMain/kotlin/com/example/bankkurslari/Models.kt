@@ -3,7 +3,10 @@ package com.example.bankkurslari
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
-import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -32,14 +35,17 @@ data class HistoryPoint(val date: String, val rate: Double)
 
 data class Analytics(val points: List<HistoryPoint>)
 
-enum class HomeTab(val icon: ImageVector) {
-    KURS(Icons.Outlined.SwapVert),
-    MAP(Icons.Outlined.Map),
-    TREND(Icons.AutoMirrored.Outlined.ShowChart);
+/** CBU rate + recent history for one currency (Tarix fallback while analytics load). */
+data class TickerData(val cbu: CbuRate?, val history: List<HistoryPoint>)
+
+enum class HomeTab(val icon: ImageVector, val iconActive: ImageVector) {
+    KURS(Icons.Outlined.Today, Icons.Filled.Today),
+    MAP(Icons.Outlined.Map, Icons.Filled.Map),
+    TREND(Icons.AutoMirrored.Outlined.ShowChart, Icons.AutoMirrored.Filled.ShowChart);
 
     @Composable
     fun label(): String = when (this) {
-        KURS -> tr("Kurs", "Курс", "Rate")
+        KURS -> tr("Bugun", "Сегодня", "Today")
         MAP -> tr("Xarita", "Карта", "Map")
         TREND -> tr("Tarix", "История", "History")
     }

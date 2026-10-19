@@ -116,7 +116,7 @@ actual fun BankMapView(
 
     val mapState = rememberMapState(
         baseStyle = BaseStyle.Uri(if (darkMode) STYLE_DARK else STYLE_LIGHT),
-        initialCameraPosition = CameraPosition(target = Position(69.279, 41.311), zoom = 11.0)
+        initialCameraPosition = CameraPosition(target = Position(69.279, 41.311), zoom = 13.5)
     )
 
     LaunchedEffect(mapState) {

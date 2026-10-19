@@ -1,5 +1,7 @@
 package com.example.bankkurslari
 
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToLong
@@ -47,9 +49,23 @@ fun Double.formatSigned(): String {
     return if (this >= 0) "+$body" else "-$body"
 }
 
+/** "HH:mm" in the device time zone. The server sends UTC ("…T06:11:00Z"); slicing the string leaked UTC to the UI. */
 fun String.formatUpdatedAt(): String {
-    val timePart = substringAfter('T', missingDelimiterValue = "")
-    return if (timePart.isEmpty()) this else timePart.take(5)
+    val ms = kParseMillis(this) ?: return substringAfter('T', this).take(5)
+    val t = kotlin.time.Instant.fromEpochMilliseconds(ms).toLocalDateTime(TimeZone.currentSystemDefault())
+    return "${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}"
+}
+
+/** "just now" / "2 min ago" / "3 h ago" / "yesterday" relative to now, in the UI language. null when unparseable. */
+fun updatedAgo(updatedAt: String?): String? {
+    val ms = kParseMillis(updatedAt) ?: return null
+    val min = ((nowMillis() - ms) / 60_000).coerceAtLeast(0)
+    return when {
+        min < 1 -> pick(lang, "Hozirgina yangilandi", "Обновлено только что", "Updated just now")
+        min < 60 -> pick(lang, "$min daqiqa oldin yangilandi", "Обновлено $min мин назад", "Updated $min min ago")
+        min < 24 * 60 -> (min / 60).let { pick(lang, "$it soat oldin yangilandi", "Обновлено $it ч назад", "Updated $it h ago") }
+        else -> (min / (24 * 60)).let { pick(lang, "$it kun oldin yangilandi", "Обновлено $it дн. назад", "Updated $it d ago") }
+    }
 }
 
 /** Whole so'm for big-unit currencies (USD/EUR), two decimals for RUB-scale rates. */

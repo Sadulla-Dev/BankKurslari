@@ -24,15 +24,7 @@ fun App(onDarkTheme: (Boolean) -> Unit = {}) {
     LaunchedEffect(dark) { onDarkTheme(dark) }
     BankKurslariTheme(darkTheme = dark) {
         CompositionLocalProvider(LocalLang provides lang) {
-            var onboarded by remember { mutableStateOf(appStore().getBoolean(ONBOARDED_KEY, false)) }
-            if (!onboarded) {
-                Onboarding(
-                    lang = lang,
-                    onLang = { lang = it; RateService.setLanguage(it.code) },
-                    onDone = { onboarded = true }
-                )
-                return@CompositionLocalProvider
-            }
+            // No onboarding: language comes from the device, location is asked in context.
             CurrencyTrackerApp(
                 themeMode = themeMode,
                 onThemeMode = {

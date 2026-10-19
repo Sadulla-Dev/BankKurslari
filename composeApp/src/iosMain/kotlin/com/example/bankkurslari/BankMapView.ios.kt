@@ -220,7 +220,7 @@ actual fun BankMapView(
                     }
                 )
                 setRegion(
-                    MKCoordinateRegionMake(CLLocationCoordinate2DMake(41.311, 69.279), MKCoordinateSpanMake(0.35, 0.35)),
+                    MKCoordinateRegionMake(CLLocationCoordinate2DMake(41.311, 69.279), MKCoordinateSpanMake(0.06, 0.06)),
                     animated = false
                 )
                 state.map = this

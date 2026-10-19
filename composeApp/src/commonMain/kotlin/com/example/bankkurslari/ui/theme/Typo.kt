@@ -5,16 +5,21 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/** Four sizes only (spec 5.1): 32 / 20 / 16 / 13. Tabular figures on everything so digits align in columns. */
+/**
+ * Three sizes only: Display (the one answer per screen), Body 17, Caption 13. No fourth size.
+ * Secondary text is Caption/Body in VsInkSoft (ink at 55 %). Tabular lining figures everywhere so columns align.
+ */
 object VsType {
-    private const val TNUM = "tnum"
-    /** The one number answering the question. */
-    val Hero = TextStyle(fontFamily = FontFamily.Default, fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = TNUM)
-    /** Bank name, section title. */
-    val Title = TextStyle(fontFamily = FontFamily.Default, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = TNUM)
-    /** Row data, inputs. */
-    val Body = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = TNUM)
-    val BodyMedium = Body.copy(fontWeight = FontWeight.Medium)
-    /** Meta: time, address, distance (use VsInkSoft, contrast >= 4.5:1). */
-    val Meta = TextStyle(fontFamily = FontFamily.Default, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = TNUM)
+    private const val TNUM = "tnum, lnum"
+    /** The one number answering the question. Heavy, tabular. */
+    val Display = TextStyle(fontFamily = FontFamily.Default, fontSize = 48.sp, lineHeight = 54.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp, fontFeatureSettings = TNUM)
+    val Body = TextStyle(fontFamily = FontFamily.Default, fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = TNUM)
+    val Caption = TextStyle(fontFamily = FontFamily.Default, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = TNUM)
+
+    // Aliases kept for existing call sites; they map onto the three sizes above.
+    val Hero = Display
+    /** Sheet / section headings: Body size, bold weight. */
+    val Title = Body.copy(fontWeight = FontWeight.SemiBold)
+    val BodyMedium = Body
+    val Meta = Caption
 }
