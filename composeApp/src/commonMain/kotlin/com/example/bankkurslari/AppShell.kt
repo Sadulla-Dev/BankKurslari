@@ -70,6 +70,7 @@ import com.example.bankkurslari.ui.theme.VsInkSoft
 import com.example.bankkurslari.ui.theme.VsLine
 import com.example.bankkurslari.ui.theme.VsSurface
 import com.example.bankkurslari.ui.theme.VsType
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -214,6 +215,29 @@ fun CurrencyTrackerApp(
         when {
             st == 2 && p != null -> {
                 Box(Modifier.fillMaxSize()) {
+                    // The map is expensive to build (style, tiles, camera, pins), so it is created once and kept alive
+                    // under the other tabs. Warm it shortly after the first rates arrive; the tab then just reveals it.
+                    var mapWarm by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { delay(1200); mapWarm = true }
+                    if (mapWarm || tab == HomeTab.MAP) {
+                        LaunchedEffect(Unit) { mapWarm = true }
+                        MapScreen(
+                            innerPadding = innerPadding,
+                            darkMode = isDarkTheme(themeMode),
+                            currency = currency,
+                            onCurrency = onCurrency,
+                            payload = p,
+                            branches = osmBranches,
+                            atms = atms,
+                            atmsLoading = atmsLoading,
+                            favorites = favorites,
+                            onToggleFavorite = { favorites = RateService.toggleFavorite(it) },
+                            amountText = amountText,
+                            direction = direction,
+                            userLocation = userLocation,
+                            active = tab == HomeTab.MAP
+                        )
+                    }
                     // Fade-through between tabs (Material): old fades out fast, new fades in with a slight scale settle.
                     AnimatedContent(
                         targetState = tab,
@@ -254,21 +278,8 @@ fun CurrencyTrackerApp(
                             onRefresh = { refresh() },
                             onRequestLocation = { locationLauncher() }
                         )
-                        HomeTab.MAP -> MapScreen(
-                            innerPadding = innerPadding,
-                            darkMode = isDarkTheme(themeMode),
-                            currency = currency,
-                            onCurrency = onCurrency,
-                            payload = p,
-                            branches = osmBranches,
-                            atms = atms,
-                            atmsLoading = atmsLoading,
-                            favorites = favorites,
-                            onToggleFavorite = { favorites = RateService.toggleFavorite(it) },
-                            amountText = amountText,
-                            direction = direction,
-                            userLocation = userLocation
-                        )
+                        // The map itself lives in the persistent layer above; this slot just lets it show through.
+                        HomeTab.MAP -> Box(Modifier.fillMaxSize())
                         HomeTab.TREND -> TarixScreen(
                             innerPadding = innerPadding,
                             currency = currency,

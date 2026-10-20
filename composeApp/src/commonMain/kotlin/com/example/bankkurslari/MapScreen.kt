@@ -105,7 +105,9 @@ fun MapScreen(
     onToggleFavorite: (String) -> Unit,
     amountText: String,
     direction: ConvertMode,
-    userLocation: Pair<Double, Double>?
+    userLocation: Pair<Double, Double>?,
+    /** False while the screen is kept alive behind other tabs: it keeps its map and state but must not ask for anything. */
+    active: Boolean = true
 ) {
 
     var openNow by remember { mutableStateOf(false) }
@@ -129,7 +131,7 @@ fun MapScreen(
     var tileFailed by remember { mutableStateOf(false) }
 
     val requestLocation = rememberLocationPermissionRequest { granted -> hasLocation = granted }
-    LaunchedEffect(Unit) { if (!hasLocation) requestLocation() }
+    LaunchedEffect(active) { if (active && !hasLocation) requestLocation() }
 
     // ----- ranking: SAME call as the Kurs tab (acceptance 6) -----
     val amount = (amountText.toLongOrNull() ?: 0L).toDouble()
