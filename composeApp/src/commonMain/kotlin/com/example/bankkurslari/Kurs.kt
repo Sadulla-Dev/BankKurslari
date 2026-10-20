@@ -1,18 +1,25 @@
 package com.example.bankkurslari
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +35,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -62,6 +70,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -332,7 +342,7 @@ private fun AmountField(currency: Currency, amountText: String, onAmount: (Strin
             }
         )
         Spacer(Modifier.width(10.dp))
-        Text(currency.displayName(LocalLang.current).lowercase(), style = VsType.Body.copy(fontSize = 15.sp), color = VsInkSoft, modifier = Modifier.padding(bottom = 11.dp))
+        Text(currency.displayName(LocalLang.current).lowercase(), style = VsType.Body.copy(fontSize = 15.sp), color = VsInkSoft, maxLines = 1, softWrap = false, modifier = Modifier.padding(bottom = 11.dp))
     }
 }
 
@@ -370,6 +380,16 @@ private fun bankInitials(name: String): String {
 }
 
 private const val PREVIEW_BANKS = 4
+
+/** The entrance plays once per launch; coming back to the tab shows the screen at rest. */
+private var entrancePlayed = false
+
+/** Staggered rise for the screen's blocks: fade + 16 dp lift, index = order of appearance. */
+private fun Modifier.rise(e: Animatable<Float, *>, index: Int): Modifier = graphicsLayer {
+    val t = (e.value * 1.6f - index * 0.12f).coerceIn(0f, 1f)
+    alpha = t
+    translationY = (1f - easeOut(t)) * 16.dp.toPx()
+}
 
 /* ---------- screen ---------- */
 
@@ -443,17 +463,76 @@ fun KursScreen(
     val anyDistance = ranked.any { it.distanceKm != null }
     val cbu = payload.cbu.rate
     val locMsg = when {
-        userLocation == null -> tr("Joylashuvni yoqing", "Включите геолокацию", "Turn on location")
-        !anyDistance -> tr("Joylashuv aniqlanmadi", "Местоположение не определено", "Location not found")
+        userLocation == null -> tr("Masofa uchun joylashuvni yoqing", "Включите геолокацию для расстояний", "Turn on location for distances")
+        !anyDistance -> tr("Joylashuv aniqlanmadi", "Местоположение не найдено", "Location not found")
         else -> null
     }
 
+    val pullState = rememberPullToRefreshState()
+    val refreshing = loading && !noData
+    val pullHaptic = LocalHapticFeedback.current
+
+    // One choreography: pull (screen yields) -> measure (numbers dim, bars re-measure) -> settle (numbers land, news).
+    val settle = remember { Animatable(if (entrancePlayed) 1f else 0f) }
+    val entrance = remember { Animatable(if (entrancePlayed) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!entrancePlayed) {
+            entrancePlayed = true
+            launch { settle.animateTo(1f, tween(1100, easing = Motion.Decelerate)) }
+            entrance.animateTo(1f, tween(900, easing = LinearEasing))
+        }
+    }
+    // Only a pull by the user plays the refresh choreography; background and currency refreshes stay quiet.
+    var user by remember { mutableStateOf(false) }
+    var hold by remember { mutableStateOf(false) }
+    var kick by remember { mutableIntStateOf(0) }
+    var before by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
+    var moved by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var news by remember { mutableStateOf<String?>(null) }
+    var wasShown by remember { mutableStateOf(false) }
+    val measuring = user && (refreshing || hold)
+    // Even an instant reply is held ~1 s, so the user sees the comparison happen.
+    LaunchedEffect(kick) { if (kick > 0) { hold = true; delay(1100); hold = false } }
+    val newsNone = tr("Oʻzgarish yoʻq", "Без изменений", "No changes")
+    LaunchedEffect(measuring) {
+        val was = wasShown
+        wasShown = measuring
+        if (was && !measuring) {
+            user = false
+            val diffs = HashMap<String, Int>()
+            for (r in ranked) {
+                val old = before[r.rate.bank] ?: continue
+                val d = r.perUnit - old
+                if (abs(d) >= 0.5) diffs[r.rate.bank] = if (d > 0) 1 else -1
+            }
+            moved = diffs
+            launch { settle.snapTo(0f); settle.animateTo(1f, tween(1000, easing = Motion.Decelerate)) }
+            if (!offline) {
+                news = if (diffs.isEmpty()) newsNone
+                else pick(lang, "${diffs.size} ta kurs oʻzgardi", "Изменилось курсов: ${diffs.size}", "${diffs.size} rates changed")
+                if (diffs.isNotEmpty()) pullHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            delay(2800)
+            news = null
+        }
+    }
+    LaunchedEffect(pullState) {
+        snapshotFlow { pullState.distanceFraction >= 1f }.distinctUntilChanged().collect {
+            if (it) pullHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+    val fx = remember(measuring) { RefreshFx(pull = { pullState.distanceFraction }, measuring = measuring, settle = settle.asState()) }
+
     PullToRefreshBox(
-        isRefreshing = loading && !noData,
-        onRefresh = onRefresh
+        isRefreshing = measuring,
+        onRefresh = { user = true; kick++; before = ranked.associate { it.rate.bank to it.perUnit.toDouble() }; onRefresh() },
+        state = pullState,
+        indicator = { BestBarsIndicator(pullState, measuring, innerPadding.calculateTopPadding()) }
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().background(VsBg),
+            modifier = Modifier
+                .graphicsLayer { translationY = pullState.distanceFraction.coerceIn(0f, 1.25f) * RefreshShift.toPx() }
+                .fillMaxWidth().background(VsBg),
             contentPadding = PaddingValues(
                 start = 20.dp, end = 20.dp,
                 top = innerPadding.calculateTopPadding() + 6.dp,
@@ -463,12 +542,12 @@ fun KursScreen(
         ) {
             // Topbar: live dot + "Rates at 13:34" + search + settings.
             item(key = "top") {
-                TodayTopBar(
-                    updatedAt = payload.updatedAt, offline = offline,
+                Box(Modifier.rise(entrance, 0)) { TodayTopBar(
+                    updatedAt = payload.updatedAt, offline = offline, news = news,
                     searchOpen = searchOpen,
                     onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
                     onOpenSettings = onOpenSettings
-                )
+                ) }
             }
             if (searchOpen) {
                 item(key = "search") {
@@ -498,16 +577,16 @@ fun KursScreen(
             if (offline) {
                 item(key = "offline") {
                     KBanner(Icons.Outlined.CloudOff, VsInk,
-                        pick(lang, "Internet yoʻq, oxirgi maʼlumot ${timeText ?: ""}",
-                            "Нет интернета, последние данные ${timeText?.let { "от $it" } ?: ""}",
-                            "No internet, last data ${timeText?.let { "from $it" } ?: ""}").replace("  ", " ").trim(),
+                        pick(lang, "Internet yoʻq. Oxirgi kurslar: ${timeText ?: "—"}",
+                            "Нет сети. Последние курсы: ${timeText ?: "—"}",
+                            "No connection. Last rates: ${timeText ?: "—"}"),
                         Modifier.animateItem())
                 }
             } else if (stale12) {
                 item(key = "stale") {
                     val h = ageH.toInt()
                     KBanner(Icons.Outlined.Schedule, VsAmber,
-                        pick(lang, "Maʼlumot $h soat oldin yangilangan", "Данные обновлены $h ч назад", "Data updated $h h ago"),
+                        pick(lang, "Kurslar $h soat eskirgan", "Курсы устарели на $h ч", "Rates are $h h old"),
                         Modifier.animateItem())
                 }
             }
@@ -519,14 +598,14 @@ fun KursScreen(
                 }
                 noData -> item(key = "empty") {
                     Text(
-                        tr("Bank kurslari hozircha mavjud emas.", "Курсы банков пока недоступны.", "Bank rates are not available yet."),
+                        tr("Kurslar yuklanmadi. Yangilash uchun pastga torting.", "Курсы не загрузились. Потяните вниз, чтобы обновить.", "Rates didn't load. Pull down to retry."),
                         style = VsType.Body, color = VsInkSoft, modifier = Modifier.padding(vertical = 24.dp)
                     )
                 }
                 else -> {
                     // Exchange slip: direction, currency, amount, result, best bank.
                     item(key = "slip") {
-                        Box(Modifier.animateItem()) {
+                        Box(Modifier.animateItem().rise(entrance, 1)) {
                             VsCardBox {
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                     SegmentedHug(
@@ -573,7 +652,7 @@ fun KursScreen(
                                     SlipResult(
                                         best = best, amount = amount, currency = currency, sell = sell, ru = ru,
                                         bankCount = displayed.size,
-                                        locationOff = userLocation == null,
+                                        locationOff = userLocation == null, fx = fx,
                                         onBank = { sheetBank = best.rate.bank },
                                         onRoute = { best.lat?.let { la -> best.lng?.let { ln -> route(RouteTarget(la, ln, best.rate.bank)) } } }
                                     )
@@ -589,28 +668,24 @@ fun KursScreen(
                     // Location prompt: one quiet card, never blocking. Disappears once a position is known.
                     if (!locChipDismissed && locMsg != null) {
                         item(key = "loc") {
-                            val askMsg = tr(
-                                "Joylashuvni yoqsangiz, masofa va eng yaqin filial koʻrinadi",
-                                "Включите геолокацию — покажем расстояние и ближайший филиал",
-                                "Turn on location to see distances and the nearest branch"
-                            )
                             LocationPrompt(
-                                text = if (userLocation == null) askMsg else locMsg + tr(" — masofa koʻrsatilmaydi", " — расстояние не показывается", " — distances are not shown"),
+                                text = locMsg,
                                 action = if (userLocation == null) tr("Yoqish", "Включить", "Turn on") else null,
                                 onAction = { locChipDismissed = true; onRequestLocation() },
                                 onDismiss = { locChipDismissed = true },
-                                modifier = Modifier.animateItem()
+                                modifier = Modifier.animateItem().rise(entrance, 2)
                             )
                         }
                     }
                     // Section head + sort / filters
                     item(key = "header") {
-                        Column(Modifier.fillMaxWidth().padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.fillMaxWidth().rise(entrance, 3).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom) {
-                                Text(tr("Boshqa banklar", "Другие банки", "Other banks"), style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
+                                Text(tr("Boshqa banklar", "Другие банки", "Other banks"), style = VsType.Title, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(12.dp))
                                 Text(
-                                    tr("eng yaxshidan farq", "разница с лучшим", "difference from the best"),
-                                    style = VsType.Meta, color = VsInkSoft
+                                    tr("eng yaxshidan", "от лучшего", "vs best"),
+                                    style = VsType.Meta, color = VsInkSoft, maxLines = 1
                                 )
                             }
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -647,12 +722,13 @@ fun KursScreen(
                             val shown = if (full) others else others.take(PREVIEW_BANKS)
                             val maxLoss = shown.maxOfOrNull { b -> best?.let { abs(lossOf(b, it, hasAmount)) } ?: 0L } ?: 0L
                             val showFooter = !full || (others.size > PREVIEW_BANKS + 1 && query.isBlank())
-                            VsPanel(Modifier.animateItem()) {
+                            VsPanel(Modifier.animateItem().rise(entrance, 4)) {
                                 shown.forEachIndexed { i, b ->
                                     BankListRow(
                                         rank = displayed.indexOfFirst { it.rate.bank == b.rate.bank } + 1, item = b, best = best,
                                         hasAmount = hasAmount, sell = sell, maxLoss = maxLoss,
                                         favorite = b.rate.bank in favorites, stale = stale6, ageH = ageH, ru = ru,
+                                        index = i, fx = fx, moved = moved[b.rate.bank] ?: 0,
                                         onClick = { sheetBank = b.rate.bank },
                                         onLongClick = { onToggleFavorite(b.rate.bank) }
                                     )
@@ -679,14 +755,20 @@ fun KursScreen(
                     }
                     item(key = "cbu") {
                         Text(
-                            (pick(lang, "Markaziy bank kursi: ", "Курс ЦБ: ", "Central Bank rate: ")) + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
-                            style = VsType.Meta, color = VsInkSoft,
-                            modifier = Modifier.animateItem().fillMaxWidth().padding(horizontal = 4.dp)
+                            (pick(lang, "Markaziy bank: ", "ЦБ: ", "Central Bank: ")) + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
+                            style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.animateItem().rise(entrance, 5).fillMaxWidth().padding(horizontal = 4.dp)
                         )
                     }
                 }
             }
         }
+        // Scrolled content fades out under the status bar instead of colliding with the clock and icons.
+        val top = innerPadding.calculateTopPadding()
+        if (top > 0.dp) Box(
+            Modifier.align(Alignment.TopCenter).fillMaxWidth().height(top + 6.dp)
+                .background(Brush.verticalGradient(0f to VsBg, top.value / (top.value + 6f) to VsBg, 1f to VsBg.copy(alpha = 0f)))
+        )
     }
 
     if (showAll) AllCurrenciesSheet(onDismiss = { showAll = false })
@@ -711,23 +793,26 @@ private fun lossOf(item: RankedBank, best: RankedBank, hasAmount: Boolean): Long
 
 @Composable
 private fun TodayTopBar(
-    updatedAt: String?, offline: Boolean, searchOpen: Boolean,
+    updatedAt: String?, offline: Boolean, news: String?, searchOpen: Boolean,
     onToggleSearch: () -> Unit, onOpenSettings: () -> Unit
 ) {
     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
         val ageMin = updatedAt?.let { kParseMillis(it) }?.let { (nowMillis() - it) / 60_000 }
-        val fresh = !offline && ageMin != null && ageMin < 30
+        val fresh = !offline && (news != null || (ageMin != null && ageMin < 30))
         FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60))
         Spacer(Modifier.width(10.dp))
         val time = updatedAt?.formatUpdatedAt()
-        Text(
-            when {
-                offline -> pick(lang, "Oflayn · ${time ?: "—"}", "Офлайн · ${time ?: "—"}", "Offline · ${time ?: "—"}")
-                time != null -> pick(lang, "$time yangilandi", "Обновлено в $time", "Updated at $time")
-                else -> ""
-            },
-            style = VsType.BodyMedium.copy(fontSize = 14.sp), color = VsInkSoft, modifier = Modifier.weight(1f)
-        )
+        val status = news ?: when {
+            offline -> pick(lang, "Oflayn · ${time ?: "—"}", "Офлайн · ${time ?: "—"}", "Offline · ${time ?: "—"}")
+            time != null -> pick(lang, "$time yangilandi", "Обновлено в $time", "Updated at $time")
+            else -> ""
+        }
+        Crossfade(status, animationSpec = tween(Motion.MEDIUM), label = "status", modifier = Modifier.weight(1f)) { t ->
+            Text(
+                t, style = VsType.BodyMedium.copy(fontSize = 14.sp),
+                color = if (news != null) VsEmerald else VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+        }
         VsIconButton(
             icon = if (searchOpen) Icons.Outlined.Close else Icons.Outlined.Search,
             description = tr("Qidirish", "Поиск", "Search"), onClick = onToggleSearch
@@ -757,7 +842,7 @@ private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint:
     ) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text(text, style = VsType.Meta, color = if (tint == VsAmber) VsAmber else VsInk)
+        Text(text, style = VsType.Meta, color = if (tint == VsAmber) VsAmber else VsInk, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -765,7 +850,7 @@ private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint:
 @Composable
 private fun SlipResult(
     best: RankedBank, amount: Double, currency: Currency, sell: Boolean, ru: Boolean, bankCount: Int,
-    locationOff: Boolean, onBank: () -> Unit, onRoute: () -> Unit
+    locationOff: Boolean, fx: RefreshFx, onBank: () -> Unit, onRoute: () -> Unit
 ) {
     val has = amount > 0
     val bigFont = LocalDensity.current.fontScale > 1.5f
@@ -775,42 +860,51 @@ private fun SlipResult(
     val value = if (has) best.total else best.perUnit.toLong()
     val som = kSom(ru)
     val spoken = "$label, ${kSpokenSom(value, ru)}"
-    val len = kGroup(value).length
-    val heroSize = (when { len <= 9 -> 46; len <= 11 -> 38; else -> 30 } - if (bigFont) 8 else 0).sp
-    val heroStyle = VsType.Hero.copy(fontSize = heroSize, lineHeight = heroSize)
+    val text = kGroup(value)
 
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = VsType.Meta, color = VsInkSoft)
-        Row(modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = spoken }, verticalAlignment = Alignment.Bottom) {
-            AnimatedContent(
-                targetState = value,
-                transitionSpec = {
-                    (fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)))
-                        .using(SizeTransform(clip = false) { _, _ -> tween(Motion.SHORT, easing = Motion.Standard) })
-                },
-                label = "hero",
-                modifier = Modifier.alignByBaseline().weight(1f, fill = false)
-            ) { v ->
-                Text(kGroup(v), style = heroStyle, color = VsEmerald, maxLines = 1, softWrap = false)
+        Text(label, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Fixed-height line: the number shrinks smoothly to fit, never wraps, so nothing below it moves while typing.
+        val heroAlpha by animateFloatAsState(if (fx.measuring) 0.4f else 1f, tween(Motion.MEDIUM), label = "heroA")
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().height(50.dp).graphicsLayer {
+                // New number lands: a small settle from slightly larger.
+                val k = 1f - fx.settle.value
+                scaleX = 1f + 0.05f * k; scaleY = scaleX
+                transformOrigin = TransformOrigin(0f, 1f)
+                alpha = heroAlpha
             }
-            Text("$NBSP$som", style = VsType.BodyMedium.copy(fontSize = 18.sp), color = VsInkSoft, modifier = Modifier.alignByBaseline().padding(start = 4.dp))
+        ) {
+            val unitW = 56.dp
+            val digits = text.count { it.isDigit() }
+            val spaces = text.length - digits
+            val em = digits * 0.6f + spaces * 0.28f
+            val fit = (maxWidth - unitW).value / em
+            val size = fit.coerceIn(26f, if (bigFont) 38f else 46f)
+            val heroStyle = VsType.Hero.copy(fontSize = size.sp, lineHeight = 46.sp)
+            Row(
+                Modifier.fillMaxSize().semantics(mergeDescendants = true) { contentDescription = spoken },
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(text, style = heroStyle, color = VsEmerald, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline().weight(1f, fill = false))
+                Text("$NBSP$som", style = VsType.BodyMedium.copy(fontSize = 18.sp), color = VsInkSoft, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline().padding(start = 4.dp))
+            }
         }
         Text(
             pick(
                 lang,
-                "$bankCount ta bankdan eng yaxshisi: 1 ${currency.displayName(lang).lowercase()} ${kGroup(best.perUnit)} $som",
-                "Лучший из $bankCount банков: 1 ${currency.displayName(lang).lowercase()} = ${kGroup(best.perUnit)} $som",
-                "${kGroup(best.perUnit)} $som per ${currency.displayName(lang).lowercase()}, the best of $bankCount banks"
+                "1 ${currency.code} = ${kGroup(best.perUnit)} $som, $bankCount bankdan eng yaxshisi",
+                "1 ${currency.code} = ${kGroup(best.perUnit)} $som, лучший из $bankCount банков",
+                "1 ${currency.code} = ${kGroup(best.perUnit)} $som, best of $bankCount banks"
             ),
-            style = VsType.Meta, color = VsInkSoft
+            style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis
         )
     }
     // Best bank row: tile, name + meta, compact Directions pill.
-    val hint = tr("Masofa: joylashuvni yoqing", "Расстояние: включите геолокацию", "Distance: turn on location")
     val meta = listOfNotNull(
-        best.distanceKm?.let { kKm(it, ru) } ?: hint.takeIf { locationOff },
+        best.distanceKm?.let { kKm(it, ru) },
         best.open.takeIf { it.known }?.let { kHoursShort(it, ru) }
-    ).joinToString(", ")
+    ).joinToString(" · ")
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             Modifier.weight(1f).clip(VsShape.Panel)
@@ -821,10 +915,8 @@ private fun SlipResult(
         ) {
             BankTile(bankInitials(best.rate.bank), best = true)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Crossfade(best.rate.bank, animationSpec = tween(Motion.SHORT), label = "heroBank") { name ->
-                    Text(name, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(best.rate.bank, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         VsPillButton(
@@ -843,7 +935,7 @@ private fun LocationPrompt(text: String, action: String?, onAction: () -> Unit, 
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(Icons.Outlined.LocationOn, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
-        Text(text, style = VsType.Body, color = VsInk, modifier = Modifier.weight(1f))
+        Text(text, style = VsType.Body, color = VsInk, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (action != null) {
             Text(
                 action, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsEmerald,
@@ -864,12 +956,14 @@ private fun LocationPrompt(text: String, action: String?, onAction: () -> Unit, 
 private fun BankListRow(
     rank: Int, item: RankedBank, best: RankedBank?, hasAmount: Boolean, sell: Boolean, maxLoss: Long,
     favorite: Boolean, stale: Boolean, ageH: Double?, ru: Boolean,
+    index: Int, fx: RefreshFx, moved: Int,
     onClick: () -> Unit, onLongClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
     val shown = if (hasAmount) item.total else item.perUnit.toLong()
     val loss = if (best != null) abs(lossOf(item, best, hasAmount)) else 0L
-    val lessText = if (loss <= 0L) null else if (sell)
+    val lessText = if (loss <= 0L) null else if (sell) kDelta(-loss) else kDelta(loss)
+    val spokenLess = if (loss <= 0L) null else if (sell)
         pick(lang, "${kGroup(loss)} kam", "на ${kGroup(loss)} меньше", "${kGroup(loss)} less")
     else pick(lang, "${kGroup(loss)} koʻp", "на ${kGroup(loss)} больше", "${kGroup(loss)} more")
     val frac = if (loss <= 0L || maxLoss <= 0L) 0f else (loss.toFloat() / maxLoss).coerceIn(0.08f, 1f)
@@ -881,7 +975,7 @@ private fun BankListRow(
         append(kSpokenSom(shown, ru))
         item.distanceKm?.let { append(", ").append(kSpokenKm(it, ru)) }
         append(", ").append(kSpokenHours(item.open, ru))
-        if (lessText != null) append(", ").append(lessText)
+        if (spokenLess != null) append(", ").append(spokenLess)
         if (favorite) append(", ").append(pick(lang, "sevimli", "в избранном", "favourite"))
         if (stale && ageText != null) append(", ").append(ageText)
     }
@@ -916,19 +1010,20 @@ private fun BankListRow(
                     Icon(Icons.Outlined.Schedule, null, tint = VsAmber, modifier = Modifier.size(14.dp))
                 }
             }
-            Box(Modifier.width(120.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(VsGround)) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(frac).clip(RoundedCornerShape(2.dp)).background(VsRoseMark))
-            }
+            CompareBar(frac, index, fx)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            AnimatedContent(
-                shown, transitionSpec = { fadeIn(tween(Motion.SHORT)) togetherWith fadeOut(tween(Motion.SHORT)) },
-                label = "rowv"
-            ) { v -> Text(kGroup(v), style = VsType.Value, color = VsInk, textAlign = TextAlign.End, maxLines = 1) }
-            if (lessText != null) Text(
-                lessText,
+            // A rate that moved flashes once: teal if it got better for you, rose if worse, then settles to ink.
+            val better = (moved > 0) == sell
+            val flash = if (moved == 0) 0f else 1f - fx.settle.value
+            val valueColor = if (flash <= 0f) VsInk else androidx.compose.ui.graphics.lerp(VsInk, if (better) VsEmerald else VsRoseText, flash)
+            val valueAlpha by animateFloatAsState(if (fx.measuring) 0.4f else 1f, tween(Motion.MEDIUM), label = "valA")
+            Text(kGroup(shown), style = VsType.Value, color = valueColor, textAlign = TextAlign.End, maxLines = 1, softWrap = false, modifier = Modifier.graphicsLayer { alpha = valueAlpha })
+            // Always one line tall, so a row never changes height when the gap appears or disappears.
+            Text(
+                lessText ?: NBSP.toString(),
                 style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
-                color = VsRoseText, textAlign = TextAlign.End, maxLines = 1
+                color = VsRoseText, textAlign = TextAlign.End, maxLines = 1, softWrap = false
             )
         }
     }
@@ -972,5 +1067,26 @@ private fun SkeletonList() {
             }
             VsDivider()
         }
+    }
+}
+
+/** First-launch placeholder with the same geometry as the Kurs screen, so content replaces it without a jump. */
+@Composable
+fun KursBootSkeleton(innerPadding: PaddingValues) {
+    Column(
+        Modifier.fillMaxSize().background(VsBg).padding(
+            start = 20.dp, end = 20.dp,
+            top = innerPadding.calculateTopPadding() + 6.dp,
+            bottom = innerPadding.calculateBottomPadding() + 24.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(VsTile))
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(VsTile))
+        }
+        SkeletonSlip()
+        SkeletonList()
     }
 }

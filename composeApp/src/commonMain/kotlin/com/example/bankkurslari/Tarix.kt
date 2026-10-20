@@ -141,7 +141,7 @@ fun TarixScreen(
                 Text(
                     when {
                         analyticsLoading -> pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…")
-                        else -> pick(lang, "Tarix hozircha mavjud emas. Keyinroq urinib koʻring.", "История пока недоступна. Попробуйте позже.", "History is not available yet. Please try again later.")
+                        else -> pick(lang, "Tarix mavjud emas. Keyinroq urinib koʻring.", "История недоступна. Попробуйте позже.", "History unavailable. Try again later.")
                     },
                     style = VsType.Meta, color = VsInkSoft
                 )
@@ -171,7 +171,7 @@ fun TarixScreen(
         VsPanel {
             if (alerts.isEmpty()) {
                 Text(
-                    pick(lang, "Kurs kerakli qiymatga yetganda xabar beramiz.", "Сообщим, когда курс достигнет нужного значения.", "We will notify you when the rate reaches your target."),
+                    pick(lang, "Kurs belgilangan qiymatga yetsa, xabar keladi.", "Придёт уведомление, когда курс достигнет цели.", "You get a notice when the rate hits your target."),
                     style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
                 )
                 VsDivider()
@@ -196,9 +196,9 @@ fun TarixScreen(
         }
         if (full) {
             Text(
-                pick(lang, "Eng koʻpi bilan ${Alerts.MAX} ta ogohlantirish. Yangisini qoʻshish uchun birini oʻchiring.",
-                    "Не больше ${Alerts.MAX} оповещений. Удалите одно, чтобы добавить новое.",
-                    "Up to ${Alerts.MAX} alerts. Delete one to add a new one."),
+                pick(lang, "Chegara: ${Alerts.MAX} ta. Yangisi uchun birini oʻchiring.",
+                    "Лимит: ${Alerts.MAX}. Удалите одно, чтобы добавить.",
+                    "Limit: ${Alerts.MAX}. Delete one to add more."),
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
@@ -215,9 +215,9 @@ fun TarixScreen(
         }
         if (sourcesOpen) {
             Text(
-                pick(lang, "bank.uz — tijorat banklarining naqd kurslari.\ncbu.uz — Markaziy bankning rasmiy kursi va uning tarixi.",
-                    "bank.uz — курсы коммерческих банков (наличные).\ncbu.uz — официальный курс Центрального банка и его история.",
-                    "bank.uz — commercial banks’ cash rates.\ncbu.uz — the Central Bank’s official rate and its history."),
+                pick(lang, "bank.uz — banklarning naqd kurslari.\ncbu.uz — Markaziy bank kursi va tarixi.",
+                    "bank.uz — наличные курсы банков.\ncbu.uz — курс ЦБ и его история.",
+                    "bank.uz — banks’ cash rates.\ncbu.uz — Central Bank rate and history."),
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
@@ -350,9 +350,9 @@ private fun AddAlertSheet(
             )
             Text(
                 if (side == AlertSide.SELL) {
-                    pick(lang, "$name sotsangiz: kurs shu qiymatga yetganda yoki oshganda (≥) xabar beramiz.", "Если продаёте $name: сообщим, когда курс достигнет этого значения или выше (≥).", "Selling ${name.lowercase()}: we notify you when the rate reaches or exceeds (≥) this value.")
+                    pick(lang, "Sotsangiz: kurs shu qiymatga yetsa yoki oshsa (≥) xabar beramiz.", "При продаже: сообщим, когда курс дойдёт до значения или выше (≥).", "Selling: we notify you when the rate reaches or passes (≥) this value.")
                 } else {
-                    pick(lang, "$name olsangiz: kurs shu qiymatga tushganda yoki pasayganda (≤) xabar beramiz.", "Если покупаете $name: сообщим, когда курс опустится до этого значения или ниже (≤).", "Buying ${name.lowercase()}: we notify you when the rate drops to or below (≤) this value.")
+                    pick(lang, "Olsangiz: kurs shu qiymatga tushsa yoki pasaysa (≤) xabar beramiz.", "При покупке: сообщим, когда курс опустится до значения или ниже (≤).", "Buying: we notify you when the rate drops to or below (≤) this value.")
                 },
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
             )
@@ -389,9 +389,9 @@ private fun AddAlertSheet(
             }
             if (alreadyMet) {
                 Text(
-                    pick(lang, "Shart hozir bajarilgan. Kurs shartdan chiqib, qayta yetganda xabar beramiz.",
-                        "Условие уже выполнено. Сообщим, когда курс выйдет из диапазона и снова достигнет значения.",
-                        "Already met. We’ll notify you when the rate leaves this range and reaches it again."),
+                    pick(lang, "Shart hozir bajarilgan. Kurs qaytib yetsa, xabar beramiz.",
+                        "Условие уже выполнено. Сообщим, когда курс достигнет его снова.",
+                        "Already met. We notify you when it is reached again."),
                     style = VsType.Meta, color = VsRoseText, modifier = Modifier.padding(top = 4.dp)
                 )
             }

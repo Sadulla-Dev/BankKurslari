@@ -424,9 +424,9 @@ fun InteractiveHistory(
 
     AnimatedVisibility(!hintSeen) {
         Text(
-            pick(lang, "Grafik ustida barmoq yurgizing · ikki barmoq bilan kattalashtiring · pastdagi oynani suring",
-                "Ведите пальцем по графику · два пальца — масштаб · окно внизу можно двигать",
-                "Drag along the chart · pinch to zoom · move the window below"),
+            pick(lang, "Barmoq: qiymat · ikki barmoq: kattalashtirish",
+                "Палец — значение · два пальца — масштаб",
+                "Drag: value · pinch: zoom"),
             style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 8.dp)
         )
     }

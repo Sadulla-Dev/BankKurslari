@@ -207,10 +207,12 @@ fun CurrencyTrackerApp(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = VsBg,
-        bottomBar = { if (p != null) BottomBar(selected = tab, onSelect = { tab = it }) }
+        bottomBar = { BottomBar(selected = tab, onSelect = { tab = it }) }
     ) { innerPadding ->
+        val boot = when { p != null -> 2; error != null && !loading -> 1; else -> 0 }
+        Crossfade(targetState = boot, animationSpec = tween(Motion.SHORT), label = "boot") { st ->
         when {
-            p != null -> {
+            st == 2 && p != null -> {
                 Box(Modifier.fillMaxSize()) {
                     // Fade-through between tabs (Material): old fades out fast, new fades in with a slight scale settle.
                     AnimatedContent(
@@ -293,9 +295,9 @@ fun CurrencyTrackerApp(
                     }
                 }
             }
-            else -> Crossfade(targetState = if (error != null && !loading) 1 else 0, animationSpec = tween(Motion.MEDIUM), label = "boot") { st ->
-                if (st == 1) ErrorScreen(innerPadding, error ?: "", onRetry = { refresh() }) else LoadingScreen(innerPadding)
-            }
+            st == 1 -> ErrorScreen(innerPadding, error ?: "", onRetry = { refresh() })
+            else -> LoadingScreen(innerPadding)
+        }
         }
     }
 
@@ -385,20 +387,10 @@ private fun BottomBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
 @Composable
 private fun LoadingScreen(padding: PaddingValues) {
     val a by androidx.compose.animation.core.rememberInfiniteTransition(label = "boot").animateFloat(
-        0.4f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(900, easing = Motion.Standard), androidx.compose.animation.core.RepeatMode.Reverse), label = "a"
+        0.5f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(900, easing = Motion.Standard), androidx.compose.animation.core.RepeatMode.Reverse), label = "a"
     )
-    Column(
-        modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).alpha(a),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Skeleton rows instead of a spinner over a blank screen.
-        Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface))
-        Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface))
-        Box(Modifier.fillMaxWidth(0.6f).height(40.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface))
-        repeat(6) {
-            Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(VsSurface))
-        }
-    }
+    // Same geometry as the Kurs screen; the blink is applied once to the whole layer.
+    Box(Modifier.fillMaxSize().alpha(a)) { KursBootSkeleton(padding) }
 }
 
 @Composable

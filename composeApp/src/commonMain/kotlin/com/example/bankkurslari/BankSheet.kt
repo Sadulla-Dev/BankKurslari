@@ -143,9 +143,9 @@ fun BankSheet(
                         if (diff > 0) {
                             val further = if (item.distanceKm != null && best.distanceKm != null && item.distanceKm > best.distanceKm)
                                 item.distanceKm - best.distanceKm else null
-                            val base = if (sell) pick(lang, "${kGroup(diff)} $som kam, ${best.rate.bank}ga nisbatan", "на ${kGroup(diff)} $som меньше, чем в ${best.rate.bank}", "${kGroup(diff)} $som less than ${best.rate.bank}")
-                            else pick(lang, "${kGroup(diff)} $som koʻp, ${best.rate.bank}ga nisbatan", "на ${kGroup(diff)} $som больше, чем в ${best.rate.bank}", "${kGroup(diff)} $som more than ${best.rate.bank}")
-                            VsNote(if (further != null) base + pick(lang, ", ${kKm(further, ru)} uzoqroq", ", на ${kKm(further, ru)} дальше", ", ${kKm(further, ru)} further") else base)
+                            val base = if (sell) pick(lang, "${best.rate.bank}dan ${kGroup(diff)} $som kam", "На ${kGroup(diff)} $som меньше, чем в ${best.rate.bank}", "${kGroup(diff)} $som less than ${best.rate.bank}")
+                            else pick(lang, "${best.rate.bank}dan ${kGroup(diff)} $som koʻp", "На ${kGroup(diff)} $som больше, чем в ${best.rate.bank}", "${kGroup(diff)} $som more than ${best.rate.bank}")
+                            VsNote(if (further != null) base + pick(lang, ", ${kKm(further, ru)} uzoqroqda", ", дальше на ${kKm(further, ru)}", ", ${kKm(further, ru)} farther") else base)
                         }
                     }
                 }
@@ -192,7 +192,7 @@ fun BankSheet(
                             Text(kKm(km, ru), style = VsType.Value.copy(fontSize = 15.sp), color = VsEmerald)
                         } else if (!locationOn) {
                             Text(
-                                tr("masofa: yoqish", "расстояние: включить", "distance: turn on"),
+                                tr("Masofa", "Расстояние", "Distance"),
                                 style = VsType.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = VsEmerald,
                                 modifier = Modifier.clip(VsShape.Pill).clickable(role = Role.Button, onClick = requestLocation).padding(horizontal = 4.dp, vertical = 6.dp)
                             )
@@ -218,7 +218,7 @@ fun BankSheet(
             }
             if (time != null) {
                 Text(
-                    pick(lang, "Kurs $time da yangilangan", "Курс обновлён в $time", "Rate updated at $time"),
+                    pick(lang, "Yangilandi: $time", "Обновлено: $time", "Updated: $time"),
                     style = VsType.Meta, color = VsInkSoft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -101,9 +101,9 @@ fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
                     0 -> {
                         Text(tr("Qulay Kurs", "Qulay Kurs", "Qulay Kurs"), style = VsType.Hero, color = VsEmerald)
                         Text(
-                            tr("Pulingizni qaysi bankda almashtirish foydali — bir qarashda.",
-                                "Где выгоднее обменять деньги — с одного взгляда.",
-                                "Where to exchange your money for the best rate — at a glance."),
+                            tr("Qaysi bankda foydali — bir qarashda.",
+                                "Где выгоднее — с первого взгляда.",
+                                "The best bank, at a glance."),
                             style = VsType.Body, color = VsInk, modifier = Modifier.padding(top = 8.dp)
                         )
                         StepTitle(tr("Tilni tanlang", "Выберите язык", "Choose your language"))
@@ -122,12 +122,12 @@ fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
                         StepTitle(tr("Odatda nima qilasiz?", "Что вы обычно делаете?", "What do you usually do?"))
                         Choice(
                             tr("Valyuta sotish", "Продать валюту", "Sell currency"), sell,
-                            sub = tr("Eng koʻp soʻm beradigan bankni koʻrsatamiz", "Покажем, где дают больше всего сумов", "We show the bank that pays the most so‘m"),
+                            sub = tr("Eng koʻp soʻm beradigan bank", "Где дают больше сумов", "Bank that pays the most"),
                             icon = Icons.Outlined.ArrowUpward
                         ) { sell = true; appStore().putString("direction", "sell") }
                         Choice(
                             tr("Valyuta olish", "Купить валюту", "Buy currency"), !sell,
-                            sub = tr("Eng arzon sotadigan bankni koʻrsatamiz", "Покажем, где валюта дешевле всего", "We show the bank that sells the cheapest"),
+                            sub = tr("Eng arzon sotadigan bank", "Где валюта дешевле", "Bank that sells cheapest"),
                             icon = Icons.Outlined.ArrowDownward
                         ) { sell = false; appStore().putString("direction", "buy") }
                     }

@@ -87,9 +87,9 @@ fun GoldSection(ru: Boolean, unit: String) {
         )
         if (loss != null) {
             VsNote(
-                pick(lang, "Quymani darhol qaytarib sotsangiz, ${loss.fixed(1)}% yoʻqotasiz",
-                    "Если сразу продать обратно, потеряете ${loss.fixed(1)}%",
-                    "Sell it straight back and you lose ${loss.fixed(1)}%")
+                pick(lang, "Darhol qaytarsangiz: −${loss.fixed(1)}%",
+                    "При возврате сразу: −${loss.fixed(1)}%",
+                    "Sold straight back: −${loss.fixed(1)}%")
             )
         }
 
@@ -152,9 +152,9 @@ private fun GoldTrend(ru: Boolean, unit: String) {
     val p = points ?: return
     if (p.size < 2) {
         Text(
-            tr("Narx tarixi har kuni yigʻilmoqda. Grafik ikkinchi kundan koʻrinadi.",
-                "История цены копится каждый день. График появится со второго дня.",
-                "Price history is collected daily — the chart appears from the second day."),
+            tr("Tarix har kuni yigʻiladi. Grafik 2-kundan boshlanadi.",
+                "История копится ежедневно. График — со 2-го дня.",
+                "History builds daily. Chart starts on day 2."),
             style = VsType.Meta, color = VsInkSoft
         )
         return

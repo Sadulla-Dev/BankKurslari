@@ -167,7 +167,7 @@ fun SettingsScreen(
                 VsDivider()
                 ValueRow(
                     title = tr("Odatiy summa", "Сумма по умолчанию", "Default amount"),
-                    subtitle = tr("Kurs ekranida avval koʻrsatiladi", "Сначала показывается на экране курса", "Shown first on the Rate screen"),
+                    subtitle = tr("Kurs ekrani shu summa bilan ochiladi", "Экран курса откроется с ней", "Rate screen opens with it"),
                     value = amount?.takeIf { it > 0 }?.let { kGroup(it) } ?: "—",
                     onClick = { amountSheet = true }
                 )
@@ -191,7 +191,7 @@ fun SettingsScreen(
             VsPanel {
                 ValueRow(
                     title = tr("Ogohlantirishlar", "Оповещения", "Alerts"),
-                    subtitle = tr("Kurs kerakli qiymatga yetganda", "Когда курс достигнет нужного значения", "When the rate reaches your target"),
+                    subtitle = tr("Kurs maqsadga yetganda", "Когда курс достигнет цели", "When a rate hits your target"),
                     value = if (alertCount > 0) tr("$alertCount ta", "$alertCount шт.", "$alertCount") else "",
                     onClick = onOpenAlerts
                 )
@@ -202,7 +202,7 @@ fun SettingsScreen(
             VsPanel {
                 RowShell(
                     title = tr("Joylashuv", "Геолокация", "Location"),
-                    subtitle = tr("Masofa va eng yaqin filial uchun", "Для расстояния и ближайшего филиала", "For distance and the nearest branch")
+                    subtitle = tr("Masofa va eng yaqin filial", "Расстояние и ближайший филиал", "Distance and nearest branch")
                 ) {
                     if (locationOn) {
                         Text(tr("Yoqilgan", "Включена", "On"), style = VsType.Body.copy(fontWeight = FontWeight.Medium), color = VsInkSoft)
@@ -243,15 +243,15 @@ fun SettingsScreen(
                     Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             tr(
-                                "Tijorat banklari kurslari: bank.uz. Markaziy bank kursi va tarixi: cbu.uz. Xarita: OpenStreetMap va Esri.",
-                                "Курсы коммерческих банков: bank.uz. Курс и история ЦБ: cbu.uz. Карта: OpenStreetMap и Esri."
+                                "Banklar: bank.uz. Markaziy bank: cbu.uz. Xarita: OpenStreetMap, Esri.",
+                                "Банки: bank.uz. ЦБ: cbu.uz. Карта: OpenStreetMap, Esri."
                             ),
                             style = VsType.Meta, color = VsInkSoft
                         )
                         Text(
                             tr(
-                                "Yangilanish: ilova ochiq paytda kamida 5 daqiqada bir marta. Fonda taxminan har 15–30 daqiqada. Har bir kursda yangilanish vaqti koʻrsatiladi.",
-                                "Обновление: при открытом приложении не чаще раза в 5 минут. В фоне примерно раз в 15–30 минут. Для каждого курса указано время обновления."
+                                "Yangilanish: ochiq ilovada 5 daqiqada bir, fonda 15–30 daqiqada bir.",
+                                "Обновление: в открытом приложении раз в 5 минут, в фоне раз в 15–30 минут."
                             ),
                             style = VsType.Meta, color = VsInkSoft
                         )
