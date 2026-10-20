@@ -117,7 +117,7 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
         lastKey = key
         if (images.size > 600) images.clear()
         val inView = pins.filter {
-            it.lat in (cLat - dLat / 2)..(cLat + dLat / 2) && it.lng in (cLng - dLng / 2)..(cLng + dLng / 2)
+            it.lat in (cLat - dLat)..(cLat + dLat) && it.lng in (cLng - dLng)..(cLng + dLng)
         }
         // Projection is in points (≈ dp), so the label box needs no density factor.
         val specs = buildMarkerSpecs(inView, selectedId, labelMode, sell, best, m.zoomLevel(), 1f) { lat, lng ->

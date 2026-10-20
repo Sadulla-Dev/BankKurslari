@@ -99,6 +99,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
@@ -130,6 +131,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import com.example.bankkurslari.ui.theme.VsSurface
@@ -159,6 +162,16 @@ fun kGroup(n: Long): String {
 fun kGroup(n: Int): String = kGroup(n.toLong())
 
 fun kSom(ru: Boolean) = pick(lang, "soʻm", "сум", "so'm")
+
+/** Billions and up read as "3,59 mlrd" / "3,59 trln" so a huge amount keeps the hero legible instead of shrinking to fit. */
+fun kCompactSom(n: Long): String {
+    if (n < 1_000_000_000L) return kGroup(n)
+    val trillion = n >= 1_000_000_000_000L
+    val x = n / (if (trillion) 1e12 else 1e9)
+    val v = ((x * 100).roundToLong() / 100.0).toString().let { if (it.endsWith(".0")) it.dropLast(2) else it }
+    val c = v.replace('.', ',')
+    return if (trillion) pick(lang, "$c trln", "$c трлн", "$v tn") else pick(lang, "$c mlrd", "$c млрд", "$v bn")
+}
 
 fun kDelta(d: Long): String = when {
     d < 0 -> "$MINUS${kGroup(-d)}"
@@ -381,6 +394,9 @@ private fun bankInitials(name: String): String {
 
 private const val PREVIEW_BANKS = 4
 
+/** Room the amount dock takes at the bottom of the list. */
+private val DockHeight = 150.dp
+
 /** The entrance plays once per launch; coming back to the tab shows the screen at rest. */
 private var entrancePlayed = false
 
@@ -442,6 +458,9 @@ fun KursScreen(
         ranked.filter { (!onlyOpen || !(it.open.known && !it.open.open)) && (!onlyFav || it.rate.bank in favorites) }
     }
     val best = flagged.firstOrNull()
+    val nearest = remember(flagged) {
+        flagged.filter { it.distanceKm != null && !(it.open.known && !it.open.open) }.minByOrNull { it.distanceKm!! }
+    }
     val displayed = remember(flagged, sort, query) {
         val q = query.trim()
         val l = if (q.isEmpty()) flagged else flagged.filter { it.rate.bank.contains(q, ignoreCase = true) }
@@ -471,6 +490,7 @@ fun KursScreen(
     val pullState = rememberPullToRefreshState()
     val refreshing = loading && !noData
     val pullHaptic = LocalHapticFeedback.current
+    val dockHaptic = LocalHapticFeedback.current
 
     // One choreography: pull (screen yields) -> measure (numbers dim, bars re-measure) -> settle (numbers land, news).
     val settle = remember { Animatable(if (entrancePlayed) 1f else 0f) }
@@ -536,7 +556,7 @@ fun KursScreen(
             contentPadding = PaddingValues(
                 start = 20.dp, end = 20.dp,
                 top = innerPadding.calculateTopPadding() + 6.dp,
-                bottom = innerPadding.calculateBottomPadding() + 24.dp
+                bottom = innerPadding.calculateBottomPadding() + (if (noData) 24.dp else DockHeight + 24.dp)
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -639,18 +659,9 @@ fun KursScreen(
                                         }
                                     }
                                 }
-                                AmountField(currency, amountText, onAmount)
-                                val quick = quickAmounts(currency)
-                                Segmented(
-                                    options = quick.map { kGroup(it) },
-                                    selected = quick.indexOfFirst { it.toDouble() == amount },
-                                    onSelect = { onAmount(quick[it].toString()) },
-                                    height = 40.dp
-                                )
-                                SlipDivider()
                                 if (best != null) {
                                     SlipResult(
-                                        best = best, amount = amount, currency = currency, sell = sell, ru = ru,
+                                        best = best, nearest = nearest, amount = amount, currency = currency, sell = sell, ru = ru,
                                         bankCount = displayed.size,
                                         locationOff = userLocation == null, fx = fx,
                                         onBank = { sheetBank = best.rate.bank },
@@ -763,6 +774,26 @@ fun KursScreen(
                 }
             }
         }
+        // The amount lives where the thumb is: a dock above the tab bar (and above the keyboard while typing).
+        if (!noData && !showSkeleton) {
+            val quick = quickAmounts(currency)
+            val density = LocalDensity.current
+            val imeBottom = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+            Column(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = maxOf(innerPadding.calculateBottomPadding(), imeBottom) + 10.dp)
+                    .vsFloating(VsShape.Card).padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                AmountField(currency, amountText, onAmount)
+                Segmented(
+                    options = quick.map { kGroup(it) },
+                    selected = quick.indexOfFirst { it.toDouble() == amount },
+                    onSelect = { onAmount(quick[it].toString()); dockHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+                    height = 40.dp
+                )
+            }
+        }
         // Scrolled content fades out under the status bar instead of colliding with the clock and icons.
         val top = innerPadding.calculateTopPadding()
         if (top > 0.dp) Box(
@@ -849,7 +880,7 @@ private fun KBanner(icon: androidx.compose.ui.graphics.vector.ImageVector, tint:
 /** Result of the slip: what you get, per-unit line, the best bank, and the two actions. */
 @Composable
 private fun SlipResult(
-    best: RankedBank, amount: Double, currency: Currency, sell: Boolean, ru: Boolean, bankCount: Int,
+    best: RankedBank, nearest: RankedBank?, amount: Double, currency: Currency, sell: Boolean, ru: Boolean, bankCount: Int,
     locationOff: Boolean, fx: RefreshFx, onBank: () -> Unit, onRoute: () -> Unit
 ) {
     val has = amount > 0
@@ -860,7 +891,20 @@ private fun SlipResult(
     val value = if (has) best.total else best.perUnit.toLong()
     val som = kSom(ru)
     val spoken = "$label, ${kSpokenSom(value, ru)}"
-    val text = kGroup(value)
+    // The figure rolls to its new value like an odometer instead of cutting; it always lands exactly on [value].
+    var rollFrom by remember { mutableStateOf(value) }
+    var rollTo by remember { mutableStateOf(value) }
+    val roll = remember { Animatable(1f) }
+    LaunchedEffect(value) {
+        if (value != rollTo) {
+            rollFrom = rollFrom + ((rollTo - rollFrom) * roll.value.toDouble()).roundToLong()
+            rollTo = value
+            roll.snapTo(0f)
+            roll.animateTo(1f, tween(420, easing = Motion.Decelerate))
+        }
+    }
+    val rolling = rollFrom + ((rollTo - rollFrom) * roll.value.toDouble()).roundToLong()
+    val text = kCompactSom(if (roll.value >= 1f) value else rolling)
 
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -907,9 +951,10 @@ private fun SlipResult(
     ).joinToString(" · ")
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
-            Modifier.weight(1f).clip(VsShape.Panel)
+            // Small clip radius with vertical air: a larger one would shave the corners off the bank tile at the left edge.
+            Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
                 .clickable(role = Role.Button, onClickLabel = tr("Batafsil", "Подробнее", "Details"), onClick = onBank)
-                .padding(vertical = 4.dp),
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -924,18 +969,76 @@ private fun SlipResult(
             enabled = best.lat != null && best.lng != null, onClick = onRoute
         )
     }
+    if (amount > 0 && nearest != null) TripVerdict(best, nearest, amount, currency, sell, ru)
+}
+
+/** so'm per km for a taxi, used only to price the detour. A rough, deliberately round number. */
+private const val TAXI_SOM_PER_KM = 2_500L
+private const val WALKABLE_KM = 1.0
+
+/**
+ * "Is the trip worth it?": the extra so'm the best bank gives over the nearest open one, against the cost of the extra distance.
+ * Walkable detours are free; longer ones are priced as a taxi round trip.
+ */
+@Composable
+private fun TripVerdict(best: RankedBank, nearest: RankedBank, amount: Double, currency: Currency, sell: Boolean, ru: Boolean) {
+    val som = kSom(ru)
+    val same = best.rate.bank == nearest.rate.bank
+    val bestKm = best.distanceKm
+    val nearKm = nearest.distanceKm ?: return
+    val body: androidx.compose.ui.text.AnnotatedString
+    if (same) {
+        body = androidx.compose.ui.text.buildAnnotatedString {
+            append(tr("Eng yaxshisi ham eng yaqini. Boshqa joyga borishning keragi yoʻq.", "Лучший курс и ближайший банк совпали. Никуда ехать не нужно.", "The best rate is also the nearest. No detour needed."))
+        }
+    } else {
+        val gain = abs(best.total - nearest.total)
+        val extraKm = ((bestKm ?: nearKm) - nearKm).coerceAtLeast(0.0)
+        val cost = if (extraKm <= WALKABLE_KM) 0L else ((extraKm * 2 * TAXI_SOM_PER_KM) / 1000.0).roundToLong() * 1000L
+        val worth = gain > cost
+        val perUnitGain = abs(best.perUnit - nearest.perUnit).toLong()
+        val breakEven = if (!worth && perUnitGain > 0) ((cost + perUnitGain - 1) / perUnitGain) else 0L
+        val near = nearest.rate.bank
+        val nearKmText = kKm(nearKm, ru)
+        val verdict = if (worth) tr("Arziydi.", "Стоит того.", "Worth it.") else tr("Arzimaydi.", "Не стоит.", "Not worth it.")
+        body = androidx.compose.ui.text.buildAnnotatedString {
+            append(
+                if (gain == 0L) pick(lang, "$near ($nearKmText) ham xuddi shuncha beradi. ", "$near ($nearKmText) даёт столько же. ", "$near ($nearKmText) pays the same. ")
+                else pick(
+                    lang,
+                    "$near ($nearKmText) dan ${kGroup(gain)} $som ${if (sell) "koʻp" else "kam"}. ",
+                    "Чем в $near ($nearKmText): ${if (sell) "больше" else "меньше"} на ${kGroup(gain)} $som. ",
+                    "vs $near ($nearKmText): ${kGroup(gain)} $som ${if (sell) "more" else "less"}. "
+                )
+            )
+            if (cost > 0) append(pick(lang, "Yoʻl ≈ ${kGroup(cost)} $som. ", "Дорога ≈ ${kGroup(cost)} $som. ", "Trip ≈ ${kGroup(cost)} $som. "))
+            withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.SemiBold, color = if (worth) VsEmerald else VsInk)) { append(verdict) }
+            if (breakEven > 0) append(
+                pick(
+                    lang,
+                    " ${kGroup(breakEven)} ${currency.code} dan koʻp boʻlsa arziydi.",
+                    " Выгодно от ${kGroup(breakEven)} ${currency.code}.",
+                    " Worth it from ${kGroup(breakEven)} ${currency.code}."
+                )
+            )
+        }
+    }
+    Text(
+        body, style = VsType.Meta, color = VsInkSoft,
+        modifier = Modifier.fillMaxWidth().clip(VsShape.Stat).background(VsGround).padding(horizontal = 14.dp, vertical = 12.dp)
+    )
 }
 
 /** Location prompt card: dashed hairline, pin icon, text and one teal action (or a dismiss cross when there is no action). */
 @Composable
 private fun LocationPrompt(text: String, action: String?, onAction: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().vsDashedBorder(22.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(Icons.Outlined.LocationOn, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
-        Text(text, style = VsType.Body, color = VsInk, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Icon(Icons.Outlined.LocationOn, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
+        Text(text, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (action != null) {
             Text(
                 action, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsEmerald,
@@ -1023,7 +1126,7 @@ private fun BankListRow(
             Text(
                 lessText ?: NBSP.toString(),
                 style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
-                color = VsRoseText, textAlign = TextAlign.End, maxLines = 1, softWrap = false
+                color = VsInkSoft, textAlign = TextAlign.End, maxLines = 1, softWrap = false
             )
         }
     }

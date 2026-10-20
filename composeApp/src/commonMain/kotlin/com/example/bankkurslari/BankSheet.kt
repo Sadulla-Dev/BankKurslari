@@ -28,6 +28,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
+import kotlin.math.abs
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -94,8 +101,9 @@ fun BankSheet(
         scrimColor = VsInk.copy(alpha = 0.42f),
         dragHandle = { VsSheetHandle() }
     ) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.LocalOverscrollFactory provides null) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+            Modifier.fillMaxWidth().vsSheetScrollGuard(state).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             // header: tile, name, open line, save
@@ -225,6 +233,7 @@ fun BankSheet(
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
+    }
 }
 
 private fun sheetBankInitials(name: String): String {
@@ -310,4 +319,39 @@ internal fun splitAddress(raw: String): Pair<String, String?> {
     }
     val street = rest.joinToString(", ").replace(Regex(" uy$", RegexOption.IGNORE_CASE), "").ifBlank { raw }
     return street to district
+}
+
+
+/**
+ * Stops a hard fling inside scrolling sheet content from leaking into the sheet itself.
+ * Without it, flinging a list back to its top hands the leftover velocity to the sheet, which flies shut or bounces.
+ * A deliberate drag on the handle, or a slow pull at the top of the content, still moves the sheet as usual.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun Modifier.vsSheetScrollGuard(state: SheetState): Modifier {
+    val guard = remember(state) {
+        object : NestedScrollConnection {
+            var scrolled = false
+            var startOffset = Float.NaN
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (startOffset.isNaN()) startOffset = runCatching { state.requireOffset() }.getOrDefault(Float.NaN)
+                return Offset.Zero
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (consumed.y != 0f) scrolled = true
+                return Offset.Zero
+            }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                val now = runCatching { state.requireOffset() }.getOrDefault(Float.NaN)
+                // Only swallow the leftover when the content did the scrolling and the sheet has not been pulled away.
+                val sheetStill = startOffset.isNaN() || now.isNaN() || abs(now - startOffset) < 1f
+                val out = if (scrolled && sheetStill) available else Velocity.Zero
+                scrolled = false
+                startOffset = Float.NaN
+                return out
+            }
+        }
+    }
+    return this.nestedScroll(guard)
 }

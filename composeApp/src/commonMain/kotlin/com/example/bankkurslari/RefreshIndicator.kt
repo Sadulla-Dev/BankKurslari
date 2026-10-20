@@ -124,7 +124,7 @@ fun CompareBar(frac: Float, index: Int, fx: RefreshFx, modifier: Modifier = Modi
         0f, 1f, infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart), label = "rowphase"
     ) else null
     val track = com.example.bankkurslari.ui.theme.VsGround
-    val fill = VsRoseMark
+    val fill = com.example.bankkurslari.ui.theme.VsInkSoft.copy(alpha = 0.35f)
     Canvas(modifier.size(width = 120.dp, height = 4.dp)) {
         val r = CornerRadius(size.height / 2f)
         drawRoundRect(track, size = size, cornerRadius = r)

@@ -403,8 +403,9 @@ fun MapScreen(
             if (pin != null && rb != null) {
                 val dist = mapDistanceText(pin.rawKm)
                 val unit = tr("soʻm", "сум", "so'm")
+                val amtText = kGroup(amountText.filter { it.isDigit() }.toLongOrNull() ?: 0L)
                 val sub = if (pin.good) {
-                    tr("${amountText.ifBlank { "0" }} ${currency.code} uchun eng yaxshi", "Лучший курс для ${amountText.ifBlank { "0" }} ${currency.code}", "Best for ${amountText.ifBlank { "0" }} ${currency.code}")
+                    tr("$amtText ${currency.code} uchun eng yaxshi", "Лучший курс для $amtText ${currency.code}", "Best for $amtText ${currency.code}")
                 } else {
                     "${mapRateText(rb.perUnit)} $unit"
                 }

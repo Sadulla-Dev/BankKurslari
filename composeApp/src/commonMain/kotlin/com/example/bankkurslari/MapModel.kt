@@ -228,8 +228,16 @@ private fun pinSpec(p: MapPin, selected: Boolean, labelMode: MapLabel): MarkerSp
 }
 
 /**
- * Markers for the pins currently in view, back-to-front. Priced pins are greedily clustered in screen space so labels
- * never overlap; best-priced pins claim space first and a cluster shows the BEST rate inside + count ("11 905 · 40").
+ * Markers for the pins near the viewport, back-to-front.
+ *
+ * Stability is the point: what a pin shows must not depend on where the camera happens to be.
+ *  - Pins are placed in a FIXED global priority order (selected, best-priced and open first, then rate, then
+ *    distance, then id). A pin claims its spot before every lower-priority pin, so panning can only change the
+ *    result at the edge of the candidate set, never in the middle of the screen.
+ *  - A pin that collides with an already placed label is not dropped silently: it is counted in that label's "xN".
+ *  - No viewport-edge culling: a label near the edge is simply clipped by the screen, it does not blink out.
+ *  - The label box grows in coarse steps of zoom (not continuously), so zooming changes the picture a few times, not constantly.
+ * [inView] should be the pins inside the viewport grown by about one label box on every side.
  * [project] maps a coordinate to screen pixels; [density] converts the label box from dp.
  */
 fun buildMarkerSpecs(
@@ -245,63 +253,60 @@ fun buildMarkerSpecs(
     project: (Double, Double) -> Pair<Float, Float>
 ): List<MarkerSpec> {
     val out = ArrayList<MarkerSpec>()
-    val selPin = selectedId?.let { id -> inView.firstOrNull { it.id == id } }
-    val priced = inView.filter { it.kind == MapPinKind.PRICED && it.id != selectedId }
     val extras = inView.filter { it.kind != MapPinKind.PRICED && it.id != selectedId }
     // Rate-less branches only when zoomed in close; ATMs (opt-in chip) from city zoom.
     extras.filter { if (it.kind == MapPinKind.ATM) zoom >= 12.0 else zoom >= 15.0 }.take(300)
         .forEach { out += pinSpec(it, false, labelMode) }
 
-    // Label footprint incl. tip and cluster badge, plus a little air between labels.
-    val boxW = (if (labelMode == MapLabel.BOTH) 150 else 96) * density
-    val boxH = 46 * density
-    // 16 dp edge margin: a label that would be cut by the map edge is left out until it is panned inwards.
-    val margin = 16 * density
-    val halfW = boxW * 0.45f
-    val fits: (MapPin) -> Boolean = { p ->
-        if (viewW <= 0f || viewH <= 0f) true else {
-            val (px, py) = project(p.lat, p.lng)
-            px - halfW >= margin && px + halfW <= viewW - margin && py - 42 * density >= margin && py <= viewH - margin
-        }
-    }
-    val ordered = priced.filter(fits).sortedWith(
-        compareByDescending<MapPin> { it.good && !it.closed }
+    // Label footprint incl. tip and cluster badge, plus air between labels. Steps with whole zoom levels only.
+    val scale = when { zoom < 12.0 -> 1.5f; zoom < 13.0 -> 1.25f; else -> 1f }
+    val boxW = (if (labelMode == MapLabel.BOTH) 150 else 96) * density * scale
+    val boxH = 46 * density * scale
+
+    val ordered = inView.filter { it.kind == MapPinKind.PRICED }.sortedWith(
+        compareByDescending<MapPin> { it.id == selectedId }
+            .thenByDescending { it.good && !it.closed }
+            .thenBy { it.closed }
             .thenBy { if (sell) -it.rb!!.perUnit else it.rb!!.perUnit }
+            .thenBy { it.rawKm ?: Double.MAX_VALUE }
+            .thenBy { it.id }
     )
     class Group(val x: Float, val y: Float, val pins: MutableList<MapPin>)
     val groups = ArrayList<Group>()
     ordered.forEach { p ->
         val (px, py) = project(p.lat, p.lng)
+        if (px < -1e5f) return@forEach // projection unavailable
         val g = groups.firstOrNull { abs(it.x - px) < boxW && abs(it.y - py) < boxH }
         if (g != null) g.pins.add(p) else groups.add(Group(px, py, mutableListOf(p)))
     }
-    // Lowest priority first so the best labels end up on top. Groups beyond the cap are dropped (they are the
-    // worst-priced; zooming in brings them back).
+    // Lowest priority first so the best labels end up on top.
     groups.take(MAX_LABELS).asReversed().forEach { g ->
         val group = g.pins
-        val lead = group.firstOrNull { it.good && !it.closed } ?: group[0]
-        if (group.size == 1) out += pinSpec(lead, false, labelMode) else {
-            val rates = group.map { it.rb!!.perUnit }
-            val groupBest = if (sell) rates.max() else rates.min()
-            val style = when {
-                group.all { it.closed } -> MapPinStyle.CLOSED
-                lead.good -> MapPinStyle.GOOD
-                else -> MapPinStyle.NEUTRAL
-            }
-            // Lead = best-priced pin of the group (ordering above), so its name matches the shown rate.
-            // The number of hidden pins is drawn as a badge (MarkerSpec.more).
-            out += when (labelMode) {
-                MapLabel.RATE -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, mapRateText(groupBest), null, style, tip = true, cluster = group)
-                MapLabel.BANK -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), null, style, tip = true, cluster = group)
-                MapLabel.BOTH -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), mapRateText(groupBest), style, tip = true, cluster = group)
+        val lead = group[0] // highest priority of the group, so it is also the best-priced one
+        when {
+            lead.id == selectedId -> out += pinSpec(lead, true, labelMode)
+            group.size == 1 -> out += pinSpec(lead, false, labelMode)
+            else -> {
+                val rates = group.map { it.rb!!.perUnit }
+                val groupBest = if (sell) rates.max() else rates.min()
+                val style = when {
+                    group.all { it.closed } -> MapPinStyle.CLOSED
+                    lead.good && !lead.closed -> MapPinStyle.GOOD
+                    else -> MapPinStyle.NEUTRAL
+                }
+                // The number of hidden pins is drawn as a badge (MarkerSpec.more).
+                out += when (labelMode) {
+                    MapLabel.RATE -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, mapRateText(groupBest), null, style, tip = true, cluster = group)
+                    MapLabel.BANK -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), null, style, tip = true, cluster = group)
+                    MapLabel.BOTH -> MarkerSpec(MarkerKind.PILL, lead.lat, lead.lng, shortBankName(lead.title), mapRateText(groupBest), style, tip = true, cluster = group)
+                }
             }
         }
     }
-    selPin?.let { out += pinSpec(it, true, labelMode) }
     return out
 }
 
-private const val MAX_LABELS = 60
+private const val MAX_LABELS = 80
 
 /**
  * Topmost marker under [x],[y] (screen px). [project] maps a coordinate to screen px; [sizeOf] gives a marker's image

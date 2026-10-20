@@ -198,8 +198,8 @@ fun InteractiveHistory(
     val pctText = abs(pct).fixed(2).let { if (lang == Lang.EN) it else it.replace('.', ',') }
     val deltaText = if (amountMode) {
         val d = (b.rate - a.rate) * amt
-        "${fmtSom(abs(d), 1000.0)} $unit, $pctText%"
-    } else "${fmtSom(abs(b.rate - a.rate), today)}, $pctText%"
+        "${fmtSom(abs(d), 1000.0)} $unit · $pctText%"
+    } else "${fmtSom(abs(b.rate - a.rate), today)} $unit · $pctText%"
     val periodText = when (presetIdx) {
         0 -> pick(lang, "oxirgi 7 kunda", "за 7 дней", "over 7 days")
         1 -> pick(lang, "oxirgi 30 kunda", "за 30 дней", "over 30 days")

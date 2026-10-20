@@ -25,6 +25,8 @@ import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraAnimation
@@ -94,6 +96,7 @@ private class LibreController(
     override fun myLocation(): Pair<Double, Double>? = lastKnownLocation(context)
 }
 
+@OptIn(FlowPreview::class)
 @Composable
 actual fun BankMapView(
     modifier: Modifier,
@@ -128,8 +131,10 @@ actual fun BankMapView(
     // Markers are rebuilt only when the camera settles; while it moves they ride along via placedAt.
     var settled by remember { mutableStateOf<Viewport?>(null) }
     LaunchedEffect(mapState) {
-        snapshotFlow { if (mapState.isCameraMoving) null else mapState.viewport }
+        // Follow the camera while it moves (throttled), so pins appear as they scroll in rather than all at once at rest.
+        snapshotFlow { mapState.viewport }
             .filterNotNull()
+            .sample(180)
             .collect { settled = it }
     }
     var viewSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -137,7 +142,12 @@ actual fun BankMapView(
         val vp = settled ?: return@remember emptyList()
         val sw = vp.visibleBounds.southwest
         val ne = vp.visibleBounds.northeast
-        val inView = pins.filter { it.lat in sw.latitude..ne.latitude && it.lng in sw.longitude..ne.longitude }
+        // Grown by half a viewport each way: pins just off screen are already decided, so scrolling reveals no surprises.
+        val padLat = (ne.latitude - sw.latitude) * 0.5
+        val padLng = (ne.longitude - sw.longitude) * 0.5
+        val inView = pins.filter {
+            it.lat in (sw.latitude - padLat)..(ne.latitude + padLat) && it.lng in (sw.longitude - padLng)..(ne.longitude + padLng)
+        }
         buildMarkerSpecs(inView, selectedId, labelMode, sell, best, vp.cameraPosition.zoom, density, viewSize.width.toFloat(), viewSize.height.toFloat()) { lat, lng ->
             val o = mapState.screenLocationFromPosition(Position(lng, lat))
             if (o == null) -1e6f to -1e6f else o.x.value * density to o.y.value * density

@@ -1,5 +1,11 @@
 package com.example.bankkurslari
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -148,6 +154,8 @@ fun TarixScreen(
             }
         }
 
+        if (series.size >= 2) RangePosition(series, cur, unit)
+
         // At banks today
         Row(Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp), verticalAlignment = Alignment.Bottom) {
             Text(pick(lang, "Bugun banklarda", "Сегодня в банках", "At banks today"), style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
@@ -163,7 +171,16 @@ fun TarixScreen(
             if (spread != null) TrendStat(pick(lang, "Farq", "Разница", "Spread"), spread.toLong().formatUzsL(), unit, Modifier.weight(1f))
         }
 
-        GoldSection(ru = ru, unit = unit)
+        if (spread != null && bestBuy?.sell != null) {
+            val pct = spread.toDouble() / bestBuy.sell!! * 100
+            val pctText = pct.fixed(2).let { if (lang == Lang.EN) it else it.replace('.', ',') }
+            Text(
+                pick(lang, "Almashtirish xarajati ≈ $pctText%: eng yaxshi sotib olish va sotish orasidagi farq.",
+                    "Цена обмена ≈ $pctText%: разница между лучшей покупкой и продажей.",
+                    "Cost of exchanging ≈ $pctText%: the gap between the best buy and sell."),
+                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
 
         // Alerts
         Text(pick(lang, "Ogohlantirishlar", "Оповещения", "Alerts"), style = VsType.Title, color = VsInk, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
@@ -203,6 +220,17 @@ fun TarixScreen(
             )
         }
 
+        // Gold: a side topic, folded away so the tab answers one question.
+        var goldOpen by rememberSaveable { mutableStateOf(false) }
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(VsShape.Panel).clickable(role = Role.Button) { goldOpen = !goldOpen }.padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(pick(lang, "Markaziy bank oltin quymalari", "Золотые слитки ЦБ", "Central Bank gold bars"), style = VsType.BodyMedium, color = VsInk, modifier = Modifier.weight(1f))
+            Icon(if (goldOpen) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
+        }
+        if (goldOpen) GoldSection(ru = ru, unit = unit)
+
         // Sources
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { sourcesOpen = !sourcesOpen }.padding(horizontal = 4.dp),
@@ -240,7 +268,7 @@ fun TarixScreen(
 /** White stat card for the three-up "At banks today" row: label, figure, grey sub line. */
 @Composable
 private fun TrendStat(label: String, value: String, note: String?, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = VsShape.Stat
     Column(modifier.clip(shape).background(VsCard).border(1.dp, VsHair, shape).padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(value, style = VsType.Title.copy(fontSize = 24.sp, lineHeight = 30.sp), color = VsInk, maxLines = 1)
@@ -320,17 +348,20 @@ private fun AddAlertSheet(
 
     val requestNotifications = rememberNotificationPermissionRequest()
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheetState,
         shape = VsShape.Tray,
         containerColor = VsCard,
         contentColor = VsInk,
         tonalElevation = 0.dp,
         dragHandle = null
     ) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.LocalOverscrollFactory provides null) {
         Column(
             modifier = Modifier
+                .vsSheetScrollGuard(sheetState)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 20.dp)
@@ -461,6 +492,7 @@ private fun AddAlertSheet(
             }
         }
     }
+    }
 }
 
 /** Shows digits grouped by spaces (12 000) while the stored text stays plain digits. */
@@ -521,4 +553,38 @@ fun formatFullDate(iso: String): String {
     // "2026-10-13" -> "13.10.2026"
     val parts = iso.take(10).split("-")
     return if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else iso
+}
+
+
+/** "Is today's rate normal?": where today sits between the 30-day low and high, as a sentence and a track. */
+@Composable
+private fun RangePosition(series: List<HistoryPoint>, cur: Double, unit: String) {
+    val today = epochDay(todayIso())
+    val window = series.filter { epochDay(it.date) >= today - 30 }
+    if (window.size < 2) return
+    val lo = window.minOf { it.rate }
+    val hi = window.maxOf { it.rate }
+    if (hi - lo < 1.0) return
+    val pos = ((cur - lo) / (hi - lo)).coerceIn(0.0, 1.0).toFloat()
+    val sentence = when {
+        pos >= 0.85f -> pick(lang, "Bugun oxirgi 30 kunning eng yuqori darajasiga yaqin.", "Сегодня курс почти на максимуме за 30 дней.", "Today is near the 30-day high.")
+        pos <= 0.15f -> pick(lang, "Bugun oxirgi 30 kunning eng past darajasiga yaqin.", "Сегодня курс почти на минимуме за 30 дней.", "Today is near the 30-day low.")
+        else -> pick(lang, "Bugun kurs oxirgi 30 kunning oʻrtasida.", "Сегодня курс в середине диапазона за 30 дней.", "Today sits mid-range over 30 days.")
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(sentence, style = VsType.Body, color = VsInk)
+        Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(VsGround))
+            Box(Modifier.fillMaxWidth(pos).height(4.dp).clip(CircleShape).background(VsEmerald.copy(alpha = 0.35f)))
+            Row(Modifier.fillMaxWidth()) {
+                if (pos > 0f) Spacer(Modifier.weight(pos.coerceAtLeast(0.0001f)))
+                Box(Modifier.size(14.dp).clip(CircleShape).background(VsEmerald))
+                if (pos < 1f) Spacer(Modifier.weight((1f - pos).coerceAtLeast(0.0001f)))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("${lo.toLong().formatUzsL()}", style = VsType.Meta, color = VsInkSoft)
+            Text("${hi.toLong().formatUzsL()}", style = VsType.Meta, color = VsInkSoft)
+        }
+    }
 }

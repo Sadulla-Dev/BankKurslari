@@ -107,14 +107,16 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(appStore().getString("cbu_selected") ?: "CNY") }
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheetState,
         containerColor = com.example.bankkurslari.ui.theme.VsCard,
         shape = VsShape.Tray,
         tonalElevation = 0.dp
     ) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 20.dp)) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.LocalOverscrollFactory provides null) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(0.92f).vsSheetScrollGuard(sheetState).padding(horizontal = 20.dp)) {
             Text(tr("Barcha valyutalar", "Все валюты", "All currencies"), style = VsType.Title, color = VsInk)
             val date = list.firstOrNull()?.date
             Text(
@@ -173,6 +175,7 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
                 item { Spacer(Modifier.height(16.dp)); Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)) }
             }
         }
+    }
     }
 }
 

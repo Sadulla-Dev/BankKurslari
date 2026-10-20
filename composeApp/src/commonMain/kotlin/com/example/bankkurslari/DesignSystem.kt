@@ -52,8 +52,8 @@ import com.example.bankkurslari.ui.theme.VsType
 
 /*
  * Single design system (kurs-redesign). Every screen builds from these:
- *  surfaces: VsCardBox (28) - VsPanel (22) - VsStat (18) - tray (30 top)
- *  controls: VsPrimaryButton (54/18) - VsSecondaryButton (54/18) - VsIconButton (44 circle)
+ *  surfaces: VsCardBox/VsPanel (24) - VsStat (16) - tray (30 top)
+ *  controls: VsPrimaryButton (54/16) - VsSecondaryButton (54/16) - VsIconButton (44 circle)
  *  data: BankTile - VsNote - VsStat
  * Depth has three levels only: ground, card (hairline + 1px shadow), floating (long soft shadow).
  */
@@ -62,10 +62,10 @@ import com.example.bankkurslari.ui.theme.VsType
 val VsOnAccent: Color @Composable get() = if (VsEmerald.luminance() > 0.45f) Color(0xFF0E1113) else Color.White
 
 object VsShape {
-    val Card = RoundedCornerShape(28.dp)
-    val Panel = RoundedCornerShape(22.dp)
-    val Stat = RoundedCornerShape(18.dp)
-    val Button = RoundedCornerShape(18.dp)
+    val Card = RoundedCornerShape(24.dp)
+    val Panel = RoundedCornerShape(24.dp)
+    val Stat = RoundedCornerShape(16.dp)
+    val Button = RoundedCornerShape(16.dp)
     val Tile = RoundedCornerShape(12.dp)
     val Pill = RoundedCornerShape(percent = 50)
     val Tray = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
