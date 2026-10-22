@@ -47,6 +47,15 @@ export default {
         if (!CURRENCIES.includes(cur)) return json({ error: "unsupported_currency", supported: CURRENCIES }, 404);
         return serve(env, request, `/api/${kind}/${cur}.json`, `${kind}_unavailable`);
       case "branches":
+        if (arg === "yandex") {
+          const res = await asset(env, request, "/api/branches/yandex.json");
+          if (!res) return json({ error: "yandex_branches_unavailable" }, 503);
+          const dataset = await res.json();
+          if (!dataset.expiresAt || Date.parse(dataset.expiresAt) <= Date.now()) return json({ error: "yandex_branches_expired" }, 503);
+          return json(dataset);
+        }
+        if (arg) return json({ error: "not_found" }, 404);
+        return serve(env, request, "/api/branches.json", "branches_unavailable");
       case "atms":
         return serve(env, request, `/api/${kind}.json`, `${kind}_unavailable`);
       case "cbu":

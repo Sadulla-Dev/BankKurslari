@@ -1,0 +1,53 @@
+{
+  "provider": "yandex-maps",
+  "coverage": "partial",
+  "fetchedAt": "2026-10-21T00:00:00.000Z",
+  "expiresAt": "2026-11-20T00:00:00.000Z",
+  "count": 4,
+  "branches": [
+    {
+      "id": "63195534746",
+      "bank": "Ipak Yuli Bank",
+      "name": "Ipak Yuli Bank",
+      "address": "Yangiyo‘l, Samarqand ko‘chasi, 146",
+      "hours": "Ochiq 18:00 gacha",
+      "lat": 41.11983,
+      "lng": 69.061207,
+      "source": "Yandex Maps UI",
+      "sourceUrl": "https://yandex.uz/maps/org/ipak_yuli_bank/63195534746/"
+    },
+    {
+      "id": "48378802823",
+      "bank": "Ipak Yuli Bank",
+      "name": "Ipak Yuli Bank",
+      "address": "Toshkent, Yunusobod tumani, Abdulla Qodiriy ko‘chasi, 2/1",
+      "hours": "18:00 gacha",
+      "lat": 41.322468,
+      "lng": 69.280671,
+      "source": "Yandex Maps UI",
+      "sourceUrl": "https://yandex.uz/maps/org/ipak_yuli_bank/48378802823/"
+    },
+    {
+      "id": "95566175387",
+      "bank": "Ipak Yuli Bank",
+      "name": "Ipak Yuli Bank",
+      "address": "Toshkent, Mirobod ko‘chasi, 25A",
+      "hours": "20:00 gacha",
+      "lat": 41.297138,
+      "lng": 69.269908,
+      "source": "Yandex Maps UI",
+      "sourceUrl": "https://yandex.uz/maps/org/ipak_yuli_bank/95566175387/"
+    },
+    {
+      "id": "24294980638",
+      "bank": "Ipak Yuli Bank",
+      "name": "Ipak Yuli Bank",
+      "address": "Toshkent, Kichik halqa yo‘li, 76",
+      "hours": "24/7",
+      "lat": 41.345597,
+      "lng": 69.261276,
+      "source": "Yandex Maps UI",
+      "sourceUrl": "https://yandex.uz/maps/org/ipak_yuli_bank/24294980638/"
+    }
+  ]
+}

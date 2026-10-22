@@ -157,6 +157,20 @@ app.get("/api/branches", async (_request, response) => {
   }
 });
 
+app.get("/api/branches/yandex", async (_request, response) => {
+  try {
+    response.json(await getYandexBranchDataset());
+  } catch (error) {
+    response.status(503).json({ error: "yandex_branches_unavailable", message: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
+export async function getYandexBranchDataset() {
+  const dataset = JSON.parse(await readFile(join(DATA_DIR, "yandex-branches.json"), "utf8"));
+  if (!dataset.expiresAt || Date.parse(dataset.expiresAt) <= Date.now()) throw new Error("Yandex branch cache is expired");
+  return dataset;
+}
+
 /** All ~75 CBU currencies (official rate per Nominal units), with names in uz / uz-Cyrillic / ru / en. */
 let cbuFullCache = null;
 async function getCbuFull() {

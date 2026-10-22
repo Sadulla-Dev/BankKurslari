@@ -330,6 +330,31 @@ Object.assign(importers, {
       await sleep(400);
     }
     return out;
+  },
+
+  async "Xalq banki"() {
+    // filial_type=filial selects offices only (slug "filial", title "BSC"); omitting it also returns ATMs/minibanks.
+    // The ?lang=uz query alone is ignored; the API only switches language off these two headers together.
+    const j = await getJson("https://xb.uz/api/v1/filial/client/default?filial_type=filial&lang=uz", {
+      headers: { "Accept-Language": "uz", "X-Localization": "uz" }
+    });
+    return (j.data || []).map((x) =>
+      item("Xalq banki", x.title, x.address, [x.work_day, x.work_hour].filter(Boolean).join(" "), x.latitude, x.longitude, "xb.uz"));
+  },
+
+  async "Ipak Yuli Bank"() {
+    // Same feed the bank's own Yandex-map page (api.ipakyulibank.uz/uz/branches-on-map) reads; "banks" = branches,
+    // "ec" = express centers (mini-banks), both keyed by id. "atm" is excluded.
+    const j = await getJson("https://api.ipakyulibank.uz/site/get-map-content");
+    const rows = [...Object.values(j.banks || {}), ...Object.values(j.ec || {})];
+    return rows.map((x) => item("Ipak Yuli Bank", x.name, x.address, null, x.x, x.y, "ipakyulibank.uz"));
+  },
+
+  async BRB() {
+    // Same feed brb.uz's own branch-map page reads; path found by reading the page's inline
+    // script (fetch(`/api/locations/${type}_${lang}`)) and probing type names ("branches", not "offices").
+    const rows = await getJson("https://brb.uz/api/locations/branches_uz");
+    return rows.map((x) => item("BRB", x.title, x.address, x.hours, x.coords?.[0], x.coords?.[1], "brb.uz"));
   }
 });
 

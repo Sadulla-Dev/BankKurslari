@@ -10,6 +10,8 @@
 import { mkdir, readFile, rm, writeFile, copyFile, readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.SITE_DIR || join(ROOT, "worker", "public");
@@ -17,6 +19,7 @@ const STATE = join(SITE, "_state");
 const mode = process.argv[2] === "full" ? "full" : "rates";
 const seed = process.argv.includes("--seed");
 const STATE_URL = (process.env.STATE_URL || "").replace(/\/$/, "");
+const execFileAsync = promisify(execFile);
 
 async function put(path, data) {
   const file = join(SITE, path);
@@ -28,7 +31,7 @@ async function pullPrevious() {
   if (seed) {
     await mkdir(STATE, { recursive: true });
     for (const f of await readdir(join(ROOT, "data"))) {
-      if (/^(history-|bank-history-|gold-history|official-branches)/.test(f)) await copyFile(join(ROOT, "data", f), join(STATE, f));
+      if (/^(history-|bank-history-|gold-history|official-branches|yandex-branches)/.test(f)) await copyFile(join(ROOT, "data", f), join(STATE, f));
     }
     console.log("Seeded state from backend/data");
     return;
@@ -73,6 +76,17 @@ process.env.DATA_DIR = STATE;
 const api = await import("./server.js");
 const now = () => new Date().toISOString();
 
+// Expired Yandex responses must leave both the public dataset and persisted state.
+try {
+  const yandexStateFile = join(STATE, "yandex-branches.json");
+  const yandexState = JSON.parse(await readFile(yandexStateFile, "utf8"));
+  if (!yandexState.expiresAt || Date.parse(yandexState.expiresAt) <= Date.now()) {
+    await rm(yandexStateFile, { force: true });
+  }
+} catch {
+  // No Yandex snapshot has been imported yet.
+}
+
 for (const cur of api.SUPPORTED) {
   await step(`rates ${cur}`, async () => put(`api/rates/${cur}.json`, await api.getRatesPayload(cur, { force: true })));
 }
@@ -80,6 +94,19 @@ await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()
 await step("gold", async () => put("api/gold.json", await api.getGold({ force: true })));
 
 if (mode === "full") {
+  if (process.env.YANDEX_PLACES_KEY) {
+    await step("refresh Yandex branch cache", async () => {
+      const script = join(ROOT, "scripts", "import-yandex-branches.mjs");
+      const { stdout, stderr } = await execFileAsync(process.execPath, [script], {
+        env: { ...process.env, DATA_DIR: STATE },
+        maxBuffer: 4 * 1024 * 1024
+      });
+      if (stdout) process.stdout.write(stdout);
+      if (stderr) process.stderr.write(stderr);
+    });
+  } else {
+    console.log("skip refresh Yandex branch cache (YANDEX_PLACES_KEY is not set)");
+  }
   for (const cur of api.SUPPORTED) {
     await step(`history ${cur}`, async () => {
       const points = await api.getHistory(cur, { force: true });
@@ -91,6 +118,14 @@ if (mode === "full") {
   await step("branches", async () => {
     const branches = await api.getBranches({ force: true });
     await put("api/branches.json", { updatedAt: now(), count: branches.length, branches });
+  });
+  await step("Yandex branches", async () => {
+    try {
+      await put("api/branches/yandex.json", await api.getYandexBranchDataset());
+    } catch (error) {
+      await rm(join(STATE, "yandex-branches.json"), { force: true });
+      throw error;
+    }
   });
   await step("atms", async () => {
     const atms = await api.getAtms({ force: true });
