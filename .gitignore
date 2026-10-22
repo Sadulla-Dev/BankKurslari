@@ -28,3 +28,4 @@ backend/data/gold-history.json
 backend/data/official-branches.json
 backend/worker/public/
 backend/worker/.wrangler/
+web/.wrangler/

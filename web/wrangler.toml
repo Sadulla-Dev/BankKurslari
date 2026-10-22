@@ -1,0 +1,12 @@
+# qulaykurs.uz: the static site in ./public. Reads api.qulaykurs.uz from the browser (CORS is open there).
+name = "qulaykurs-web"
+compatibility_date = "2026-10-01"
+workers_dev = true
+routes = [
+  { pattern = "qulaykurs.uz", custom_domain = true },
+  { pattern = "www.qulaykurs.uz", custom_domain = true }
+]
+
+[assets]
+directory = "public"
+not_found_handling = "single-page-application"
