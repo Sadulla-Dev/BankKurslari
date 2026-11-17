@@ -1,4 +1,4 @@
-// qulaykurs.uz — the web version of the app. Reads the same public API (api.qulaykurs.uz, rebuilt every 20 min).
+// qulaykurs.uz — the web version of the app. Reads the same public API (api.qulaykurs.uz, rebuilt hourly).
 "use strict";
 
 const API = "https://api.qulaykurs.uz";
@@ -6,7 +6,7 @@ const TASHKENT = [41.3111, 69.2797]; // [lat, lng]
 const CURS = ["USD", "EUR", "RUB"];
 const BRANCH_ZOOM = 14;
 const MAX_MAP_CANDS = 600; // hard cap on candidates before the per-marker project+overlap pass, independent of branch count
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const MAP_STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 const ROUTES = { "": "rates", "xarita": "map", "tarix": "history" };
 
 /* ---------- i18n ---------- */
@@ -28,7 +28,7 @@ const T = {
     "store.soon": "Tez kunda", "hist.cbu": "Markaziy bank kursi",
     "spread.buy": "Bugun eng yuqori xarid", "spread.sell": "Bugun eng past sotuv",
     "spread.note": "Xarid — bank sizdan valyutani oladigan narx. Sotuv — bank sizga sotadigan narx.",
-    "foot.src": "Ma’lumotlar: cbu.uz va bank.uz · har 20 daqiqada yangilanadi", "foot.note": "Kurslar ma’lumot uchun. Bitim oldidan bank bilan aniqlashtiring.",
+    "foot.updated": "Har soatda yangilanadi", "theme.dark": "Qorong‘i rejim", "theme.light": "Yorug‘ rejim",
     "sh.buys": "Bank sotib oladi", "sh.sells": "Bank sotadi", "sh.near": "Eng yaqin filiallar", "sh.showMap": "Xaritada", "sh.go": "Yo‘nalish",
     title: { USD: "Banklarda dollar kursi", EUR: "Banklarda yevro kursi", RUB: "Banklarda rubl kursi" },
     tblSub: (n, t, s) => `${n} bank · ${t} holatiga · ${s}`,
@@ -63,7 +63,7 @@ const T = {
     "store.soon": "Скоро", "hist.cbu": "Курс Центрального банка",
     "spread.buy": "Лучшая покупка сегодня", "spread.sell": "Лучшая продажа сегодня",
     "spread.note": "Покупка — цена, по которой банк берёт у вас валюту. Продажа — цена, по которой продаёт вам.",
-    "foot.src": "Данные: cbu.uz и bank.uz · обновляется каждые 20 минут", "foot.note": "Курсы носят справочный характер. Уточняйте в банке перед сделкой.",
+    "foot.updated": "Обновляется каждый час", "theme.dark": "Тёмная тема", "theme.light": "Светлая тема",
     "sh.buys": "Банк покупает", "sh.sells": "Банк продаёт", "sh.near": "Ближайшие филиалы", "sh.showMap": "На карте", "sh.go": "Маршрут",
     title: { USD: "Курс доллара в банках", EUR: "Курс евро в банках", RUB: "Курс рубля в банках" },
     tblSub: (n, t, s) => `${n} банков · на ${t} · ${s}`,
@@ -98,7 +98,7 @@ const T = {
     "store.soon": "Coming soon", "hist.cbu": "Central Bank rate",
     "spread.buy": "Best buy rate today", "spread.sell": "Best sell rate today",
     "spread.note": "Buy is what a bank pays you for currency. Sell is what it charges you.",
-    "foot.src": "Data: cbu.uz and bank.uz · updated every 20 minutes", "foot.note": "Rates are for reference. Confirm with the bank before you exchange.",
+    "foot.updated": "Updated every hour", "theme.dark": "Dark mode", "theme.light": "Light mode",
     "sh.buys": "Bank buys at", "sh.sells": "Bank sells at", "sh.near": "Nearest branches", "sh.showMap": "Show on map", "sh.go": "Directions",
     title: { USD: "Dollar rates at banks", EUR: "Euro rates at banks", RUB: "Ruble rates at banks" },
     tblSub: (n, t, s) => `${n} banks · as of ${t} · ${s}`,
@@ -149,6 +149,7 @@ function detectLang() {
 
 const S = {
   lang: detectLang(),
+  dark: store.get("theme") ? store.get("theme") === "dark" : window.matchMedia?.("(prefers-color-scheme: dark)").matches === true,
   view: "rates",
   mode: store.get("mode") === "buy" ? "buy" : "sell",
   cur: CURS.includes(store.get("cur")) ? store.get("cur") : "USD",
@@ -462,8 +463,6 @@ function renderTable() {
   document.querySelectorAll(".tbl th button").forEach((b) => b.classList.toggle("on", b.dataset.sort === S.sort));
   if (!d) { $("tbody").innerHTML = '<tr class="skel-row"><td colspan="5"></td></tr>'.repeat(6); return; }
   setText("tblSub", t.tblSub(d.banks.length, tashkentTime(d.updatedAt), t.sortBy[S.sort]));
-  setText("tblFoot", t["foot.src"] + ". " + t["foot.note"]);
-
   const list = ranked(d);
   if (!list.length) return;
   const best = list[0];
@@ -579,7 +578,6 @@ function renderSheet(bank, list) {
       else { await navigator.clipboard.writeText(text + " https://qulaykurs.uz"); toast(t.copied); }
     } catch { /* dismissed */ }
   };
-  $("shSrc").innerHTML = bank.sourceUrl ? `${t.src}: <a href="${esc(bank.sourceUrl)}" target="_blank" rel="noopener">bank.uz</a>` : "";
 }
 function todayDelta(bankName) {
   const days = S.bankHist[S.cur];
@@ -607,7 +605,7 @@ function ensureMap() {
     const start = () => {
       const c = S.user || TASHKENT;
       const map = new maplibregl.Map({
-        container: "mapgl", style: MAP_STYLE, center: [c[1], c[0]], zoom: S.user ? 14 : 12.6,
+        container: "mapgl", style: MAP_STYLES[S.dark ? "dark" : "light"], center: [c[1], c[0]], zoom: S.user ? 14 : 12.6,
         attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false
       });
       map.touchZoomRotate.disableRotation();
@@ -849,13 +847,35 @@ function applyLang() {
   document.documentElement.lang = S.lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { const v = t[el.dataset.i18n]; if (typeof v === "string") el.textContent = v; });
   document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === S.lang));
+  const themeLabel = S.dark ? t["theme.light"] : t["theme.dark"];
+  $("themeToggle").setAttribute("aria-label", themeLabel);
+  $("themeToggle").setAttribute("title", themeLabel);
   document.title = `Qulay Kurs — ${t.title[S.cur].toLowerCase()}`;
   renderAll();
   if (S.sheetBank) { const list = ranked(S.rates[S.cur]); const b = list.find((x) => x.bank === S.sheetBank); if (b) renderSheet(b, list); }
 }
 
+function applyTheme() {
+  document.documentElement.dataset.theme = S.dark ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]').content = S.dark ? "#111714" : "#F4F5F2";
+  if (S.map) S.map.setStyle(MAP_STYLES[S.dark ? "dark" : "light"]);
+  if (S.view === "map") renderMap();
+  applyLang();
+}
+
 function bind() {
   addEventListener("hashchange", route);
+  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", (event) => {
+    if (!store.get("theme")) {
+      S.dark = event.matches;
+      applyTheme();
+    }
+  });
+  $("themeToggle").addEventListener("click", () => {
+    S.dark = !S.dark;
+    store.set("theme", S.dark ? "dark" : "light");
+    applyTheme();
+  });
   document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => { S.lang = b.dataset.lang; store.set("lang", S.lang); applyLang(); }));
   document.addEventListener("click", (e) => {
     const cur = e.target.closest(".curSeg button, .cbu-c");
@@ -921,6 +941,7 @@ async function init() {
   renderQuick();
   bind();
   applyLang();
+  applyTheme();
   route();
   if (store.get("loc") === "1" && navigator.permissions) {
     navigator.permissions.query({ name: "geolocation" }).then((p) => {
@@ -935,7 +956,7 @@ async function init() {
     S.rates = {}; S.bankHist = {};
     for (const k of Object.keys(inflight)) if (k[0] === "r" || k[0] === "b") delete inflight[k];
     try { await Promise.all(CURS.map(loadRates)); renderAll(); } catch { /* keep old */ }
-  }, 10 * 60 * 1000);
+  }, 60 * 60 * 1000);
 }
 
 init();

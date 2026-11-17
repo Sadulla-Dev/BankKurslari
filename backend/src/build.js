@@ -1,6 +1,6 @@
 // Builds the public API as static JSON files for the Cloudflare Worker (worker/public), then wrangler deploys them.
 //
-//   node src/build.js rates   every ~20 min: bank rates, CBU list, gold
+//   node src/build.js rates   hourly: bank rates, CBU list, gold
 //   node src/build.js full    twice a day: everything (adds branches, ATMs, CBU history, analytics)
 //
 // State that cannot be re-downloaded (collected bank/gold history, CBU history cache, official branch cache) lives in

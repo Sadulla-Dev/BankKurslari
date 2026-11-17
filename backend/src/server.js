@@ -348,8 +348,8 @@ async function loadBankHistory(cur) {
 }
 
 /**
- * Per day and bank: the first and the latest buy/sell seen that day.
- * { "2026-10-17": { "Infinbank": { first: [buy, sell], last: [buy, sell], at: "12:31" } } }
+ * Per day and bank: first/latest quote plus timestamped refresh samples for later analysis.
+ * { "2026-10-17": { "Infinbank": { first: [buy, sell], last: [buy, sell], at: "12:31", samples: [{ at, buy, sell }] } } }
  */
 async function recordBankHistory(cur, banks) {
   if (!banks.length) return;
@@ -359,7 +359,11 @@ async function recordBankHistory(cur, banks) {
   const today = (data[day] ||= {});
   for (const b of banks) {
     const pair = [Number.isFinite(b.buy) ? b.buy : null, Number.isFinite(b.sell) ? b.sell : null];
-    const entry = (today[b.bank] ||= { first: pair, last: pair, at: time });
+    const entry = (today[b.bank] ||= { first: pair, last: pair, at: time, samples: [] });
+    entry.samples ||= [];
+    const sample = { at: time, buy: pair[0], sell: pair[1] };
+    const previous = entry.samples[entry.samples.length - 1];
+    if (!previous || previous.at !== time) entry.samples.push(sample);
     entry.last = pair;
     entry.at = time;
   }

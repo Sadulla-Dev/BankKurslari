@@ -1,4 +1,4 @@
-# Rebuilds the public API (api.qulaykurs.uz) from bank.uz / cbu.uz / bank sites and redeploys the Cloudflare Worker.
+# Rebuilds the public API (api.qulaykurs.uz) and redeploys the Cloudflare Worker.
 # Needs repo secrets CLOUDFLARE_API_TOKEN (Workers Scripts: Edit) and CLOUDFLARE_ACCOUNT_ID.
 # Scheduled runs only fire from the default branch (main).
 name: API data
@@ -11,8 +11,7 @@ on:
       - "backend/**"
       - ".github/workflows/api-data.yml"
   schedule:
-    - cron: "*/20 3-14 * * *"    # 08:00-19:59 Tashkent: rates every 20 min
-    - cron: "0 15-23,0-2 * * *"  # night: hourly
+    - cron: "0 * * * *"          # rates every hour
     - cron: "15 1,13 * * *"      # 06:15 and 18:15 Tashkent: full rebuild (branches, ATMs, CBU history)
   workflow_dispatch:
     inputs:
