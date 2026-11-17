@@ -423,7 +423,7 @@ fun MapScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    BankTile(mapInitials(pin.title), best = pin.good)
+                    BankTile(rb.rate.bank, best = pin.good)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(pin.title, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(line, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -532,7 +532,7 @@ private fun MapListRow(rank: Int, rb: RankedBank, good: Boolean, onClick: () -> 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        BankTile(mapInitials(rb.rate.bank), best = good, size = 36.dp)
+        BankTile(rb.rate.bank, best = good, size = 36.dp)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(rb.rate.bank, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -542,16 +542,6 @@ private fun MapListRow(rank: Int, rb: RankedBank, good: Boolean, onClick: () -> 
             Text(unit, style = VsType.Meta, color = VsInkSoft)
         }
     }
-}
-
-/** Two-letter tile mark: "Orient Finans Bank" -> "OF", "NBU" -> "NB". */
-private fun mapInitials(name: String): String {
-    val words = name.trim().replace(Regex("(?i)\\s*(aksiyadorlik|tijorat|banki|bank)\\b"), "").trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-    return when {
-        words.size >= 2 -> "${words[0].first()}${words[1].first()}"
-        words.size == 1 -> words[0].take(2)
-        else -> name.take(2)
-    }.uppercase()
 }
 
 /** Floating currency capsule: white pill, the selected cell is a ground thumb with a hairline shadow. */

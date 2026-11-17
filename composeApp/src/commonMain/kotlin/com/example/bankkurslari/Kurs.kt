@@ -382,16 +382,6 @@ private fun sortLabel(s: KursSort): String = when (s) {
     KursSort.OPEN -> tr("Ochiq hozir", "Открыто сейчас", "Open now")
 }
 
-/** "OF" for "Orient Finans Bank", "BR" for "BRB", "MB" for "Milliy bank". */
-private fun bankInitials(name: String): String {
-    val words = name.trim().split(' ', '-', '.').filter { it.isNotEmpty() }
-    return when {
-        words.size >= 2 -> "${words[0].first()}${words[1].first()}"
-        words.size == 1 -> words[0].take(2)
-        else -> "?"
-    }.uppercase()
-}
-
 private const val PREVIEW_BANKS = 4
 
 /** Room the amount dock takes at the bottom of the list. */
@@ -958,7 +948,7 @@ private fun SlipResult(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            BankTile(bankInitials(best.rate.bank), best = true)
+            BankTile(best.rate.bank, best = true)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(best.rate.bank, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (meta.isNotEmpty()) Text(meta, style = VsType.Meta, color = VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1097,7 +1087,7 @@ private fun BankListRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        BankTile(bankInitials(item.rate.bank), size = 36.dp)
+        BankTile(item.rate.bank, size = 36.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

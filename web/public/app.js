@@ -204,6 +204,45 @@ function initials(name) {
   const words = s.split(/\s+/).filter(Boolean);
   return (words.length > 1 ? words[0][0] + words[1][0] : s.slice(0, 2)).toUpperCase();
 }
+function logoSlug(name) {
+  const key = bankKey(name);
+  if (key.includes("anor")) return "anorbank";
+  if (key.includes("hayot")) return "hayot-bank";
+  if (key.includes("tenge")) return "tenge-bank";
+  if (key.includes("infin")) return "infinbank";
+  if (key.includes("hamkor")) return "hamkorbank";
+  if (key.includes("agro")) return "agrobank";
+  if (key.includes("trast") || key.includes("trust")) return "trastbank";
+  if (key.includes("universal")) return "universal-bank";
+  if (key.includes("poytaxt")) return "poytaxt-bank";
+  if (key.includes("ipoteka")) return "ipoteka-bank";
+  if (key.includes("asiaalliance")) return "asia-alliance";
+  if (key.includes("aloqa")) return "aloqabank";
+  if (key.includes("garant")) return "garant-bank";
+  if (key.includes("turon")) return "turonbank";
+  if (key.includes("orientfinans") || key.includes("orientfinance")) return "orient-finans";
+  if (key.includes("sanoatqurilish") || key === "sqb") return "sqb";
+  if (key.includes("mkbank") || key.includes("mikrokredit")) return "mkbank";
+  if (key.includes("xalq")) return "xalq-bank";
+  if (key.includes("ipakyuli")) return "ipak-yuli";
+  if (key === "brb") return "brb";
+  if (key.includes("asaka")) return "asakabank";
+  if (key.includes("apex")) return "apexbank";
+  if (key.includes("milliy") || key === "nbu") return "nbu";
+  if (key.includes("openbank")) return "openbank";
+  if (key.includes("ziraat")) return "ziraat-bank";
+  if (key.includes("octo")) return "octobank";
+  if (key.startsWith("kdb")) return "kdb-bank";
+  if (key.includes("kapital")) return "kapitalbank";
+  return null;
+}
+function badgeHTML(name, extra = "") {
+  const slug = logoSlug(name);
+  const fallback = esc(initials(name));
+  return slug
+    ? `<span class="badge${extra ? ` ${extra}` : ""}"><img src="/bank-logos/${slug}.png" alt="${esc(name)} logosi" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="badge-fallback" hidden>${fallback}</span></span>`
+    : `<span class="badge${extra ? ` ${extra}` : ""}">${fallback}</span>`;
+}
 const bankKey = (n) => n.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 function keysMatch(a, b) {
   if (!a || !b) return false;
@@ -370,7 +409,7 @@ function renderConv() {
   const best = list[0];
   animateNumber($("total"), best.rate * S.amount);
   setText("totalCap", (S.mode === "sell" ? t.perUnit : t.perUnitBuy)(rateFmt(best.rate), unit(S.cur, 1), list.length));
-  setText("bestBadge", initials(best.bank));
+  $("bestBadge").outerHTML = badgeHTML(best.bank).replace("class=\"badge", "id=\"bestBadge\" class=\"badge");
   setText("bestName", best.bank);
   const nb = nearestBranch(best, S.user);
   setText("bestSub", nb?.km != null ? t.away(kmFmt(nb.km)) + (nb.address ? " · " + cleanAddr(nb.address) : "") : cleanAddr(nb?.address || best.branch?.address));
@@ -446,7 +485,7 @@ function renderTable() {
     const isBest = diff < 0.5;
     const sub = b.nb?.km != null ? t.away(kmFmt(b.nb.km)) : cleanAddr(b.nb?.address || b.branch?.address);
     return `<tr data-bank="${esc(b.bank)}" class="${isBest ? "top1" : ""}">
-      <td class="c-bank"><span class="bn"><span class="badge${isBest ? " accent" : ""}">${esc(initials(b.bank))}</span><span><b>${esc(b.bank)}</b><small>${esc(sub)}</small></span></span></td>
+      <td class="c-bank"><span class="bn">${badgeHTML(b.bank, isBest ? "accent" : "")}<span><b>${esc(b.bank)}</b><small>${esc(sub)}</small></span></span></td>
       <td class="num c-buy ${b.buy === maxBuy ? "hi" : ""}">${b.buy ? rateFmt(b.buy) : "—"}</td>
       <td class="num c-sell ${b.sell === minSell ? "hi" : ""}">${b.sell ? rateFmt(b.sell) : "—"}</td>
       <td class="num c-get get"><b>${group(b.rate * S.amount)}</b><small class="${isBest ? "best" : ""}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(group(diff))}</small></td>
@@ -483,8 +522,7 @@ function closeSheet() {
 function renderSheet(bank, list) {
   const t = L();
   const best = list[0];
-  setText("shBadge", initials(bank.bank));
-  $("shBadge").className = "badge" + (bank.rate === best.rate ? " accent" : "");
+  $("shBadge").outerHTML = badgeHTML(bank.bank, bank.rate === best.rate ? "accent" : "").replace("class=\"badge", "id=\"shBadge\" class=\"badge");
   setText("shName", bank.bank);
   const nb = nearestBranch(bank, S.user);
   setText("shSub", nb?.km != null ? t.away(kmFmt(nb.km)) : cleanAddr(nb?.address));
@@ -673,7 +711,7 @@ function renderMap() {
     const isBest = diff < 0.005;
     const sub = [S.user && nb ? t.km(kmFmt(distKm(S.user, [nb.lat, nb.lng]))) : "", nb ? addrParts(nb.address)[0] : ""].filter(Boolean).join(" · ");
     return `<button type="button" class="si${bank.bank === S.hl ? " on" : ""}" data-bank="${esc(bank.bank)}" data-lat="${nb?.lat ?? ""}" data-lng="${nb?.lng ?? ""}">
-      <span class="badge${isBest ? " accent" : ""}">${esc(initials(bank.bank))}</span>
+      ${badgeHTML(bank.bank, isBest ? "accent" : "")}
       <span><b>${esc(bank.bank)}</b><small>${esc(sub)}</small></span>
       <span class="r"><b>${rateFmt(bank.rate)}</b><small class="${isBest ? "best" : "warn"}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(rateFmt(diff))}</small></span>
     </button>`;
@@ -685,7 +723,7 @@ function renderMap() {
   if (!top) { card.hidden = true; return; }
   const nb = nearestBranch(top, ref);
   card.hidden = false;
-  setText("mcBadge", initials(top.bank));
+  $("mcBadge").outerHTML = badgeHTML(top.bank).replace("class=\"badge", "id=\"mcBadge\" class=\"badge");
   setText("mcName", top.bank);
   setText("mcSub", t.mapBest(group(S.amount), unit(S.cur, S.amount)) + (S.user && nb ? ", " + t.km(kmFmt(distKm(S.user, [nb.lat, nb.lng]))) : ""));
   $("mcGo").href = nb ? directions(nb.lat, nb.lng) : "#";

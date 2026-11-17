@@ -109,7 +109,7 @@ fun BankSheet(
             // header: tile, name, open line, save
             val isBest = best != null && best.rate.bank == item.rate.bank
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BankTile(sheetBankInitials(item.rate.bank), size = 44.dp, best = isBest)
+                BankTile(item.rate.bank, size = 44.dp, best = isBest)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         item.rate.bank, style = VsType.Title.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
@@ -234,15 +234,6 @@ fun BankSheet(
         }
     }
     }
-}
-
-private fun sheetBankInitials(name: String): String {
-    val words = name.trim().split(' ', '-', '.').filter { it.isNotBlank() }
-    return when {
-        words.isEmpty() -> "?"
-        words.size == 1 -> words[0].take(2)
-        else -> "${words[0].first()}${words[1].first()}"
-    }.uppercase()
 }
 
 /**

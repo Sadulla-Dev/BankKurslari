@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -49,6 +51,37 @@ import com.example.bankkurslari.ui.theme.VsRoseMark
 import com.example.bankkurslari.ui.theme.VsRoseText
 import com.example.bankkurslari.ui.theme.VsTile
 import com.example.bankkurslari.ui.theme.VsType
+import com.example.bankkurslari.generated.Res
+import com.example.bankkurslari.generated.bank_agrobank
+import com.example.bankkurslari.generated.bank_aloqabank
+import com.example.bankkurslari.generated.bank_anorbank
+import com.example.bankkurslari.generated.bank_apexbank
+import com.example.bankkurslari.generated.bank_asakabank
+import com.example.bankkurslari.generated.bank_asia_alliance
+import com.example.bankkurslari.generated.bank_brb
+import com.example.bankkurslari.generated.bank_garant_bank
+import com.example.bankkurslari.generated.bank_hamkorbank
+import com.example.bankkurslari.generated.bank_hayot_bank
+import com.example.bankkurslari.generated.bank_infinbank
+import com.example.bankkurslari.generated.bank_ipak_yuli
+import com.example.bankkurslari.generated.bank_ipoteka_bank
+import com.example.bankkurslari.generated.bank_kapitalbank
+import com.example.bankkurslari.generated.bank_kdb_bank
+import com.example.bankkurslari.generated.bank_mkbank
+import com.example.bankkurslari.generated.bank_nbu
+import com.example.bankkurslari.generated.bank_octobank
+import com.example.bankkurslari.generated.bank_openbank
+import com.example.bankkurslari.generated.bank_orient_finans
+import com.example.bankkurslari.generated.bank_poytaxt_bank
+import com.example.bankkurslari.generated.bank_sqb
+import com.example.bankkurslari.generated.bank_tenge_bank
+import com.example.bankkurslari.generated.bank_trastbank
+import com.example.bankkurslari.generated.bank_turonbank
+import com.example.bankkurslari.generated.bank_universal_bank
+import com.example.bankkurslari.generated.bank_xalq_bank
+import com.example.bankkurslari.generated.bank_ziraat_bank
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 
 /*
  * Single design system (kurs-redesign). Every screen builds from these:
@@ -99,15 +132,60 @@ fun VsDivider(modifier: Modifier = Modifier) {
     Box(modifier.padding(horizontal = 16.dp).fillMaxWidth().height(1.dp).background(VsHair.copy(alpha = 0.7f)))
 }
 
-/** Two-letter bank mark. [best] = the one teal tile on screen. */
+/** Official bank mark, with initials as a fallback. */
 @Composable
-fun BankTile(initials: String, modifier: Modifier = Modifier, best: Boolean = false, size: Dp = 40.dp) {
+fun BankTile(bank: String, modifier: Modifier = Modifier, best: Boolean = false, size: Dp = 40.dp) {
     val shape = RoundedCornerShape(if (size >= 44.dp) 14.dp else if (size >= 40.dp) 12.dp else 11.dp)
+    val logo = bankLogoResource(bank)
     Box(
-        modifier.size(size).clip(shape).background(if (best) VsEmerald else VsTile),
+        modifier.size(size).clip(shape)
+            .background(if (logo != null) Color.White else if (best) VsEmerald else VsTile)
+            .border(BorderStroke(if (best) 2.dp else 1.dp, if (best) VsEmerald else VsHair), shape),
         contentAlignment = Alignment.Center
     ) {
-        Text(initials, style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = if (best) VsOnAccent else com.example.bankkurslari.ui.theme.VsInk.copy(alpha = 0.78f))
+        if (logo != null) {
+            Image(painterResource(logo), contentDescription = "$bank logo", contentScale = ContentScale.Fit, modifier = Modifier.size(size * 0.78f))
+        } else {
+            Text(bankInitials(bank), style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = if (best) VsOnAccent else com.example.bankkurslari.ui.theme.VsInk.copy(alpha = 0.78f))
+        }
+    }
+}
+
+private fun bankInitials(name: String): String = name.trim().split(Regex("\\s+"))
+    .filter(String::isNotBlank).take(2).mapNotNull { it.firstOrNull()?.uppercase() }.joinToString("").ifEmpty { "?" }
+
+private fun bankLogoResource(name: String): DrawableResource? {
+    val key = name.lowercase().filter(Char::isLetterOrDigit)
+    return when {
+        "anor" in key -> Res.drawable.bank_anorbank
+        "hayot" in key -> Res.drawable.bank_hayot_bank
+        "tenge" in key -> Res.drawable.bank_tenge_bank
+        "infin" in key -> Res.drawable.bank_infinbank
+        "hamkor" in key -> Res.drawable.bank_hamkorbank
+        "agro" in key -> Res.drawable.bank_agrobank
+        "trast" in key || "trust" in key -> Res.drawable.bank_trastbank
+        "universal" in key -> Res.drawable.bank_universal_bank
+        "poytaxt" in key -> Res.drawable.bank_poytaxt_bank
+        "ipoteka" in key -> Res.drawable.bank_ipoteka_bank
+        "asiaalliance" in key -> Res.drawable.bank_asia_alliance
+        "aloqa" in key -> Res.drawable.bank_aloqabank
+        "garant" in key -> Res.drawable.bank_garant_bank
+        "turon" in key -> Res.drawable.bank_turonbank
+        "orientfinans" in key || "orientfinance" in key -> Res.drawable.bank_orient_finans
+        "sanoatqurilish" in key || key == "sqb" -> Res.drawable.bank_sqb
+        "mkbank" in key || "mikrokredit" in key -> Res.drawable.bank_mkbank
+        "xalq" in key -> Res.drawable.bank_xalq_bank
+        "ipakyuli" in key -> Res.drawable.bank_ipak_yuli
+        key == "brb" -> Res.drawable.bank_brb
+        "asaka" in key -> Res.drawable.bank_asakabank
+        "apex" in key -> Res.drawable.bank_apexbank
+        "milliy" in key || key == "nbu" -> Res.drawable.bank_nbu
+        "openbank" in key -> Res.drawable.bank_openbank
+        "ziraat" in key -> Res.drawable.bank_ziraat_bank
+        "octo" in key -> Res.drawable.bank_octobank
+        key.startsWith("kdb") -> Res.drawable.bank_kdb_bank
+        "kapital" in key -> Res.drawable.bank_kapitalbank
+        else -> null
     }
 }
 
