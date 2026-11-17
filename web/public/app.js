@@ -363,7 +363,7 @@ function route() {
   document.querySelectorAll(".tabs-nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === S.view));
   if (S.view === "map") {
     refreshMapData();
-    ensureMap().then(scheduleMapRender).catch((error) => console.error("Map initialization failed:", error));
+    ensureMap().then(() => { syncMapTheme(); scheduleMapRender(); }).catch((error) => console.error("Map initialization failed:", error));
   }
   if (S.view === "history") renderHistory();
   scrollTo(0, 0);
@@ -605,6 +605,7 @@ function setDelta(el, d) {
 
 let mapReady = null;
 let mapRenderFrame = 0;
+let mapDarkMode = null;
 function scheduleMapRender() {
   if (mapRenderFrame) return;
   mapRenderFrame = requestAnimationFrame(() => {
@@ -632,6 +633,7 @@ function ensureMap() {
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       S.map = map;
+      mapDarkMode = S.dark;
       // Coalesced: a mouse-wheel zoom fires one moveend per tick, and with a large branch dataset each
       // render rebuilds up to 150 DOM markers — running that for every tick in a fast scroll backs up
       // the main thread into a visible freeze. Only the last moveend in a burst actually renders.
@@ -884,10 +886,13 @@ function applyTheme() {
   document.documentElement.dataset.theme = S.dark ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = S.dark ? "#111714" : "#F4F5F2";
   updateThemeControl();
-  if (S.map) {
-    S.map.setStyle(MAP_STYLES[S.dark ? "dark" : "light"]);
-    S.map.once("style.load", () => { if (S.view === "map") renderMap(); });
-  }
+}
+
+function syncMapTheme() {
+  if (!S.map || S.view !== "map" || mapDarkMode === S.dark) return;
+  mapDarkMode = S.dark;
+  S.map.setStyle(MAP_STYLES[S.dark ? "dark" : "light"]);
+  S.map.once("style.load", scheduleMapRender);
 }
 
 function bind() {
@@ -896,6 +901,7 @@ function bind() {
     if (!store.get("theme")) {
       S.dark = event.matches;
       applyTheme();
+      syncMapTheme();
     }
   });
   $("themeToggle").addEventListener("click", (event) => {
@@ -916,10 +922,12 @@ function bind() {
         document.documentElement.classList.remove("theme-to-dark", "theme-to-light");
         document.documentElement.style.removeProperty("--theme-x");
         document.documentElement.style.removeProperty("--theme-y");
+        syncMapTheme();
       };
       transition.finished.then(clearOrigin, clearOrigin);
     } else {
       applyTheme();
+      syncMapTheme();
     }
   });
   document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => { S.lang = b.dataset.lang; store.set("lang", S.lang); applyLang(); }));
