@@ -8,6 +8,7 @@ const BRANCH_ZOOM = 14;
 const MAX_MAP_CANDS = 600; // hard cap on candidates before the per-marker project+overlap pass, independent of branch count
 const MAP_STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 const ROUTES = { "": "rates", "xarita": "map", "tarix": "history" };
+let themeTransitionId = 0;
 
 /* ---------- i18n ---------- */
 
@@ -847,20 +848,26 @@ function applyLang() {
   document.documentElement.lang = S.lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { const v = t[el.dataset.i18n]; if (typeof v === "string") el.textContent = v; });
   document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === S.lang));
-  const themeLabel = S.dark ? t["theme.light"] : t["theme.dark"];
-  $("themeToggle").setAttribute("aria-label", themeLabel);
-  $("themeToggle").setAttribute("title", themeLabel);
+  updateThemeControl();
   document.title = `Qulay Kurs — ${t.title[S.cur].toLowerCase()}`;
   renderAll();
   if (S.sheetBank) { const list = ranked(S.rates[S.cur]); const b = list.find((x) => x.bank === S.sheetBank); if (b) renderSheet(b, list); }
 }
 
+function updateThemeControl() {
+  const label = S.dark ? L()["theme.light"] : L()["theme.dark"];
+  $("themeToggle").setAttribute("aria-label", label);
+  $("themeToggle").setAttribute("title", label);
+}
+
 function applyTheme() {
   document.documentElement.dataset.theme = S.dark ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]').content = S.dark ? "#111714" : "#F4F5F2";
-  if (S.map) S.map.setStyle(MAP_STYLES[S.dark ? "dark" : "light"]);
-  if (S.view === "map") renderMap();
-  applyLang();
+  updateThemeControl();
+  if (S.map) {
+    S.map.setStyle(MAP_STYLES[S.dark ? "dark" : "light"]);
+    S.map.once("style.load", () => { if (S.view === "map") renderMap(); });
+  }
 }
 
 function bind() {
@@ -871,10 +878,26 @@ function bind() {
       applyTheme();
     }
   });
-  $("themeToggle").addEventListener("click", () => {
+  $("themeToggle").addEventListener("click", (event) => {
+    const button = $("themeToggle").getBoundingClientRect();
+    const x = event.clientX || button.left + button.width / 2;
+    const y = event.clientY || button.top + button.height / 2;
     S.dark = !S.dark;
     store.set("theme", S.dark ? "dark" : "light");
-    applyTheme();
+    document.documentElement.style.setProperty("--theme-x", `${x}px`);
+    document.documentElement.style.setProperty("--theme-y", `${y}px`);
+    if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const id = ++themeTransitionId;
+      const transition = document.startViewTransition(applyTheme);
+      const clearOrigin = () => {
+        if (id !== themeTransitionId) return;
+        document.documentElement.style.removeProperty("--theme-x");
+        document.documentElement.style.removeProperty("--theme-y");
+      };
+      transition.finished.then(clearOrigin, clearOrigin);
+    } else {
+      applyTheme();
+    }
   });
   document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => { S.lang = b.dataset.lang; store.set("lang", S.lang); applyLang(); }));
   document.addEventListener("click", (e) => {
