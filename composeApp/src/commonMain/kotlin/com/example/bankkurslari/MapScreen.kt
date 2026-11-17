@@ -239,6 +239,7 @@ fun MapScreen(
             sell = direction == ConvertMode.SELL_USD,
             best = best,
             showMyLocation = hasLocation,
+            active = active,
             onPinTap = onPinTap,
             onController = { map = it },
             onTileFailure = { tileFailed = it }

@@ -98,6 +98,7 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
     var best: Int? = null
     var onPinTap: (MapPin) -> Unit = {}
     var onTileFailure: (Boolean) -> Unit = {}
+    var active = false
     var map: MKMapView? = null
     private val images = HashMap<String, UIImage?>()
     private var lastKey: String? = null
@@ -195,6 +196,7 @@ actual fun BankMapView(
     sell: Boolean,
     best: Int?,
     showMyLocation: Boolean,
+    active: Boolean,
     onPinTap: (MapPin) -> Unit,
     onController: (MapController) -> Unit,
     onTileFailure: (Boolean) -> Unit
@@ -233,14 +235,19 @@ actual fun BankMapView(
                 if (darkMode) UIUserInterfaceStyle.UIUserInterfaceStyleDark else UIUserInterfaceStyle.UIUserInterfaceStyleLight
             map.showsUserLocation = showMyLocation
             val changed = state.renderer !== renderer || state.pins !== pins || state.selectedId != selectedId ||
-                state.labelMode != labelMode || state.sell != sell || state.best != best
+                state.labelMode != labelMode || state.sell != sell || state.best != best || state.active != active
             state.renderer = renderer
             state.pins = pins
             state.selectedId = selectedId
             state.labelMode = labelMode
             state.sell = sell
             state.best = best
-            if (changed) state.refresh(force = true)
+            state.active = active
+            if (changed) {
+                map.setNeedsLayout()
+                map.layoutIfNeeded()
+                state.refresh(force = true)
+            }
         },
         properties = UIKitInteropProperties(isInteractive = true, isNativeAccessibilityEnabled = true)
     )

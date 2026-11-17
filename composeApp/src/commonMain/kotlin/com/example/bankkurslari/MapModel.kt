@@ -538,6 +538,7 @@ expect fun BankMapView(
     sell: Boolean,
     best: Int?,
     showMyLocation: Boolean,
+    active: Boolean,
     onPinTap: (MapPin) -> Unit,
     onController: (MapController) -> Unit,
     onTileFailure: (Boolean) -> Unit

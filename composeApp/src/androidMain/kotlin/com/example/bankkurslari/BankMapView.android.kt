@@ -107,6 +107,7 @@ actual fun BankMapView(
     sell: Boolean,
     best: Int?,
     showMyLocation: Boolean,
+    active: Boolean,
     onPinTap: (MapPin) -> Unit,
     onController: (MapController) -> Unit,
     onTileFailure: (Boolean) -> Unit
@@ -138,6 +139,15 @@ actual fun BankMapView(
             .collect { settled = it }
     }
     var viewSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    LaunchedEffect(mapState, active, viewSize) {
+        if (!active || viewSize.width == 0 || viewSize.height == 0) return@LaunchedEffect
+        mapState.viewport?.let { settled = it }
+        // The map may have been composed behind another tab with an empty/stale viewport.
+        // Re-apply its current camera once it is visible and measured so MapLibre publishes the first viewport.
+        runCatching {
+            mapState.animateCamera(mapState.cameraPosition.toCameraUpdate(), CameraAnimation.Ease(1.milliseconds))
+        }
+    }
     val specs = remember(settled, pins, selectedId, labelMode, sell, best, viewSize) {
         val vp = settled ?: return@remember emptyList()
         val sw = vp.visibleBounds.southwest
