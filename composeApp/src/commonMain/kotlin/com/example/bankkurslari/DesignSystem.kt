@@ -59,6 +59,7 @@ import com.example.bankkurslari.generated.bank_apexbank
 import com.example.bankkurslari.generated.bank_asakabank
 import com.example.bankkurslari.generated.bank_asia_alliance
 import com.example.bankkurslari.generated.bank_brb
+import com.example.bankkurslari.generated.bank_davrbank
 import com.example.bankkurslari.generated.bank_garant_bank
 import com.example.bankkurslari.generated.bank_hamkorbank
 import com.example.bankkurslari.generated.bank_hayot_bank
@@ -178,6 +179,7 @@ private fun bankLogoResource(name: String): DrawableResource? {
         "ipakyuli" in key -> Res.drawable.bank_ipak_yuli
         key == "brb" -> Res.drawable.bank_brb
         "asaka" in key -> Res.drawable.bank_asakabank
+        "davr" in key -> Res.drawable.bank_davrbank
         "apex" in key -> Res.drawable.bank_apexbank
         "milliy" in key || key == "nbu" -> Res.drawable.bank_nbu
         "openbank" in key -> Res.drawable.bank_openbank

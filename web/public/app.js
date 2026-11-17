@@ -227,6 +227,7 @@ function logoSlug(name) {
   if (key.includes("ipakyuli")) return "ipak-yuli";
   if (key === "brb") return "brb";
   if (key.includes("asaka")) return "asakabank";
+  if (key.includes("davr")) return "davrbank";
   if (key.includes("apex")) return "apexbank";
   if (key.includes("milliy") || key === "nbu") return "nbu";
   if (key.includes("openbank")) return "openbank";
