@@ -361,7 +361,10 @@ function route() {
   for (const v of ["rates", "map", "history"]) $(`v-${v}`).hidden = v !== S.view;
   document.body.className = "v-" + S.view;
   document.querySelectorAll(".tabs-nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === S.view));
-  if (S.view === "map") ensureMap().then(() => { S.map?.resize(); renderMap(); });
+  if (S.view === "map") {
+    refreshMapData();
+    ensureMap().then(scheduleMapRender).catch((error) => console.error("Map initialization failed:", error));
+  }
   if (S.view === "history") renderHistory();
   scrollTo(0, 0);
 }
@@ -601,6 +604,23 @@ function setDelta(el, d) {
 /* ---------- map (MapLibre + OpenFreeMap) ---------- */
 
 let mapReady = null;
+let mapRenderFrame = 0;
+function scheduleMapRender() {
+  if (mapRenderFrame) return;
+  mapRenderFrame = requestAnimationFrame(() => {
+    mapRenderFrame = 0;
+    if (S.view !== "map" || !S.map || !S.map.isStyleLoaded()) return;
+    S.map.resize();
+    renderMap();
+  });
+}
+function refreshMapData() {
+  const currency = S.cur;
+  loadRates(currency).then(() => {
+    if (S.cur === currency) scheduleMapRender();
+  }).catch(() => {});
+  loadBranches().then(scheduleMapRender).catch(() => {});
+}
 function ensureMap() {
   mapReady ||= new Promise((resolve) => {
     const start = () => {
@@ -620,12 +640,12 @@ function ensureMap() {
         clearTimeout(moveendTimer);
         moveendTimer = setTimeout(renderMap, 80);
       });
-      map.on("load", async () => {
+      map.on("load", () => {
         if (S.user) showUser();
-        await Promise.allSettled([loadBranches(), loadRates(S.cur)]);
-        renderMap();
         focusOnMap();
         resolve();
+        scheduleMapRender();
+        refreshMapData();
       });
     };
     if (window.maplibregl) start(); else addEventListener("load", () => (window.maplibregl ? start() : resolve()));
@@ -888,9 +908,12 @@ function bind() {
     document.documentElement.style.setProperty("--theme-y", `${y}px`);
     if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const id = ++themeTransitionId;
+      document.documentElement.classList.remove("theme-to-dark", "theme-to-light");
+      document.documentElement.classList.add(S.dark ? "theme-to-dark" : "theme-to-light");
       const transition = document.startViewTransition(applyTheme);
       const clearOrigin = () => {
         if (id !== themeTransitionId) return;
+        document.documentElement.classList.remove("theme-to-dark", "theme-to-light");
         document.documentElement.style.removeProperty("--theme-x");
         document.documentElement.style.removeProperty("--theme-y");
       };

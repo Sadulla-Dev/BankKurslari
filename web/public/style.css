@@ -381,10 +381,26 @@ body.v-map .foot { display: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition { pointer-events: none; }
-  ::view-transition-old(root) { animation: none; z-index: 1; pointer-events: none; }
-  ::view-transition-new(root) {
-    animation: theme-circle-reveal 480ms cubic-bezier(.2, .75, .25, 1);
+  ::view-transition-old(root),
+  ::view-transition-new(root) { pointer-events: none; }
+  :root.theme-to-dark::view-transition-old(root) { animation: none; z-index: 1; }
+  :root.theme-to-dark::view-transition-new(root) {
+    animation: theme-circle-open 720ms cubic-bezier(.22, .75, .2, 1);
     z-index: 2;
-    pointer-events: none;
   }
+  :root.theme-to-light::view-transition-new(root) { animation: none; z-index: 1; }
+  :root.theme-to-light::view-transition-old(root) {
+    animation: theme-circle-close 720ms cubic-bezier(.22, .75, .2, 1);
+    z-index: 2;
+  }
+  /* Keep the snapshots transparent to clicks so the controls underneath stay usable. */
+  ::view-transition-group(root), ::view-transition-image-pair(root) { pointer-events: none; }
+}
+@keyframes theme-circle-open {
+  from { clip-path: circle(0 at var(--theme-x) var(--theme-y)); }
+  to { clip-path: circle(150vmax at var(--theme-x) var(--theme-y)); }
+}
+@keyframes theme-circle-close {
+  from { clip-path: circle(150vmax at var(--theme-x) var(--theme-y)); }
+  to { clip-path: circle(0 at var(--theme-x) var(--theme-y)); }
 }
