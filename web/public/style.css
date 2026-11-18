@@ -324,6 +324,9 @@ p { margin: 0; }
 .stat .muted { font-size: 13px; }
 
 /* ---------- footer ---------- */
+.seo-copy { max-width: 920px; padding-block: 8px 32px; color: var(--ink-2); font-size: 14px; line-height: 1.7; }
+.seo-copy h2 { margin: 0 0 10px; color: var(--ink); font-size: 20px; line-height: 1.35; }
+.seo-copy p { margin: 8px 0 0; }
 .foot { border-top: 1px solid var(--line); }
 .foot-in { display: flex; gap: 8px 24px; flex-wrap: wrap; justify-content: space-between; padding-block: 20px; font-size: 13px; }
 body.v-map .foot { display: none; }
