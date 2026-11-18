@@ -363,7 +363,7 @@ function route() {
   document.querySelectorAll(".tabs-nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === S.view));
   if (S.view === "map") {
     refreshMapData();
-    ensureMap().then(() => { syncMapTheme(); scheduleMapRender(); }).catch((error) => console.error("Map initialization failed:", error));
+    ensureMap().then(() => { syncMapTheme(); renderMapWhenReady(); }).catch((error) => console.error("Map initialization failed:", error));
   }
   if (S.view === "history") renderHistory();
   scrollTo(0, 0);
@@ -618,12 +618,17 @@ function scheduleMapRender() {
     renderMap();
   });
 }
+function renderMapWhenReady() {
+  if (S.view !== "map" || !S.map) return;
+  S.map.resize();
+  renderMap();
+}
 function refreshMapData() {
   const currency = S.cur;
   loadRates(currency).then(() => {
-    if (S.cur === currency) scheduleMapRender();
+    if (S.cur === currency) renderMapWhenReady();
   }).catch(() => {});
-  loadBranches().then(scheduleMapRender).catch(() => {});
+  loadBranches().then(renderMapWhenReady).catch(() => {});
 }
 function ensureMap() {
   mapReady ||= new Promise((resolve) => {
@@ -650,7 +655,7 @@ function ensureMap() {
         if (S.user) showUser();
         focusOnMap();
         resolve();
-        scheduleMapRender();
+        renderMapWhenReady();
         refreshMapData();
       });
     };
@@ -1009,7 +1014,7 @@ async function init() {
   try { await loadRates(S.cur); } catch { showError(); }
   renderAll();
   for (const c of CURS) loadRates(c).then(renderCbu).catch(() => {});
-  loadBranches().then(() => { renderConv(); renderTable(); if (S.view === "map") renderMap(); }).catch(() => {});
+  loadBranches().then(() => { renderConv(); renderTable(); if (S.view === "map") renderMapWhenReady(); }).catch(() => {});
   setInterval(async () => {
     S.rates = {}; S.bankHist = {};
     for (const k of Object.keys(inflight)) if (k[0] === "r" || k[0] === "b") delete inflight[k];
