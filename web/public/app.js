@@ -4,8 +4,7 @@
 const API = "https://api.qulaykurs.uz";
 const TASHKENT = [41.3111, 69.2797]; // [lat, lng]
 const CURS = ["USD", "EUR", "RUB"];
-const BRANCH_ZOOM = 14;
-const MAX_MAP_CANDS = 600; // hard cap on candidates before the per-marker project+overlap pass, independent of branch count
+const MAX_MAP_CANDS = 5000; // hard cap on candidates before the project+cluster pass (linear, via a screen-space grid)
 const MAP_STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 const ROUTES = { "": "rates", "xarita": "map", "tarix": "history" };
 let themeTransitionId = 0;
@@ -47,12 +46,13 @@ const T = {
     further: (k) => `, ${k} km uzoqroq`, isBest: "Hozir eng qulay kurs shu bankda",
     today: "bugun", noChange: "o‘zgarmagan",
     askLoc: "Masofani ko‘rsatish", noBranches: "Filiallar ro‘yxati topilmadi", noMatch: "Bunday bank topilmadi",
-    mapBest: (a, u) => `${a} ${u} uchun eng yaxshi`,
+    mapBest: (a, u) => `${a} ${u} uchun eng yaxshi`, branchesHere: (n) => `Bu yerda ${n} ta filial`,
     sideHint: { sell: "Bank sizdan sotib oladigan kurs. Yuqoridagisi — eng foydalisi.", buy: "Bank sizga sotadigan kurs. Yuqoridagisi — eng arzoni." },
     locFail: "Joylashuvni aniqlab bo‘lmadi", copied: "Havola nusxalandi",
     share: (b, r, u) => `${b}: 1 ${u} = ${r} so‘m — qulaykurs.uz`,
     src: "Manba", since: (y) => `${y}-yildan`,
-    ranges: ["1H", "1O", "3O", "1Y", "Hammasi"], periods: ["7 kun", "30 kun", "3 oy", "1 yil"],
+    ranges: ["1H", "1O", "3O", "1Y", "5Y", "Hammasi"], periods: ["7 kun", "30 kun", "3 oy", "1 yil", "5 yil"],
+    stHigh: "Eng yuqori", stLow: "Eng past", stAvg: "O‘rtacha", stChg: "O‘zgarish", avg: "o‘rtacha", prevPt: "oldingi nuqtaga",
     toToday: "bugungacha", cbu: "Markaziy bank", tkBuy: "xarid", tkSell: "sotuv",
     error: "Kurslarni yuklab bo‘lmadi. Internetni tekshirib, sahifani yangilang."
   },
@@ -82,12 +82,13 @@ const T = {
     further: (k) => `, на ${k} км дальше`, isBest: "Сейчас здесь самый выгодный курс",
     today: "сегодня", noChange: "без изменений",
     askLoc: "Показать расстояние", noBranches: "Список филиалов не найден", noMatch: "Банк не найден",
-    mapBest: (a, u) => `Лучший курс за ${a} ${u}`,
+    mapBest: (a, u) => `Лучший курс за ${a} ${u}`, branchesHere: (n) => `Здесь ${n} ${ruPlural(n, "филиал", "филиала", "филиалов")}`,
     sideHint: { sell: "Курс, по которому банк покупает у вас. Сверху — самый выгодный.", buy: "Курс, по которому банк продаёт вам. Сверху — самый дешёвый." },
     locFail: "Не удалось определить местоположение", copied: "Ссылка скопирована",
     share: (b, r, u) => `${b}: 1 ${u} = ${r} сум — qulaykurs.uz`,
     src: "Источник", since: (y) => `с ${y} г.`,
-    ranges: ["1Н", "1М", "3М", "1Г", "Всё"], periods: ["7 дней", "30 дней", "3 месяца", "1 год"],
+    ranges: ["1Н", "1М", "3М", "1Г", "5Л", "Всё"], periods: ["7 дней", "30 дней", "3 месяца", "1 год", "5 лет"],
+    stHigh: "Максимум", stLow: "Минимум", stAvg: "Среднее", stChg: "Изменение", avg: "среднее", prevPt: "к предыдущей точке",
     toToday: "до сегодня", cbu: "ЦБ", tkBuy: "покупка", tkSell: "продажа",
     error: "Не удалось загрузить курсы. Проверьте интернет и обновите страницу."
   },
@@ -117,12 +118,13 @@ const T = {
     further: (k) => `, ${k} km further`, isBest: "The best rate right now",
     today: "today", noChange: "no change",
     askLoc: "Show distance", noBranches: "No branch list found", noMatch: "No bank matches",
-    mapBest: (a, u) => `Best for ${a} ${u}`,
+    mapBest: (a, u) => `Best for ${a} ${u}`, branchesHere: (n) => `${n} branches here`,
     sideHint: { sell: "What the bank pays you. The top one is the best.", buy: "What the bank charges you. The top one is the cheapest." },
     locFail: "Couldn’t get your location", copied: "Link copied",
     share: (b, r, u) => `${b}: 1 ${u} = ${r} so‘m — qulaykurs.uz`,
     src: "Source", since: (y) => `since ${y}`,
-    ranges: ["1W", "1M", "3M", "1Y", "All"], periods: ["7 days", "30 days", "3 months", "1 year"],
+    ranges: ["1W", "1M", "3M", "1Y", "5Y", "All"], periods: ["7 days", "30 days", "3 months", "1 year", "5 years"],
+    stHigh: "High", stLow: "Low", stAvg: "Average", stChg: "Change", avg: "avg", prevPt: "vs previous point",
     toToday: "to today", cbu: "CBU", tkBuy: "buy", tkSell: "sell",
     error: "Couldn’t load rates. Check your connection and reload."
   }
@@ -764,7 +766,79 @@ function showUser() {
     S.meMarker = new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(S.map);
   }
 }
-/** Pins (one per bank when zoomed out, every branch when zoomed in, best first, no overlaps) and the side list. */
+/** Pill footprint in screen px (marker anchored at its bottom centre). */
+const pillW = (label, rate, count) => 24 + (label.length + rate.length) * 7.4 + (count > 1 ? 30 : 0);
+const PILL_H = 34;
+/**
+ * Every branch in view, grouped so no two pills overlap: a branch whose pill would collide with an
+ * already-placed one joins that group instead of being dropped. Candidates go best rate first, so each
+ * group's pill shows the best rate among its members, plus how many branches it holds.
+ */
+function clusterBranches(map, cands) {
+  const CELL = 200;
+  const grid = new Map();
+  const clusters = [];
+  for (const c of cands) {
+    const p = map.project([c.b.lng, c.b.lat]);
+    const gx = Math.floor(p.x / CELL), gy = Math.floor(p.y / CELL);
+    let hit = null;
+    for (let dx = -1; dx <= 1 && !hit; dx++) for (let dy = -1; dy <= 1 && !hit; dy++) {
+      for (const q of grid.get(`${gx + dx},${gy + dy}`) || []) {
+        // Reserve room for the count badge on every pill, so a group never grows into its neighbour.
+        const w = (q.w + pillW(shortName(c.bank.bank), rateFmt(c.bank.rate), 2)) / 2;
+        if (Math.abs(p.x - q.x) < w + 4 && Math.abs(p.y - q.y) < PILL_H + 8) { hit = q; break; }
+      }
+    }
+    if (hit) { hit.members.push(c); continue; }
+    const cl = { x: p.x, y: p.y, w: pillW(shortName(c.bank.bank), rateFmt(c.bank.rate), 2), members: [c] };
+    clusters.push(cl);
+    const k = `${gx},${gy}`;
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(cl);
+  }
+  return clusters;
+}
+let clusterPopup = null;
+function closeClusterPopup() { clusterPopup?.remove(); clusterPopup = null; }
+/** Members too close to split by zooming: list them in a popup, one row per branch. */
+function openClusterPopup(cl, bestRate) {
+  closeClusterPopup();
+  const t = L();
+  const rows = cl.members.map(({ bank, b }, i) => {
+    const isBest = Math.abs(bank.rate - bestRate) < 0.005;
+    const addr = addrParts(b.address)[0];
+    return `<button type="button" class="cp-row" data-i="${i}">${badgeHTML(bank.bank, isBest ? "accent" : "")}
+      <span><b>${esc(bank.bank)}</b>${addr ? `<small>${esc(addr)}</small>` : ""}</span>
+      <span class="r"><b>${rateFmt(bank.rate)}</b>${isBest ? `<small class="best">${t.best}</small>` : ""}</span></button>`;
+  }).join("");
+  const el = document.createElement("div");
+  el.className = "cp";
+  el.innerHTML = `<p class="cp-h">${esc(t.branchesHere(cl.members.length))}</p><div class="cp-list">${rows}</div>`;
+  el.addEventListener("click", (e) => {
+    const r = e.target.closest(".cp-row");
+    if (!r) return;
+    const { bank } = cl.members[Number(r.dataset.i)];
+    closeClusterPopup();
+    openSheet(bank.bank);
+  });
+  const lead = cl.members[0].b;
+  clusterPopup = new maplibregl.Popup({ offset: 44, maxWidth: "340px", className: "cp-pop", focusAfterOpen: false })
+    .setLngLat([lead.lng, lead.lat]).setDOMContent(el).addTo(S.map);
+  clusterPopup.on("close", () => { clusterPopup = null; });
+}
+function onClusterTap(cl, bestRate) {
+  const map = S.map;
+  if (cl.members.length === 1) return openSheet(cl.members[0].bank.bank);
+  let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+  for (const { b } of cl.members) { w = Math.min(w, b.lng); e = Math.max(e, b.lng); s = Math.min(s, b.lat); n = Math.max(n, b.lat); }
+  // Zooming can only help if the members would actually separate before the map's zoom limit.
+  const cam = map.cameraForBounds([[w, s], [e, n]], { padding: 90 });
+  const maxZ = Math.min(map.getMaxZoom(), 18);
+  if (!cam || map.getZoom() >= maxZ - 0.3 || (cam.zoom ?? maxZ) >= maxZ) return openClusterPopup(cl, bestRate);
+  closeClusterPopup();
+  map.flyTo({ center: cam.center, zoom: Math.min(cam.zoom, maxZ), duration: 600 });
+}
+/** Pins (every branch in view, grouped where they would overlap, best rate on top) and the side list. */
 function renderMap() {
   const map = S.map;
   const t = L();
@@ -777,56 +851,47 @@ function renderMap() {
   const center = [c.lat, c.lng];
   const ref = S.user || center;
   const bounds = map.getBounds();
-  const zoomedIn = map.getZoom() >= BRANCH_ZOOM;
   const cands = [];
   bankLoop:
   for (const bank of list) {
     let brs = branchesOf(bank.bank);
     if (!brs.length && bank.branch?.lat) brs = [bank.branch];
-    if (zoomedIn) {
-      for (const b of brs) {
-        if (bounds.contains([b.lng, b.lat])) cands.push({ bank, b });
-        if (cands.length >= MAX_MAP_CANDS) break bankLoop;
-      }
-    }
-    else {
-      let near = null, nd = Infinity;
-      for (const b of brs) { const dk = distKm(center, [b.lat, b.lng]); if (dk < nd) { nd = dk; near = b; } }
-      if (near && bounds.contains([near.lng, near.lat])) cands.push({ bank, b: near });
+    for (const b of brs) {
+      if (bounds.contains([b.lng, b.lat])) cands.push({ bank, b });
+      if (cands.length >= MAX_MAP_CANDS) break bankLoop;
     }
   }
   S.markers.forEach((m) => m.remove());
   S.markers = [];
-  const placed = [];
-  // The highlighted bank goes first so it is never culled.
+  // `list` is already best-rate first; the highlighted bank is lifted ahead so its pill leads its group.
   cands.sort((a, b) => (b.bank.bank === S.hl) - (a.bank.bank === S.hl));
-  for (const { bank, b } of cands) {
+  const clusters = clusterBranches(map, cands);
+  for (const cl of clusters) {
     if (S.markers.length >= 150) break;
-    const p = map.project([b.lng, b.lat]);
+    const { bank, b } = cl.members[0];
+    const n = cl.members.length;
     const label = shortName(bank.bank);
-    const w = 24 + (label.length + rateFmt(bank.rate).length) * 7.4, h = 34;
-    const box = { x0: p.x - w / 2, x1: p.x + w / 2, y0: p.y - h - 10, y1: p.y };
-    if (placed.some((q) => !(box.x1 < q.x0 || box.x0 > q.x1 || box.y1 < q.y0 || box.y0 > q.y1))) continue;
-    placed.push(box);
     // MapLibre positions the marker element with its own transform, so the styled pill lives inside a bare wrapper.
     const el = document.createElement("div");
     el.className = "pin-wrap";
-    const cls = "pill" + (bank.rate === bestRate ? " best" : "") + (bank.bank === S.hl ? " hl" : "");
-    el.innerHTML = `<button type="button" class="${cls}" title="${esc(bank.bank)}"><span>${esc(label)}</span><b>${rateFmt(bank.rate)}</b></button>`;
+    const hl = cl.members.some((m) => m.bank.bank === S.hl);
+    const cls = "pill" + (bank.rate === bestRate ? " best" : "") + (hl ? " hl" : "") + (n > 1 ? " multi" : "");
+    const title = n > 1 ? `${bank.bank} · ${t.branchesHere(n)}` : bank.bank;
+    el.innerHTML = `<button type="button" class="${cls}" title="${esc(title)}"><span>${esc(label)}</span><b>${rateFmt(bank.rate)}</b>${n > 1 ? `<i class="cnt">${n > 99 ? "99+" : n}</i>` : ""}</button>`;
     let markerPointerOpenedAt = 0;
     el.firstChild.addEventListener("pointerup", (e) => {
       if (e.button !== 0) return;
       markerPointerOpenedAt = performance.now();
       e.stopPropagation();
-      openSheet(bank.bank);
+      onClusterTap(cl, bestRate);
     });
     el.firstChild.addEventListener("click", (e) => {
       e.stopPropagation();
       if (performance.now() - markerPointerOpenedAt < 500) return;
-      openSheet(bank.bank);
+      onClusterTap(cl, bestRate);
     });
     const m = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([b.lng, b.lat]).addTo(map);
-    if (bank.rate === bestRate || bank.bank === S.hl) m.getElement().style.zIndex = 3;
+    if (bank.rate === bestRate || hl) m.getElement().style.zIndex = 3;
     S.markers.push(m);
   }
 
@@ -858,7 +923,9 @@ function renderMap() {
 
 /* ---------- history ---------- */
 
-const RANGE_DAYS = [7, 30, 90, 365, null];
+const RANGE_DAYS = [7, 30, 90, 365, 1825, null];
+const DAY = 864e5;
+const dayMs = (ymd) => Date.parse(ymd + "T00:00:00Z");
 async function renderHistory() {
   const cur = S.cur;
   $("ranges").innerHTML = L().ranges.map((r, i) => `<button type="button" data-i="${i}" class="${i === S.range ? "on" : ""}">${r}</button>`).join("");
@@ -867,45 +934,118 @@ async function renderHistory() {
   try { pts = await loadHistory(cur); } catch { return; }
   if (cur !== S.cur || !pts?.length || S.view !== "history") return;
   const days = RANGE_DAYS[S.range];
-  const lastDay = new Date(pts[pts.length - 1].date).getTime();
-  let slice = days ? pts.filter((p) => new Date(p.date).getTime() >= lastDay - days * 864e5) : pts;
+  const lastDay = dayMs(pts[pts.length - 1].date);
+  let slice = days ? pts.filter((p) => dayMs(p.date) >= lastDay - days * DAY) : pts;
   if (slice.length < 2) slice = pts.slice(-2);
   drawChart(slice);
 }
+const signed = (d) => (Math.abs(d) < 0.005 ? "±0" : (d < 0 ? "−" : "+") + rateFmt(Math.abs(d)));
+const pctOf = (d, base) => dec((base ? Math.abs((d / base) * 100) : 0).toFixed(2)) + "%";
 function trendCaption(slice, idx) {
   const t = L();
   const first = slice[0], end = slice[slice.length - 1];
-  const sign = (d) => (d < 0 ? "−" : "+") + rateFmt(Math.abs(d));
   if (idx != null) {
     const p = slice[idx];
-    return fullDate(p.date) + (idx < slice.length - 1 ? ` · ${t.toToday} ${sign(end.rate - p.rate)}` : "");
+    return fullDate(p.date) + (idx < slice.length - 1 ? ` · ${t.toToday} ${signed(end.rate - p.rate)}` : "");
   }
   const d = end.rate - first.rate;
-  const pct = first.rate ? Math.abs((d / first.rate) * 100).toFixed(2) : "0.00";
-  return `${sign(d)} · ${dec(pct)}% · ${S.range < 4 ? t.periods[S.range] : t.since(first.date.slice(0, 4))}`;
+  return `${signed(d)} · ${pctOf(d, first.rate)} · ${S.range < t.periods.length ? t.periods[S.range] : t.since(first.date.slice(0, 4))}`;
+}
+function shortDate(ms, spanDays) {
+  const dt = new Date(ms);
+  const y = dt.getUTCFullYear(), m = dt.getUTCMonth(), d = dt.getUTCDate();
+  const mo = MONTHS[S.lang][m];
+  const moS = S.lang === "en" ? mo : mo.slice(0, 3);
+  if (spanDays > 2.5 * 365) return String(y);
+  if (spanDays > 120) return m === 0 ? String(y) : moS;
+  return S.lang === "en" ? `${moS} ${d}` : `${d} ${moS}`;
+}
+/** ~[count] round y-axis steps covering [lo, hi]. */
+function niceTicks(lo, hi, count) {
+  const raw = (hi - lo) / count || 1;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => s >= raw) || 10 * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+/** Date ticks at calendar boundaries (days, weeks, months, quarters, years) that fit [maxTicks]. */
+function timeTicks(t0, t1, maxTicks) {
+  const span = (t1 - t0) / DAY;
+  const steps = [[1, "d"], [2, "d"], [7, "d"], [14, "d"], [1, "m"], [2, "m"], [3, "m"], [6, "m"], [1, "y"], [2, "y"], [3, "y"], [5, "y"]];
+  const per = { d: 1, m: 30.4, y: 365.25 };
+  const [n, u] = steps.find(([k, un]) => span / (k * per[un]) <= maxTicks) || [10, "y"];
+  const out = [];
+  const s = new Date(t0);
+  let c;
+  if (u === "d") c = Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate() + 1);
+  else if (u === "m") c = Date.UTC(s.getUTCFullYear(), Math.ceil((s.getUTCMonth() + 1) / n) * n, 1);
+  else c = Date.UTC(Math.ceil((s.getUTCFullYear() + 1) / n) * n, 0, 1);
+  while (c <= t1 && out.length < 40) {
+    out.push(c);
+    const d = new Date(c);
+    c = u === "d" ? c + n * DAY : u === "m" ? Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1) : Date.UTC(d.getUTCFullYear() + n, 0, 1);
+  }
+  return out;
 }
 function drawChart(slice) {
+  const t = L();
   const el = $("chart");
   const W = el.clientWidth || 700, H = el.clientHeight || 360;
-  const top = 28, bottom = H - 28, padR = 22;
-  const lo = Math.min(...slice.map((p) => p.rate)), hi = Math.max(...slice.map((p) => p.rate));
-  const span = hi - lo || 1;
-  const x = (i) => (i * W) / (slice.length - 1);
-  const y = (v) => top + (1 - (v - lo) / span) * (bottom - top);
-  const d = slice.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.rate).toFixed(1)}`).join("");
-  const lx = x(slice.length - 1), ly = y(slice[slice.length - 1].rate);
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(L()["hist.cbu"])}">
-    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F7A68" stop-opacity=".18"/><stop offset="1" stop-color="#2F7A68" stop-opacity="0"/></linearGradient></defs>
-    <line x1="0" x2="${W}" y1="${top}" y2="${top}" stroke="rgba(18,23,26,.07)" stroke-dasharray="3 5"/>
-    <line x1="0" x2="${W}" y1="${bottom}" y2="${bottom}" stroke="rgba(18,23,26,.07)" stroke-dasharray="3 5"/>
-    <path d="${d}L${W},${H}L0,${H}Z" fill="url(#g)"/>
-    <path class="ln" d="${d}" fill="none" stroke="#2F7A68" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
-    <text class="ylab" x="${W - padR}" y="${top - 10}" text-anchor="end">${rateFmt(hi)}</text>
-    <text class="ylab" x="${W - padR}" y="${bottom + 20}" text-anchor="end">${rateFmt(lo)}</text>
-    <line id="scrubL" x1="0" x2="0" y1="0" y2="${H}" stroke="rgba(18,23,26,.25)" stroke-width="1" opacity="0"/>
-    <circle id="scrubC" r="6" fill="#12171A" stroke="#fff" stroke-width="3" opacity="0"/>
-    <circle cx="${lx}" cy="${ly}" r="5" fill="#2F7A68" stroke="#fff" stroke-width="3" id="endDot"/>
-  </svg>`;
+  const narrow = W < 480;
+  const padL = narrow ? 14 : 22, padR = narrow ? 52 : 64, top = 30, bottom = H - 30;
+  const rates = slice.map((p) => p.rate);
+  const times = slice.map((p) => dayMs(p.date));
+  const hiI = rates.indexOf(Math.max(...rates)), loI = rates.indexOf(Math.min(...rates));
+  const hi = rates[hiI], lo = rates[loI];
+  const pad = (hi - lo) * 0.08 || hi * 0.002 || 1;
+  const ticks = niceTicks(lo - pad, hi + pad, narrow ? 4 : 5);
+  const yLo = Math.min(lo - pad, ticks[0]), yHi = Math.max(hi + pad, ticks[ticks.length - 1]);
+  const t0 = times[0], t1 = times[times.length - 1];
+  const x = (ms) => padL + ((ms - t0) / (t1 - t0 || 1)) * (W - padL - padR);
+  const y = (v) => top + (1 - (v - yLo) / (yHi - yLo)) * (bottom - top);
+  const xs = times.map(x), ys = rates.map(y);
+  const d = xs.map((px, i) => `${i ? "L" : "M"}${px.toFixed(1)},${ys[i].toFixed(1)}`).join("");
+  const first = slice[0], end = slice[slice.length - 1];
+  const change = end.rate - first.rate;
+  const trend = Math.abs(change) < 0.005 ? "flat" : change > 0 ? "up" : "down";
+  const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
+  const spanDays = (t1 - t0) / DAY;
+  const xt = timeTicks(t0, t1, Math.max(2, Math.floor((W - padL - padR) / (narrow ? 70 : 96))));
+  const yGrid = ticks.filter((v) => v >= yLo && v <= yHi).map((v) =>
+    `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>
+     <text class="ylab" x="${W - 2}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${rateFmt(v)}</text>`).join("");
+  const xLabs = xt.map((ms) => `<line class="xtick" x1="${x(ms).toFixed(1)}" x2="${x(ms).toFixed(1)}" y1="${bottom}" y2="${bottom + 5}"/>
+     <text class="xlab" x="${x(ms).toFixed(1)}" y="${bottom + 20}" text-anchor="middle">${esc(shortDate(ms, spanDays))}</text>`).join("");
+  // High/low labels sit just outside the line, flipped inward near the edges so they stay on the canvas.
+  const extLabel = (i, above) => {
+    const px = xs[i], py = ys[i];
+    const anchor = px < padL + 50 ? "start" : px > W - padR - 50 ? "end" : "middle";
+    return `<circle class="ext-dot" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5"/>
+      <text class="ext" x="${px.toFixed(1)}" y="${(above ? py - 10 : py + 18).toFixed(1)}" text-anchor="${anchor}">${rateFmt(rates[i])}</text>`;
+  };
+  const avgY = y(avg);
+  el.className = "chart t-" + trend;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t["hist.cbu"])}: ${esc(trendCaption(slice, null))}">
+    <defs>
+      <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fill-a"/><stop offset="1" class="fill-b"/></linearGradient>
+      <clipPath id="chartClip"><rect x="${padL}" y="0" width="${W - padL - padR}" height="${H}"/></clipPath>
+    </defs>
+    ${yGrid}
+    <line class="axis" x1="${padL}" x2="${W - padR}" y1="${bottom}" y2="${bottom}"/>
+    ${xLabs}
+    <line class="avg" x1="${padL}" x2="${W - padR}" y1="${avgY.toFixed(1)}" y2="${avgY.toFixed(1)}"/>
+    <text class="avg-lab" x="${padL + 6}" y="${(avgY - 6).toFixed(1)}">${esc(t.avg)} ${rateFmt(avg)}</text>
+    <g clip-path="url(#chartClip)">
+      <path class="area" d="${d}L${xs[xs.length - 1].toFixed(1)},${bottom}L${xs[0].toFixed(1)},${bottom}Z" fill="url(#chartFill)"/>
+      <path class="ln" d="${d}"/>
+    </g>
+    ${hiI !== loI ? extLabel(hiI, true) + extLabel(loI, false) : ""}
+    <line id="scrubL" class="scrub" x1="0" x2="0" y1="${top - 10}" y2="${bottom}" opacity="0"/>
+    <circle id="scrubC" class="scrub-dot" r="6" opacity="0"/>
+    <circle class="end-halo" cx="${xs[xs.length - 1]}" cy="${ys[ys.length - 1]}" r="10" id="endHalo"/>
+    <circle class="end-dot" cx="${xs[xs.length - 1]}" cy="${ys[ys.length - 1]}" r="5" id="endDot"/>
+  </svg><div class="tip" id="chartTip" hidden></div>`;
   const ln = el.querySelector(".ln");
   if (!reduced && ln.getTotalLength) {
     const len = ln.getTotalLength();
@@ -914,32 +1054,79 @@ function drawChart(slice) {
     ln.style.transition = "stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)";
     ln.style.strokeDashoffset = 0;
   }
-  const end = slice[slice.length - 1];
   const tRate = $("tRate");
   animateNumber(tRate, end.rate, rateFmt);
   setText("tCap", trendCaption(slice, null));
-  const sl = el.querySelector("#scrubL"), sc = el.querySelector("#scrubC"), ed = el.querySelector("#endDot");
-  const at = (cx) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(slice.length - 1, Math.round(((cx - r.left) / r.width) * (slice.length - 1)))); };
+  $("tCap").className = "caption " + trend;
+  renderHistStats(slice, hiI, loI, avg);
+
+  const sl = el.querySelector("#scrubL"), sc = el.querySelector("#scrubC"), tip = $("chartTip");
+  const endEls = [el.querySelector("#endDot"), el.querySelector("#endHalo")];
+  let cur = null;
+  /** Nearest point by time (points are spaced unevenly: daily recently, weekly/monthly further back). */
+  const at = (cx) => {
+    const r = el.getBoundingClientRect();
+    const px = ((cx - r.left) / r.width) * W;
+    let lo = 0, hi = xs.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (xs[m] < px) lo = m; else hi = m; }
+    return Math.abs(xs[lo] - px) <= Math.abs(xs[hi] - px) ? lo : hi;
+  };
   const show = (i) => {
-    const px = x(i), py = y(slice[i].rate);
+    cur = i;
+    const px = xs[i], py = ys[i];
     sl.setAttribute("x1", px); sl.setAttribute("x2", px); sl.setAttribute("opacity", 1);
     sc.setAttribute("cx", px); sc.setAttribute("cy", py); sc.setAttribute("opacity", 1);
-    ed.setAttribute("opacity", 0);
+    endEls.forEach((e) => e.setAttribute("opacity", i === slice.length - 1 ? 1 : 0.35));
     numAnim.set(tRate, slice[i].rate);
     tRate.textContent = rateFmt(slice[i].rate);
     setText("tCap", trendCaption(slice, i));
+    const prev = i > 0 ? slice[i].rate - slice[i - 1].rate : null;
+    tip.innerHTML = `<small>${esc(fullDate(slice[i].date))}</small><b>${rateFmt(slice[i].rate)} <span>${esc(t.som)}</span></b>` +
+      (prev != null ? `<em class="${prev > 0.004 ? "up" : prev < -0.004 ? "down" : ""}">${signed(prev)} ${esc(t.prevPt)}</em>` : "");
+    tip.hidden = false;
+    const r = el.getBoundingClientRect(), sx = r.width / W;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = px * sx + 14;
+    if (left + tw > r.width - 4) left = px * sx - tw - 14;
+    tip.style.left = Math.max(4, left) + "px";
+    tip.style.top = Math.max(4, Math.min(py * (r.height / H) - th / 2, r.height - th - 34)) + "px";
   };
   const hide = () => {
-    sl.setAttribute("opacity", 0); sc.setAttribute("opacity", 0); ed.setAttribute("opacity", 1);
+    cur = null;
+    sl.setAttribute("opacity", 0); sc.setAttribute("opacity", 0);
+    endEls.forEach((e) => e.setAttribute("opacity", 1));
+    tip.hidden = true;
     numAnim.set(tRate, end.rate);
     tRate.textContent = rateFmt(end.rate);
     setText("tCap", trendCaption(slice, null));
   };
+  el.tabIndex = 0;
   el.onpointermove = (e) => show(at(e.clientX));
   el.onpointerdown = (e) => show(at(e.clientX));
   el.onpointerleave = hide;
   el.onpointerup = (e) => { if (e.pointerType !== "mouse") hide(); };
   el.onpointercancel = hide;
+  el.onblur = hide;
+  el.onkeydown = (e) => {
+    const last = slice.length - 1;
+    const step = e.shiftKey ? Math.max(1, Math.round(slice.length / 10)) : 1;
+    const next = { ArrowLeft: (cur ?? last + 1) - step, ArrowRight: (cur ?? last) + step, Home: 0, End: last }[e.key];
+    if (e.key === "Escape") return hide();
+    if (next == null) return;
+    e.preventDefault();
+    show(Math.max(0, Math.min(last, next)));
+  };
+}
+function renderHistStats(slice, hiI, loI, avg) {
+  const t = L();
+  const first = slice[0], end = slice[slice.length - 1];
+  const change = end.rate - first.rate;
+  const cell = (label, value, sub, cls = "") => `<div class="ts"><small>${esc(label)}</small><b class="${cls}">${value}</b><span>${esc(sub)}</span></div>`;
+  $("tStats").innerHTML =
+    cell(t.stHigh, rateFmt(slice[hiI].rate), fullDate(slice[hiI].date)) +
+    cell(t.stLow, rateFmt(slice[loI].rate), fullDate(slice[loI].date)) +
+    cell(t.stAvg, rateFmt(avg), S.range < t.periods.length ? t.periods[S.range] : t.since(first.date.slice(0, 4))) +
+    cell(t.stChg, signed(change), pctOf(change, first.rate), Math.abs(change) < 0.005 ? "" : change > 0 ? "up-t" : "down-t");
 }
 function renderSpread() {
   const d = S.rates[S.cur];
