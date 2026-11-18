@@ -993,13 +993,13 @@ function drawChart(slice) {
   const el = $("chart");
   const W = el.clientWidth || 700, H = el.clientHeight || 360;
   const narrow = W < 480;
-  const padL = narrow ? 14 : 22, padR = narrow ? 52 : 64, top = 30, bottom = H - 30;
+  const padL = narrow ? 16 : 22, padR = narrow ? 16 : 22, top = 34, bottom = H - 30;
   const rates = slice.map((p) => p.rate);
   const times = slice.map((p) => dayMs(p.date));
   const hiI = rates.indexOf(Math.max(...rates)), loI = rates.indexOf(Math.min(...rates));
   const hi = rates[hiI], lo = rates[loI];
   const pad = (hi - lo) * 0.08 || hi * 0.002 || 1;
-  const ticks = niceTicks(lo - pad, hi + pad, narrow ? 4 : 5);
+  const ticks = niceTicks(lo - pad, hi + pad, narrow ? 4 : 6);
   const yLo = Math.min(lo - pad, ticks[0]), yHi = Math.max(hi + pad, ticks[ticks.length - 1]);
   const t0 = times[0], t1 = times[times.length - 1];
   const x = (ms) => padL + ((ms - t0) / (t1 - t0 || 1)) * (W - padL - padR);
@@ -1012,34 +1012,37 @@ function drawChart(slice) {
   const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
   const spanDays = (t1 - t0) / DAY;
   const xt = timeTicks(t0, t1, Math.max(2, Math.floor((W - padL - padR) / (narrow ? 70 : 96))));
-  const yGrid = ticks.filter((v) => v >= yLo && v <= yHi).map((v) =>
-    `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>
-     <text class="ylab" x="${W - 2}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end">${rateFmt(v)}</text>`).join("");
-  const xLabs = xt.map((ms) => `<line class="xtick" x1="${x(ms).toFixed(1)}" x2="${x(ms).toFixed(1)}" y1="${bottom}" y2="${bottom + 5}"/>
-     <text class="xlab" x="${x(ms).toFixed(1)}" y="${bottom + 20}" text-anchor="middle">${esc(shortDate(ms, spanDays))}</text>`).join("");
-  // High/low labels sit just outside the line, flipped inward near the edges so they stay on the canvas.
+  // Gridlines span the plot; their values sit on top of them at the left edge, so the line gets the full width.
+  const yVals = ticks.filter((v) => y(v) > top + 6 && y(v) < bottom - 14);
+  const yGrid = yVals.map((v) => `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>`).join("");
+  const yLabs = yVals.map((v) => `<text class="ylab" x="${padL}" y="${(y(v) - 6).toFixed(1)}">${rateFmt(v)}</text>`).join("");
+  const xLabs = xt.filter((ms) => x(ms) > padL + 18 && x(ms) < W - padR - 18).map((ms) =>
+    `<text class="xlab" x="${x(ms).toFixed(1)}" y="${bottom + 21}" text-anchor="middle">${esc(shortDate(ms, spanDays))}</text>`).join("");
+  // High/low as small tags just off the line, nudged inward near the edges so they stay on the canvas.
   const extLabel = (i, above) => {
     const px = xs[i], py = ys[i];
-    const anchor = px < padL + 50 ? "start" : px > W - padR - 50 ? "end" : "middle";
+    const txt = rateFmt(rates[i]);
+    const w = txt.length * 7.4 + 16, h = 22;
+    const bx = Math.max(padL, Math.min(W - padR - w, px - w / 2));
+    const by = above ? Math.max(2, py - h - 9) : Math.min(bottom - h - 2, py + 9);
     return `<circle class="ext-dot" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5"/>
-      <text class="ext" x="${px.toFixed(1)}" y="${(above ? py - 10 : py + 18).toFixed(1)}" text-anchor="${anchor}">${rateFmt(rates[i])}</text>`;
+      <rect class="ext-bg" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="7"/>
+      <text class="ext" x="${(bx + w / 2).toFixed(1)}" y="${(by + 15).toFixed(1)}" text-anchor="middle">${txt}</text>`;
   };
-  const avgY = y(avg);
   el.className = "chart t-" + trend;
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t["hist.cbu"])}: ${esc(trendCaption(slice, null))}">
     <defs>
       <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fill-a"/><stop offset="1" class="fill-b"/></linearGradient>
-      <clipPath id="chartClip"><rect x="${padL}" y="0" width="${W - padL - padR}" height="${H}"/></clipPath>
+      <clipPath id="chartClip"><rect x="${padL - 2}" y="0" width="${W - padL - padR + 4}" height="${H}"/></clipPath>
     </defs>
     ${yGrid}
     <line class="axis" x1="${padL}" x2="${W - padR}" y1="${bottom}" y2="${bottom}"/>
     ${xLabs}
-    <line class="avg" x1="${padL}" x2="${W - padR}" y1="${avgY.toFixed(1)}" y2="${avgY.toFixed(1)}"/>
-    <text class="avg-lab" x="${padL + 6}" y="${(avgY - 6).toFixed(1)}">${esc(t.avg)} ${rateFmt(avg)}</text>
     <g clip-path="url(#chartClip)">
       <path class="area" d="${d}L${xs[xs.length - 1].toFixed(1)},${bottom}L${xs[0].toFixed(1)},${bottom}Z" fill="url(#chartFill)"/>
       <path class="ln" d="${d}"/>
     </g>
+    ${yLabs}
     ${hiI !== loI ? extLabel(hiI, true) + extLabel(loI, false) : ""}
     <line id="scrubL" class="scrub" x1="0" x2="0" y1="${top - 10}" y2="${bottom}" opacity="0"/>
     <circle id="scrubC" class="scrub-dot" r="6" opacity="0"/>
