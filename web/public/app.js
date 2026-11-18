@@ -300,7 +300,27 @@ const once = (key, fn) => (inflight[key] ||= fn().catch((e) => { delete inflight
 const loadRates = (cur) => S.rates[cur] ? Promise.resolve(S.rates[cur]) : once("r" + cur, async () => (S.rates[cur] = await getJSON(`/api/rates/${cur.toLowerCase()}`)));
 const loadHistory = (cur) => S.history[cur] ? Promise.resolve(S.history[cur]) : once("h" + cur, async () => (S.history[cur] = (await getJSON(`/api/history/${cur.toLowerCase()}`)).points));
 const loadBankHist = (cur) => S.bankHist[cur] ? Promise.resolve(S.bankHist[cur]) : once("b" + cur, async () => (S.bankHist[cur] = (await getJSON(`/api/bank-history/${cur.toLowerCase()}?days=2`)).days));
-const loadBranches = () => S.branches ? Promise.resolve(S.branches) : once("br", async () => (S.branches = (await getJSON("/api/branches")).branches));
+function normalizeBranchCoordinate(value, min, max) {
+  const n = Number(value);
+  if (Number.isFinite(n) && n >= min && n <= max) return n;
+
+  // bank.uz has a few branch coordinates with the decimal point stripped
+  // (for example 405351069 instead of 40.5351069). Restore the decimal after
+  // the two degree digits, then accept it only if it lands in Uzbekistan.
+  const digits = String(value ?? "").trim().replace(/^[+]/, "");
+  if (!/^\d{3,}$/.test(digits)) return null;
+  const repaired = Number(`${digits.slice(0, 2)}.${digits.slice(2)}`);
+  return Number.isFinite(repaired) && repaired >= min && repaired <= max ? repaired : null;
+}
+const loadBranches = () => S.branches ? Promise.resolve(S.branches) : once("br", async () => {
+  const branches = (await getJSON("/api/branches")).branches || [];
+  S.branches = branches.map((branch) => ({
+    ...branch,
+    lat: normalizeBranchCoordinate(branch.lat, 37, 46),
+    lng: normalizeBranchCoordinate(branch.lng, 55, 74)
+  })).filter((branch) => branch.lat != null && branch.lng != null);
+  return S.branches;
+});
 
 const branchCache = new Map();
 function branchesOf(bank) {
