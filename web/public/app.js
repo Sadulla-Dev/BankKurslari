@@ -651,6 +651,10 @@ function ensureMap() {
         moveendTimer = setTimeout(renderMap, 80);
       });
       map.on("resize", scheduleMapRender);
+      // Render once after MapLibre settles its first visible viewport too. The
+      // initial load can happen while the map panel is being revealed from a
+      // previously hidden route, before its final bounds are available.
+      map.once("idle", renderMapWhenReady);
       map.on("load", () => {
         if (S.user) showUser();
         focusOnMap();
