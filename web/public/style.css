@@ -217,6 +217,7 @@ p { margin: 0; }
 .si .r small.warn { color: var(--warn); font-weight: 600; }
 .map-main { position: relative; min-height: 0; }
 #mapgl { position: absolute; inset: 0; background: var(--bg); }
+#mapgl .maplibregl-canvas-container, #mapgl .maplibregl-canvas { touch-action: none !important; }
 .fab { position: absolute; z-index: 5; right: 16px; bottom: 104px; width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--card); box-shadow: var(--shadow); display: grid; place-items: center; color: var(--ink); }
 .fab.busy svg { animation: spin 1s linear infinite; }
 .map-card { position: absolute; z-index: 5; left: 16px; bottom: 16px; width: min(440px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; background: var(--card); border-radius: 20px; box-shadow: var(--shadow-lg); }
