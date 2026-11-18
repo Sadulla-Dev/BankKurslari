@@ -610,7 +610,10 @@ function scheduleMapRender() {
   if (mapRenderFrame) return;
   mapRenderFrame = requestAnimationFrame(() => {
     mapRenderFrame = 0;
-    if (S.view !== "map" || !S.map || !S.map.isStyleLoaded()) return;
+    // Marker and sidebar rendering does not depend on the style finishing every
+    // tile/source update. In Dia, isStyleLoaded() can remain false after the
+    // map is visible, leaving the map blank until the next moveend (zoom/pan).
+    if (S.view !== "map" || !S.map) return;
     S.map.resize();
     renderMap();
   });
@@ -642,6 +645,7 @@ function ensureMap() {
         clearTimeout(moveendTimer);
         moveendTimer = setTimeout(renderMap, 80);
       });
+      map.on("resize", scheduleMapRender);
       map.on("load", () => {
         if (S.user) showUser();
         focusOnMap();
