@@ -658,6 +658,8 @@ function ensureMap() {
         container: "mapgl", style: MAP_STYLES[S.dark ? "dark" : "light"], center: [c[1], c[0]], zoom: S.user ? 14 : 12.6,
         attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false
       });
+      map.dragPan.enable();
+      map.touchZoomRotate.enable();
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       S.map = map;
@@ -1001,6 +1003,7 @@ function bind() {
     S.hl = it.dataset.bank;
     if (it.dataset.lat && S.map) S.map.flyTo({ center: [+it.dataset.lng, +it.dataset.lat], zoom: Math.max(S.map.getZoom(), 15) });
     else renderMap();
+    openSheet(it.dataset.bank);
   });
   $("scrim").addEventListener("click", closeSheet);
   $("shClose").addEventListener("click", closeSheet);
