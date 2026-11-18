@@ -675,6 +675,38 @@ function addMousePanFallback(map) {
     drag = null;
     if (usedFallback) map.dragPan.enable();
   });
+
+  // Some mobile browsers take over one-finger gestures even when MapLibre's
+  // touch handler is enabled. Keep pinch zoom native, and use panBy only when
+  // MapLibre did not move the map for a single-finger drag.
+  let touchDrag = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    if (!e.isPrimary) {
+      if (touchDrag?.fallback) map.dragPan.enable();
+      touchDrag = null;
+      return;
+    }
+    const c = map.getCenter();
+    touchDrag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, lng: c.lng, lat: c.lat, fallback: false };
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!touchDrag || e.pointerType !== "touch" || !e.isPrimary) return;
+    const dx = e.clientX - touchDrag.x, dy = e.clientY - touchDrag.y;
+    const c = map.getCenter();
+    const nativePanMoved = Math.abs(c.lng - touchDrag.lng) > 1e-8 || Math.abs(c.lat - touchDrag.lat) > 1e-8;
+    if (!touchDrag.fallback && nativePanMoved) { touchDrag = null; return; }
+    if (!touchDrag.fallback && Math.hypot(e.clientX - touchDrag.startX, e.clientY - touchDrag.startY) < 4) return;
+    if (!touchDrag.fallback) { touchDrag.fallback = true; map.dragPan.disable(); }
+    map.panBy([-dx, -dy], { duration: 0 });
+    touchDrag.x = e.clientX; touchDrag.y = e.clientY;
+  });
+  window.addEventListener("pointerup", (e) => {
+    if (e.pointerType !== "touch" || !touchDrag) return;
+    const usedFallback = touchDrag.fallback;
+    touchDrag = null;
+    if (usedFallback) map.dragPan.enable();
+  });
 }
 function ensureMap() {
   mapReady ||= new Promise((resolve) => {
@@ -781,7 +813,18 @@ function renderMap() {
     el.className = "pin-wrap";
     const cls = "pill" + (bank.rate === bestRate ? " best" : "") + (bank.bank === S.hl ? " hl" : "");
     el.innerHTML = `<button type="button" class="${cls}" title="${esc(bank.bank)}"><span>${esc(label)}</span><b>${rateFmt(bank.rate)}</b></button>`;
-    el.firstChild.addEventListener("click", (e) => { e.stopPropagation(); openSheet(bank.bank); });
+    let markerPointerOpenedAt = 0;
+    el.firstChild.addEventListener("pointerup", (e) => {
+      if (e.button !== 0) return;
+      markerPointerOpenedAt = performance.now();
+      e.stopPropagation();
+      openSheet(bank.bank);
+    });
+    el.firstChild.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (performance.now() - markerPointerOpenedAt < 500) return;
+      openSheet(bank.bank);
+    });
     const m = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([b.lng, b.lat]).addTo(map);
     if (bank.rate === bestRate || bank.bank === S.hl) m.getElement().style.zIndex = 3;
     S.markers.push(m);
