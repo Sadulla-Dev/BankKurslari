@@ -715,15 +715,15 @@ async function getOfficialBranches({ force = false } = {}) {
   // Keep the previous list for banks whose importer failed this time.
   const okBanks = new Set(Object.entries(report).filter(([, r]) => r.count > 0).map(([b]) => b));
   const kept = (officialMem?.branches || []).filter((b) => !okBanks.has(b.bank));
-  officialMem = { fetchedAt: Date.now(), report, branches: [...kept, ...branches] };
+  const fetchedAt = Object.values(report).some((r) => r.count != null)
+    ? Date.now()
+    : (officialMem?.fetchedAt || 0);
+  officialMem = { fetchedAt, report, branches: [...kept, ...branches] };
   await writeFile(OFFICIAL_FILE, JSON.stringify(officialMem)).catch((e) => console.error("Official save:", e.message));
   return officialMem.branches;
 }
 
-/**
- * Official entries win; a base (bank.uz) entry of the same bank within 250 m of an official one is treated as the
- * same office and dropped. Base entries elsewhere stay: official lists often omit mini-banks and kassas.
- */
+/** Official entries take precedence at the same site; distinct nearby branches remain in the dataset. */
 function mergeOfficial(base, official) {
   if (!official?.length) return base;
   const byBank = new Map();
@@ -735,7 +735,7 @@ function mergeOfficial(base, official) {
   const near = (a, b) => {
     const dLat = (a.lat - b.lat) * 111320;
     const dLng = (a.lng - b.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
-    return dLat * dLat + dLng * dLng < 250 * 250;
+    return dLat * dLat + dLng * dLng < 75 * 75;
   };
   const rest = base.filter((b) => {
     const k = bankKey(b.bank);

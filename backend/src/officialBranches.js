@@ -249,7 +249,7 @@ const importers = {
 
   async "Aloqabank"() {
     const $ = cheerio.load(await get("https://aloqabank.uz/uz/branches/"));
-    const links = [...new Set($("a[href*='/uz/branches/branches/']").map((_, a) => $(a).attr("href")).get())].slice(0, 30);
+    const links = [...new Set($("a[href*='/uz/branches/branches/']").map((_, a) => $(a).attr("href")).get())];
     const out = [];
     for (const href of links) {
       const url = href.startsWith("http") ? href : `https://aloqabank.uz${href}`;
@@ -314,7 +314,7 @@ Object.assign(importers, {
   async "MKBank"() {
     // No list endpoint: office pages from the sitemap, one request each, slowly.
     const xml = await get("https://mkbank.uz/uz/sitemap-iblock-331.xml");
-    const urls = [...new Set([...xml.matchAll(/<loc>([^<]*\/uz\/branches\/branches\/[^<]+)<\/loc>/g)].map((m) => m[1]))].slice(0, 200);
+    const urls = [...new Set([...xml.matchAll(/<loc>([^<]*\/uz\/branches\/branches\/[^<]+)<\/loc>/g)].map((m) => m[1]))];
     const out = [];
     for (const url of urls) {
       try {

@@ -62,7 +62,20 @@ function parsePage(url, html) {
   const slug = url.split("/").pop();
   const isAtm = /_atm\d+|bankomat|kartomat/i.test(slug) || /bankomat|bankomatlar/i.test(name);
 
-  return { bank, name, address, lat, lng, isAtm };
+  return { bank, name, address, lat, lng, isAtm, source: "bank.uz", sourceUrl: url };
+}
+
+function dedupeExactBranches(items) {
+  const seen = new Set();
+  return items.filter((branch) => {
+    // Remove records with identical details after case/whitespace normalization. Nearby branches remain separate.
+    const key = [branch.bank, branch.name, branch.address, branch.lat, branch.lng]
+      .map((value) => String(value ?? "").trim().toLocaleLowerCase())
+      .join("\u0000");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function collectUrls() {
@@ -94,16 +107,21 @@ async function main() {
     );
     for (const r of results) {
       if (!r) continue;
-      (r.isAtm ? atms : branches).push({ bank: r.bank, name: r.name, address: r.address, lat: r.lat, lng: r.lng });
+      (r.isAtm ? atms : branches).push({
+        bank: r.bank, name: r.name, address: r.address, lat: r.lat, lng: r.lng,
+        source: r.source, sourceUrl: r.sourceUrl
+      });
     }
     done += slice.length;
     if (done % 200 < BATCH) console.log(`  ${done}/${urls.length}  (branches ${branches.length}, atms ${atms.length})`);
   }
 
   await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(join(DATA_DIR, "branches.json"), JSON.stringify(branches));
-  await writeFile(join(DATA_DIR, "atms.json"), JSON.stringify(atms));
-  console.log(`Done. branches=${branches.length} atms=${atms.length} -> backend/data/`);
+  const uniqueBranches = dedupeExactBranches(branches);
+  const uniqueAtms = dedupeExactBranches(atms);
+  await writeFile(join(DATA_DIR, "branches.json"), JSON.stringify(uniqueBranches));
+  await writeFile(join(DATA_DIR, "atms.json"), JSON.stringify(uniqueAtms));
+  console.log(`Done. branches=${uniqueBranches.length} (${branches.length - uniqueBranches.length} exact duplicates removed), atms=${uniqueAtms.length} -> backend/data/`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
