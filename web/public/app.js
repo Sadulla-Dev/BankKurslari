@@ -54,7 +54,13 @@ const T = {
     ranges: ["1H", "1O", "3O", "1Y", "5Y", "Hammasi"], periods: ["7 kun", "30 kun", "3 oy", "1 yil", "5 yil"],
     stHigh: "Eng yuqori", stLow: "Eng past", stAvg: "O‘rtacha", stChg: "O‘zgarish", avg: "o‘rtacha", prevPt: "oldingi nuqtaga",
     toToday: "bugungacha", cbu: "Markaziy bank", tkBuy: "xarid", tkSell: "sotuv",
-    error: "Kurslarni yuklab bo‘lmadi. Internetni tekshirib, sahifani yangilang."
+    error: "Kurslarni yuklab bo‘lmadi. Internetni tekshirib, sahifani yangilang.",
+    "gold.title": "Oltin quymalar narxi", "gold.chart": "Grafik", "gold.bar": "Quyma", "gold.sell": "Sotib olish", "gold.buyback": "Qaytarib topshirish",
+    "gold.perGram": "1 gramm", "gold.loss": "Farq", "gold.tab": "Oltin",
+    "gold.note": "Narxlar — Markaziy bank o‘lchovli oltin quymalari uchun. “Sotib olish” — bankdan quyma olish narxi, “Qaytarib topshirish” — quymani bankka qaytarganda olinadigan pul (qadoq buzilmagan bo‘lsa). “Farq” — sotib olib darhol topshirsangiz yo‘qotadigan ulush.",
+    goldSub: (d, tm) => `Markaziy bank · ${d}, ${tm} holatiga`, grams: (g) => `${g} g`,
+    goldLabel: "Oltin, 1 gramm (10 g quyma)", goldSellL: "1 g — sotib olish narxi", goldBuyL: "1 g — qaytarib topshirish", goldSrc: "Markaziy bank · 10 g quyma",
+    goldSideNote: "Sotib olish — Markaziy bank quymani sizga sotadigan narx. Qaytarib topshirish — bank shikastlanmagan quymani sizdan qabul qiladigan narx."
   },
   ru: {
     "tab.rates": "Курсы", "tab.map": "Карта", "tab.history": "История",
@@ -90,7 +96,13 @@ const T = {
     ranges: ["1Н", "1М", "3М", "1Г", "5Л", "Всё"], periods: ["7 дней", "30 дней", "3 месяца", "1 год", "5 лет"],
     stHigh: "Максимум", stLow: "Минимум", stAvg: "Среднее", stChg: "Изменение", avg: "среднее", prevPt: "к предыдущей точке",
     toToday: "до сегодня", cbu: "ЦБ", tkBuy: "покупка", tkSell: "продажа",
-    error: "Не удалось загрузить курсы. Проверьте интернет и обновите страницу."
+    error: "Не удалось загрузить курсы. Проверьте интернет и обновите страницу.",
+    "gold.title": "Цены на золотые слитки", "gold.chart": "График", "gold.bar": "Слиток", "gold.sell": "Покупка", "gold.buyback": "Обратный выкуп",
+    "gold.perGram": "1 грамм", "gold.loss": "Разница", "gold.tab": "Золото",
+    "gold.note": "Цены на мерные золотые слитки Центрального банка. «Покупка» — за сколько вы покупаете слиток, «Обратный выкуп» — сколько банк платит за него (в целой упаковке). «Разница» — сколько вы теряете, если купите слиток и сразу сдадите его обратно.",
+    goldSub: (d, tm) => `Центральный банк · на ${d}, ${tm}`, grams: (g) => `${g} г`,
+    goldLabel: "Золото, 1 грамм (слиток 10 г)", goldSellL: "1 г — цена покупки", goldBuyL: "1 г — цена обратного выкупа", goldSrc: "Центральный банк · слиток 10 г",
+    goldSideNote: "Продажа — цена, по которой ЦБ продаёт вам слиток. Выкуп — цена, по которой ЦБ принимает неповреждённый слиток."
   },
   en: {
     "tab.rates": "Rates", "tab.map": "Map", "tab.history": "History",
@@ -126,7 +138,13 @@ const T = {
     ranges: ["1W", "1M", "3M", "1Y", "5Y", "All"], periods: ["7 days", "30 days", "3 months", "1 year", "5 years"],
     stHigh: "High", stLow: "Low", stAvg: "Average", stChg: "Change", avg: "avg", prevPt: "vs previous point",
     toToday: "to today", cbu: "CBU", tkBuy: "buy", tkSell: "sell",
-    error: "Couldn’t load rates. Check your connection and reload."
+    error: "Couldn’t load rates. Check your connection and reload.",
+    "gold.title": "Gold bar prices", "gold.chart": "Chart", "gold.bar": "Bar", "gold.sell": "You buy at", "gold.buyback": "Buy-back",
+    "gold.perGram": "Per gram", "gold.loss": "Spread", "gold.tab": "Gold",
+    "gold.note": "Prices for the Central Bank of Uzbekistan’s gold bars. “You buy at” is what you pay for a bar, “Buy-back” is what the bank pays you for it (packaging intact). “Spread” is what you lose if you buy a bar and hand it straight back.",
+    goldSub: (d, tm) => `Central Bank · as of ${d}, ${tm}`, grams: (g) => `${g} g`,
+    goldLabel: "Gold, per gram (10 g bar)", goldSellL: "1 g — buy price", goldBuyL: "1 g — buy-back price", goldSrc: "Central Bank · 10 g bar",
+    goldSideNote: "Sell is what the CBU charges you for a bar. Buy-back is what it pays for an undamaged bar."
   }
 };
 
@@ -160,7 +178,7 @@ const S = {
   sort: "best", query: "",
   rates: {}, history: {}, bankHist: {},
   branches: null, user: null,
-  range: 1, sheetBank: null,
+  range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null,
   map: null, markers: [], meMarker: null, hl: null
 };
 const L = () => T[S.lang];
@@ -302,6 +320,11 @@ const once = (key, fn) => (inflight[key] ||= fn().catch((e) => { delete inflight
 const loadRates = (cur) => S.rates[cur] ? Promise.resolve(S.rates[cur]) : once("r" + cur, async () => (S.rates[cur] = await getJSON(`/api/rates/${cur.toLowerCase()}`)));
 const loadHistory = (cur) => S.history[cur] ? Promise.resolve(S.history[cur]) : once("h" + cur, async () => (S.history[cur] = (await getJSON(`/api/history/${cur.toLowerCase()}`)).points));
 const loadBankHist = (cur) => S.bankHist[cur] ? Promise.resolve(S.bankHist[cur]) : once("b" + cur, async () => (S.bankHist[cur] = (await getJSON(`/api/bank-history/${cur.toLowerCase()}?days=2`)).days));
+const loadGold = () => S.gold ? Promise.resolve(S.gold) : once("gold", async () => (S.gold = await getJSON("/api/gold")));
+/** CBU price per gram, taken from the 10 g bar (the most common size): archived snapshots since 2020, daily since Oct 2026. */
+const loadGoldHist = () => S.goldHist ? Promise.resolve(S.goldHist) : once("goldh", async () => (S.goldHist = ((await getJSON("/api/gold/history")).points || [])
+  .filter((p) => p.bars?.["10"]?.sell > 0)
+  .map((p) => ({ date: p.date, rate: p.bars["10"].sell / 10, buyback: p.bars["10"].buyback / 10 }))));
 function normalizeBranchCoordinate(value, min, max) {
   const n = Number(value);
   if (Number.isFinite(n) && n >= min && n <= max) return n;
@@ -394,7 +417,7 @@ function route() {
 /* ---------- shared controls ---------- */
 
 function syncControls() {
-  document.querySelectorAll(".curSeg button").forEach((b) => b.classList.toggle("on", b.dataset.cur === S.cur));
+  document.querySelectorAll(".curSeg button").forEach((b) => b.classList.toggle("on", b.closest("#histSeg") && S.histGold ? b.hasAttribute("data-gold") : b.dataset.cur === S.cur));
   document.querySelectorAll("#modeSeg button, #mapModeSeg button").forEach((b) => b.classList.toggle("on", b.dataset.mode === S.mode));
 }
 async function setCur(cur) {
@@ -417,6 +440,7 @@ function renderAll() {
   renderConv();
   renderCbu();
   renderTable();
+  renderGold();
   if (S.view === "map") renderMap();
   if (S.view === "history") renderHistory();
 }
@@ -927,18 +951,23 @@ const RANGE_DAYS = [7, 30, 90, 365, 1825, null];
 const DAY = 864e5;
 const dayMs = (ymd) => Date.parse(ymd + "T00:00:00Z");
 async function renderHistory() {
-  const cur = S.cur;
-  $("ranges").innerHTML = L().ranges.map((r, i) => `<button type="button" data-i="${i}" class="${i === S.range ? "on" : ""}">${r}</button>`).join("");
+  const cur = S.cur, gold = S.histGold;
+  const t = L();
+  syncControls();
+  const shown = S.range;
+  $("ranges").innerHTML = t.ranges.map((r, i) => `<button type="button" data-i="${i}" class="${i === shown ? "on" : ""}">${r}</button>`).join("");
+  setText("tLabel", gold ? t.goldLabel : t["hist.cbu"]);
   renderSpread();
   let pts;
-  try { pts = await loadHistory(cur); } catch { return; }
-  if (cur !== S.cur || !pts?.length || S.view !== "history") return;
-  const days = RANGE_DAYS[S.range];
+  try { pts = await (gold ? loadGoldHist() : loadHistory(cur)); } catch { return; }
+  if (cur !== S.cur || gold !== S.histGold || !pts?.length || S.view !== "history") return;
+  const days = RANGE_DAYS[shown];
   const lastDay = dayMs(pts[pts.length - 1].date);
   let slice = days ? pts.filter((p) => dayMs(p.date) >= lastDay - days * DAY) : pts;
   if (slice.length < 2) slice = pts.slice(-2);
   drawChart(slice);
 }
+const histRange = () => S.range;
 const signed = (d) => (Math.abs(d) < 0.005 ? "±0" : (d < 0 ? "−" : "+") + rateFmt(Math.abs(d)));
 const pctOf = (d, base) => dec((base ? Math.abs((d / base) * 100) : 0).toFixed(2)) + "%";
 function trendCaption(slice, idx) {
@@ -949,7 +978,8 @@ function trendCaption(slice, idx) {
     return fullDate(p.date) + (idx < slice.length - 1 ? ` · ${t.toToday} ${signed(end.rate - p.rate)}` : "");
   }
   const d = end.rate - first.rate;
-  return `${signed(d)} · ${pctOf(d, first.rate)} · ${S.range < t.periods.length ? t.periods[S.range] : t.since(first.date.slice(0, 4))}`;
+  const ri = histRange();
+  return `${signed(d)} · ${pctOf(d, first.rate)} · ${ri < t.periods.length ? t.periods[ri] : t.since(first.date.slice(0, 4))}`;
 }
 function shortDate(ms, spanDays) {
   const dt = new Date(ms);
@@ -1029,7 +1059,7 @@ function drawChart(slice) {
       <rect class="ext-bg" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${w.toFixed(1)}" height="${h}" rx="7"/>
       <text class="ext" x="${(bx + w / 2).toFixed(1)}" y="${(by + 15).toFixed(1)}" text-anchor="middle">${txt}</text>`;
   };
-  el.className = "chart t-" + trend;
+  el.className = "chart t-" + trend + (S.histGold ? " t-gold" : "");
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t["hist.cbu"])}: ${esc(trendCaption(slice, null))}">
     <defs>
       <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fill-a"/><stop offset="1" class="fill-b"/></linearGradient>
@@ -1128,10 +1158,23 @@ function renderHistStats(slice, hiI, loI, avg) {
   $("tStats").innerHTML =
     cell(t.stHigh, rateFmt(slice[hiI].rate), fullDate(slice[hiI].date)) +
     cell(t.stLow, rateFmt(slice[loI].rate), fullDate(slice[loI].date)) +
-    cell(t.stAvg, rateFmt(avg), S.range < t.periods.length ? t.periods[S.range] : t.since(first.date.slice(0, 4))) +
+    cell(t.stAvg, rateFmt(avg), histRange() < t.periods.length ? t.periods[histRange()] : t.since(first.date.slice(0, 4))) +
     cell(t.stChg, signed(change), pctOf(change, first.rate), Math.abs(change) < 0.005 ? "" : change > 0 ? "up-t" : "down-t");
 }
 function renderSpread() {
+  const t = L();
+  setText("spBuyL", S.histGold ? t.goldSellL : t["spread.buy"]);
+  setText("spSellL", S.histGold ? t.goldBuyL : t["spread.sell"]);
+  setText("spNote", S.histGold ? t.goldSideNote : t["spread.note"]);
+  if (S.histGold) {
+    const g10 = S.gold?.bars?.find((b) => b.grams === 10);
+    setText("spBuy", g10 ? group(g10.sell / 10) : "—");
+    setText("spSell", g10 ? group(g10.buyback / 10) : "—");
+    setText("spBuyBank", t.goldSrc);
+    setText("spSellBank", t.goldSrc);
+    if (!S.gold) loadGold().then(() => { if (S.histGold) renderSpread(); }).catch(() => {});
+    return;
+  }
   const d = S.rates[S.cur];
   if (!d) return;
   const buy = d.banks.filter((b) => b.buy > 0).sort((a, b) => b.buy - a.buy)[0];
@@ -1140,6 +1183,56 @@ function renderSpread() {
   setText("spBuyBank", buy?.bank || "");
   setText("spSell", sell ? rateFmt(sell.sell) : "—");
   setText("spSellBank", sell?.bank || "");
+}
+
+/* ---------- gold ---------- */
+
+/**
+ * A minted gold bar standing upright: rounded body with a polished bevel, an inner panel stamped with the weight and
+ * fineness. Heavier bars are drawn taller, like a row of real bars side by side. Gradient ids are shared (identical).
+ */
+const BAR_SIZES = [5, 10, 20, 50, 100];
+function ingot(grams) {
+  const i = Math.max(0, BAR_SIZES.indexOf(grams));
+  const h = 30 + i * 4.5, w = h * 0.62;
+  return `<svg class="ingot" viewBox="0 0 31 50" width="${w.toFixed(1)}" height="${h.toFixed(1)}" style="--h:${h.toFixed(1)}px" aria-hidden="true">
+  <defs>
+    <linearGradient id="barBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF0B3"/><stop offset=".22" stop-color="#F2C95A"/><stop offset=".5" stop-color="#C98E22"/><stop offset=".72" stop-color="#F5D27A"/><stop offset="1" stop-color="#B07A16"/>
+    </linearGradient>
+    <linearGradient id="barPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F9DE8C"/><stop offset=".45" stop-color="#E6B649"/><stop offset="1" stop-color="#D19B2E"/>
+    </linearGradient>
+    <linearGradient id="barShine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect x=".6" y=".6" width="29.8" height="48.8" rx="5" fill="url(#barBody)" stroke="#8C5F12" stroke-width=".8"/>
+  <rect x="3.4" y="3.4" width="24.2" height="43.2" rx="3" fill="url(#barPanel)" stroke="#FFF2C2" stroke-width=".9"/>
+  <rect x="3.4" y="3.4" width="24.2" height="43.2" rx="3" fill="none" stroke="#9C6B14" stroke-width=".5" opacity=".6" transform="translate(.5 .5)"/>
+  <path d="M15.5 8.5l3.2 2v3.5h-6.4v-3.5z" fill="none" stroke="#9A6612" stroke-width=".8" opacity=".7"/>
+  <text x="15.5" y="24.5" text-anchor="middle" font-family="Onest, system-ui, sans-serif" font-size="${grams >= 100 ? 7.4 : 8.4}" font-weight="800" fill="#7C520C" opacity=".85">${grams}g</text>
+  <text x="15.5" y="31.5" text-anchor="middle" font-family="Onest, system-ui, sans-serif" font-size="4.6" font-weight="600" fill="#7C520C" opacity=".7">999,9</text>
+  <path d="M7 36.5h17M7 39.5h17" stroke="#9A6612" stroke-width=".5" opacity=".45"/>
+  <path d="M5 4.5L13 4.5L5 18z" fill="url(#barShine)" opacity=".7"/>
+</svg>`;
+}
+function renderGold() {
+  const g = S.gold;
+  const card = $("goldCard");
+  if (!g?.bars?.length) { card.hidden = true; return; }
+  const t = L();
+  card.hidden = false;
+  const [dd, mm, yy] = (g.date || "").split(".");
+  setText("goldSub", t.goldSub(dd && mm && yy ? fullDate(`${yy}-${mm}-${dd}`) : g.date || "", g.time || ""));
+  $("goldBody").innerHTML = g.bars.map((b) => {
+    const loss = b.sell ? ((b.sell - b.buyback) / b.sell) * 100 : 0;
+    return `<tr>
+      <td><span class="gold-bar"><span class="ingot-slot">${ingot(b.grams)}</span><b>${esc(t.grams(b.grams))}</b></span></td>
+      <td class="num"><b>${group(b.sell)}</b></td>
+      <td class="num">${b.buyback ? group(b.buyback) : "—"}</td>
+      <td class="num muted">${group(b.sell / b.grams)}</td>
+      <td class="num"><span class="gold-loss">−${dec(loss.toFixed(1))}%</span></td>
+    </tr>`;
+  }).join("");
 }
 
 /* ---------- misc ---------- */
@@ -1227,8 +1320,14 @@ function bind() {
   });
   document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => { S.lang = b.dataset.lang; store.set("lang", S.lang); applyLang(); }));
   document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-gold]")) { S.histGold = true; return renderHistory(); }
     const cur = e.target.closest(".curSeg button, .cbu-c");
-    if (cur) return setCur(cur.dataset.cur);
+    if (cur) {
+      const wasGold = S.histGold;
+      S.histGold = false;
+      if (wasGold && cur.dataset.cur === S.cur) renderHistory();
+      return setCur(cur.dataset.cur);
+    }
     const mode = e.target.closest("#modeSeg button, #mapModeSeg button");
     if (mode) return setMode(mode.dataset.mode);
   });
@@ -1265,6 +1364,7 @@ function bind() {
     else renderMap();
     openSheet(it.dataset.bank);
   });
+  $("goldChart").addEventListener("click", () => { S.histGold = true; });
   $("scrim").addEventListener("click", closeSheet);
   $("shClose").addEventListener("click", closeSheet);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
@@ -1301,10 +1401,12 @@ async function init() {
   try { await loadRates(S.cur); } catch { showError(); }
   renderAll();
   for (const c of CURS) loadRates(c).then(renderCbu).catch(() => {});
+  loadGold().then(renderGold).catch(() => {});
   loadBranches().then(() => { renderConv(); renderTable(); if (S.view === "map") renderMapWhenReady(); }).catch(() => {});
   setInterval(async () => {
-    S.rates = {}; S.bankHist = {};
-    for (const k of Object.keys(inflight)) if (k[0] === "r" || k[0] === "b") delete inflight[k];
+    S.rates = {}; S.bankHist = {}; S.gold = null;
+    for (const k of Object.keys(inflight)) if (k[0] === "r" || k[0] === "b" || k === "gold") delete inflight[k];
+    loadGold().then(renderGold).catch(() => {});
     try { await Promise.all(CURS.map(loadRates)); renderAll(); } catch { /* keep old */ }
   }, 60 * 60 * 1000);
 }

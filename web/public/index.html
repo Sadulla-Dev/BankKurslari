@@ -135,6 +135,35 @@
     </div>
   </div>
 
+  <!-- CBU gold bars -->
+  <div class="wrap">
+    <section class="card gold-card" id="goldCard" aria-labelledby="goldTitle" hidden>
+      <div class="tbl-head">
+        <div class="tbl-title">
+          <h2 id="goldTitle" data-i18n="gold.title">Oltin quymalar narxi</h2>
+          <p class="muted" id="goldSub"></p>
+        </div>
+        <a class="chip-btn" href="#/tarix" id="goldChart">
+          <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 14.5l5-5.5 3.5 3 6.5-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="gold.chart">Grafik</span>
+        </a>
+      </div>
+      <div class="tbl-scroll">
+        <table class="tbl gold-tbl">
+          <thead><tr>
+            <th data-i18n="gold.bar">Quyma</th>
+            <th class="num" data-i18n="gold.sell">Sotib olish</th>
+            <th class="num" data-i18n="gold.buyback">Qaytarib topshirish</th>
+            <th class="num" data-i18n="gold.perGram">1 gramm</th>
+            <th class="num" data-i18n="gold.loss">Farq</th>
+          </tr></thead>
+          <tbody id="goldBody"></tbody>
+        </table>
+      </div>
+      <p class="gold-note muted" data-i18n="gold.note">Narxlar Markaziy bank quymalari uchun. “Farq” — quymani sotib olib, darhol qaytarib topshirsangiz yo‘qotadigan ulush.</p>
+    </section>
+  </div>
+
   <!-- App promo: one quiet block at the bottom -->
   <div class="wrap">
     <div class="promo">
@@ -184,19 +213,19 @@
   <div class="wrap hist">
     <div class="card trend">
       <div class="trend-top">
-        <div class="seg curSeg"><button data-cur="USD">USD</button><button data-cur="EUR">EUR</button><button data-cur="RUB">RUB</button></div>
+        <div class="seg curSeg" id="histSeg"><button data-cur="USD">USD</button><button data-cur="EUR">EUR</button><button data-cur="RUB">RUB</button><button data-gold type="button" class="gold-btn" data-i18n="gold.tab">Oltin</button></div>
         <div class="ranges" id="ranges"></div>
       </div>
-      <p class="t-label" data-i18n="hist.cbu">Markaziy bank kursi</p>
+      <p class="t-label" id="tLabel">Markaziy bank kursi</p>
       <div class="t-hero"><span class="big" id="tRate">—</span><span class="som" data-i18n="som">so‘m</span></div>
       <p class="caption" id="tCap">&nbsp;</p>
       <div class="chart" id="chart"></div>
       <div class="t-stats" id="tStats"></div>
     </div>
     <div class="hist-side">
-      <div class="card stat"><small data-i18n="spread.buy">Eng yuqori xarid</small><b id="spBuy">—</b><span class="muted" id="spBuyBank"></span></div>
-      <div class="card stat"><small data-i18n="spread.sell">Eng past sotuv</small><b id="spSell">—</b><span class="muted" id="spSellBank"></span></div>
-      <p class="muted small" data-i18n="spread.note">Xarid — bank sizdan valyutani oladigan narx. Sotuv — bank sizga sotadigan narx.</p>
+      <div class="card stat"><small id="spBuyL">Eng yuqori xarid</small><b id="spBuy">—</b><span class="muted" id="spBuyBank"></span></div>
+      <div class="card stat"><small id="spSellL">Eng past sotuv</small><b id="spSell">—</b><span class="muted" id="spSellBank"></span></div>
+      <p class="muted small" id="spNote">Xarid — bank sizdan valyutani oladigan narx. Sotuv — bank sizga sotadigan narx.</p>
     </div>
   </div>
 </section>

@@ -212,10 +212,10 @@ app.get("/api/bank-history/:cur", async (request, response) => {
   response.json({ currency: cur, days: out });
 });
 
-/** Daily CBU gold bar prices collected by this server (starts empty, grows by one day per day). */
+/** CBU gold bar prices: archived snapshots since late 2020, then one point per day collected by this server. */
 app.get("/api/gold/history", async (_request, response) => {
   try {
-    const hist = JSON.parse(await readFile(goldHistoryFile, "utf8"));
+    const hist = await readGoldHistory();
     const points = Object.entries(hist).sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, bars]) => ({ date, bars }));
     response.json({ points });
   } catch {
@@ -373,14 +373,20 @@ async function recordBankHistory(cur, banks) {
 /* ---------- gold history (collected daily by this server) ---------- */
 
 const goldHistoryFile = join(DATA_DIR, "gold-history.json");
+// Older CBU bar prices recovered once from Internet Archive snapshots (scripts/backfill-gold-wayback.mjs). Read-only,
+// shipped with the repo: days we collected ourselves always win over it.
+const goldArchiveFile = join(REPO_DATA_DIR, "gold-history-archive.json");
+
+async function readGoldHistory() {
+  let hist = {}, archive = {};
+  try { hist = JSON.parse(await readFile(goldHistoryFile, "utf8")); } catch { hist = {}; }
+  try { archive = JSON.parse(await readFile(goldArchiveFile, "utf8")); } catch { archive = {}; }
+  return { ...archive, ...hist };
+}
 
 async function recordGoldHistory(data) {
-  let hist = {};
-  try {
-    hist = JSON.parse(await readFile(goldHistoryFile, "utf8"));
-  } catch {
-    hist = {};
-  }
+  // Writing the merged map also seeds the deployed state (_state/gold-history.json) with the archive on the next build.
+  const hist = await readGoldHistory();
   // Key by the CBU's own price date when given (dd.mm.yyyy -> yyyy-mm-dd), else today.
   const m = (data.date || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   const day = m ? `${m[3]}-${m[2]}-${m[1]}` : localDate();
