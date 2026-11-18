@@ -650,6 +650,32 @@ function refreshMapData() {
   }).catch(() => {});
   loadBranches().then(renderMapWhenReady).catch(() => {});
 }
+function addMousePanFallback(map) {
+  const canvas = map.getCanvas();
+  let drag = null;
+  canvas.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    const c = map.getCenter();
+    drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, lng: c.lng, lat: c.lat, fallback: false };
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    const c = map.getCenter();
+    const nativePanMoved = Math.abs(c.lng - drag.lng) > 1e-8 || Math.abs(c.lat - drag.lat) > 1e-8;
+    if (!drag.fallback && nativePanMoved) { drag = null; return; }
+    if (!drag.fallback && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
+    if (!drag.fallback) { drag.fallback = true; map.dragPan.disable(); }
+    map.panBy([-dx, -dy], { duration: 0 });
+    drag.x = e.clientX; drag.y = e.clientY;
+  });
+  window.addEventListener("mouseup", () => {
+    if (!drag) return;
+    const usedFallback = drag.fallback;
+    drag = null;
+    if (usedFallback) map.dragPan.enable();
+  });
+}
 function ensureMap() {
   mapReady ||= new Promise((resolve) => {
     const start = () => {
@@ -661,6 +687,7 @@ function ensureMap() {
       map.dragPan.enable();
       map.touchZoomRotate.enable();
       map.touchZoomRotate.disableRotation();
+      addMousePanFallback(map);
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       S.map = map;
       mapDarkMode = S.dark;
