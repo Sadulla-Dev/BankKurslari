@@ -263,6 +263,9 @@ fun buildMarkerSpecs(
     val boxW = (if (labelMode == MapLabel.BOTH) 150 else 96) * density * scale
     val boxH = 46 * density * scale
 
+    // Grouping below is O(n^2) (each pin scans every group found so far), so the priority-sorted
+    // candidate list is capped well above MAX_LABELS before that scan: zoomed out over a dense
+    // dataset, inView can hold thousands of pins and that scan would otherwise freeze the UI thread.
     val ordered = inView.filter { it.kind == MapPinKind.PRICED }.sortedWith(
         compareByDescending<MapPin> { it.id == selectedId }
             .thenByDescending { it.good && !it.closed }
@@ -270,7 +273,7 @@ fun buildMarkerSpecs(
             .thenBy { if (sell) -it.rb!!.perUnit else it.rb!!.perUnit }
             .thenBy { it.rawKm ?: Double.MAX_VALUE }
             .thenBy { it.id }
-    )
+    ).take(MAX_GROUPING_CANDIDATES)
     class Group(val x: Float, val y: Float, val pins: MutableList<MapPin>)
     val groups = ArrayList<Group>()
     ordered.forEach { p ->
@@ -307,6 +310,7 @@ fun buildMarkerSpecs(
 }
 
 private const val MAX_LABELS = 80
+private const val MAX_GROUPING_CANDIDATES = 500
 
 /**
  * Topmost marker under [x],[y] (screen px). [project] maps a coordinate to screen px; [sizeOf] gives a marker's image
