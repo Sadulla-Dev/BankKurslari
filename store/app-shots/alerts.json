@@ -1,0 +1,1 @@
+[{"id":"a1","currency":"USD","side":"SELL","threshold":12000,"bank":null,"fired":false,"lastFiredAt":0},{"id":"a2","currency":"USD","side":"BUY","threshold":12000,"bank":null,"fired":true,"lastFiredAt":0},{"id":"a3","currency":"EUR","side":"SELL","threshold":14000,"bank":"Kapitalbank","fired":false,"lastFiredAt":0}]
