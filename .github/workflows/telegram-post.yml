@@ -7,7 +7,9 @@ name: Telegram post
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # 11:00 Tashkent, after banks have set the day's rates
+    # 07:40 Tashkent: GitHub often starts scheduled runs 10-20 min late, so the post lands around 8:00 —
+    # before banks open at 9:00, so people can pick a bank on the way. Rates are the latest the banks published.
+    - cron: "40 2 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
