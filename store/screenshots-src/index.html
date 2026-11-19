@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Qulay Kurs — Play Market screenshotlari</title>
+<style>
+@font-face{font-family:Bric;src:url(../../composeApp/src/commonMain/composeResources/font/bricolage_medium.ttf);font-weight:500}
+@font-face{font-family:Bric;src:url(../../composeApp/src/commonMain/composeResources/font/bricolage_semibold.ttf);font-weight:600}
+@font-face{font-family:Bric;src:url(../../composeApp/src/commonMain/composeResources/font/bricolage_bold.ttf);font-weight:700}
+@font-face{font-family:Inst;src:url(../../composeApp/src/commonMain/composeResources/font/instrument_regular.ttf);font-weight:400}
+@font-face{font-family:Inst;src:url(../../composeApp/src/commonMain/composeResources/font/instrument_medium.ttf);font-weight:500}
+@font-face{font-family:Inst;src:url(../../composeApp/src/commonMain/composeResources/font/instrument_semibold.ttf);font-weight:600}
+
+:root{
+  --brand:#2F7A68; --brand-dk:#1F5A4C; --brand-xdk:#163F36; --gold:#F2C14E;
+  --ground:#F1F3F5; --card:#fff; --ink:#121A1F; --soft:#5A6670; --hair:#DDE2E7; --tile:#E6EAEE;
+  --em:#0A7C72; --tint:#D3EEEA; --rose:#B4433A; --rosetint:#FBE6E3; --amber:#8A5A00;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#888;font-family:Inst,sans-serif;color:var(--ink);font-feature-settings:"tnum";-webkit-font-smoothing:antialiased}
+.num{font-family:Bric,sans-serif;font-feature-settings:"tnum"}
+#wrap{display:flex;flex-wrap:wrap;gap:20px;padding:20px}
+
+/* ---------- Slide ---------- */
+.slide{width:540px;height:960px;position:relative;overflow:hidden;background:var(--brand)}
+.slide .bg{position:absolute;inset:0;background:
+  radial-gradient(120% 70% at 85% 0%, #3E9580 0%, rgba(62,149,128,0) 60%),
+  linear-gradient(170deg,#2F7A68 0%,#256656 55%,#1C5246 100%)}
+.slide .swoosh{position:absolute;left:-10%;right:-10%;bottom:-2px;height:520px}
+.slide .dots{position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.07) 1.4px,transparent 1.5px);background-size:22px 22px;mask-image:linear-gradient(180deg,#000 0%,transparent 45%)}
+.head{position:absolute;left:0;right:0;top:54px;text-align:center;color:#fff;padding:0 36px;z-index:3}
+.head .kicker{display:inline-flex;align-items:center;gap:8px;font:600 13px Inst;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.85);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);padding:6px 12px;border-radius:99px;margin-bottom:16px}
+.head .kicker i{width:7px;height:7px;border-radius:50%;background:var(--gold)}
+.head h1{font:700 40px/1.06 Bric;letter-spacing:-.025em}
+.head h1 em{font-style:normal;color:var(--gold)}
+.head p{font:400 17px/1.4 Inst;color:rgba(255,255,255,.82);margin-top:12px}
+
+/* ---------- Phone ---------- */
+.phone{position:absolute;left:50%;top:262px;width:302px;height:654px;margin-left:-151px;border-radius:44px;background:#0F1416;padding:9px;
+  box-shadow:0 0 0 1.5px #2a3236 inset,0 40px 80px -20px rgba(6,30,24,.55),0 18px 36px -12px rgba(6,30,24,.35);z-index:2}
+.phone::after{content:"";position:absolute;top:19px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#05080a;box-shadow:0 0 0 2px #1a2024;z-index:5}
+.screen{width:284px;height:636px;border-radius:36px;overflow:hidden;position:relative;background:var(--ground)}
+.app{width:360px;height:806px;transform:scale(.78889);transform-origin:0 0;position:absolute;left:0;top:0;background:var(--ground);display:flex;flex-direction:column}
+
+/* status bar */
+.sb{height:34px;display:flex;align-items:center;justify-content:space-between;padding:6px 22px 0 26px;font:600 14px Inst;flex:none}
+.sb .ic{display:flex;gap:6px;align-items:center}
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 0;height:48px;flex:none}
+.brandrow{display:flex;align-items:center;gap:8px;font:700 20px Bric;letter-spacing:-.02em}
+.brandrow svg{width:26px;height:26px}
+.fresh{display:flex;align-items:center;gap:6px;font:400 13px Inst;color:var(--soft)}
+.fresh i{width:8px;height:8px;border-radius:50%;background:#22B07D;box-shadow:0 0 0 4px rgba(34,176,125,.18)}
+.tabs{display:flex;gap:22px;padding:4px 16px 0;border-bottom:1px solid var(--hair);flex:none}
+.tabs span{font:600 15px Inst;color:var(--soft);padding:8px 0 10px;position:relative}
+.tabs span.on{color:var(--ink)}
+.tabs span.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px;background:var(--em)}
+.body{flex:1;overflow:hidden;padding:12px 16px 0;display:flex;flex-direction:column;gap:10px}
+/* ticker cards */
+.tick{display:flex;gap:8px}
+.tc{flex:1;background:var(--card);border-radius:16px;padding:10px 12px;border:1px solid var(--hair)}
+.tc.sel{flex:1.25;border:1.5px solid var(--em)}
+.tc .c{font:600 12px Inst;color:var(--soft);display:flex;justify-content:space-between}
+.tc .v{font:600 16px Bric;white-space:nowrap;margin-top:2px;letter-spacing:-.01em}
+.tc.sel .v{font-size:21px}
+.tc .d{font:500 12px Inst;color:var(--em)}
+.tc .d.dn{color:var(--rose)}
+/* segmented */
+.seg{display:flex;background:var(--tile);border-radius:12px;padding:3px}
+.seg span{flex:1;text-align:center;font:600 14px Inst;color:var(--soft);padding:8px 0;border-radius:10px}
+.seg span.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card{background:var(--card);border-radius:20px;border:1px solid var(--hair)}
+.amount{padding:12px 16px}
+.amount .l{font:400 13px Inst;color:var(--soft)}
+.amount .a{font:600 34px Bric;letter-spacing:-.02em;display:flex;align-items:baseline;gap:8px}
+.amount .a small{font:500 17px Inst;color:var(--soft)}
+.chips{display:flex;gap:6px;margin-top:8px}
+.chip{font:600 13px Inst;padding:6px 12px;border-radius:99px;background:var(--tile);color:var(--ink)}
+.chip.on{background:var(--tint);color:var(--em)}
+.hero{padding:14px 16px 12px;border:1.5px solid var(--em)}
+.hero .l{font:400 13px Inst;color:var(--soft)}
+.hero .big{font:700 44px Bric;color:var(--em);letter-spacing:-.03em;line-height:1.05;display:flex;align-items:baseline;gap:6px}
+.hero .big small{font:500 18px Inst;color:var(--soft);letter-spacing:0}
+.hero .m{font:400 13px Inst;color:var(--soft);margin-top:2px}
+.bankrow{display:flex;align-items:center;gap:12px;margin-top:10px}
+.logo{width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--hair);display:grid;place-items:center;overflow:hidden;flex:none}
+.logo img{width:30px;height:30px;object-fit:contain}
+.bankrow .n{font:600 15px Inst}
+.bankrow .mm{font:400 13px Inst;color:var(--soft)}
+.pill{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--em);color:#fff;font:600 14px Inst;padding:9px 14px;border-radius:99px}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}
+.sec b{font:600 19px Bric;letter-spacing:-.015em}
+.sec span{font:500 13px Inst;color:var(--em)}
+/* list rows */
+.list{background:var(--card);border-radius:20px;border:1px solid var(--hair);overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--hair)}
+.row:last-child{border-bottom:0}
+.row .rk{width:18px;font:600 13px Bric;color:var(--soft);text-align:center}
+.row .info{flex:1;min-width:0}
+.row .info .n{font:600 15px Inst;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .info .mm{font:400 12.5px Inst;color:var(--soft);white-space:nowrap}
+.row .info .mm .open{color:var(--em)}
+.row .info .mm .closed{color:var(--rose)}
+.row .val{text-align:right}
+.row .val .t{font:600 16px Bric}
+.row .val .df{font:500 12px Inst;color:var(--rose)}
+.row .val .df.best{color:var(--em)}
+.row.first{background:linear-gradient(90deg,rgba(10,124,114,.07),rgba(10,124,114,0))}
+/* bottom nav */
+.nav{flex:none;height:74px;background:var(--card);border-top:1px solid var(--hair);display:flex;justify-content:space-around;padding:8px 0 14px}
+.nav div{display:flex;flex-direction:column;align-items:center;gap:3px;font:500 12px Inst;color:var(--soft);width:80px}
+.nav div .pi{width:56px;height:30px;border-radius:15px;display:grid;place-items:center}
+.nav div.on{color:var(--ink);font-weight:600}
+.nav div.on .pi{background:var(--tint)}
+.nav svg{width:22px;height:22px}
+
+/* floating callouts */
+.float{position:absolute;z-index:4;background:#fff;border-radius:18px;box-shadow:0 18px 40px -12px rgba(6,30,24,.45),0 2px 6px rgba(0,0,0,.08);padding:12px 14px}
+.toast{display:flex;gap:10px;align-items:center}
+.toast .ic{width:38px;height:38px;border-radius:11px;background:var(--brand);display:grid;place-items:center;flex:none}
+.toast .t1{font:600 13.5px Inst}
+.toast .t2{font:400 12.5px Inst;color:var(--soft)}
+
+/* map */
+.map{position:relative;flex:1;overflow:hidden;background:#EEF0EA}
+.pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 5px rgba(0,0,0,.18))}
+.pin .b{background:#fff;border-radius:10px;padding:4px 8px;font:600 13px Bric;white-space:nowrap;display:flex;align-items:center;gap:5px;border:1px solid var(--hair)}
+.pin .b small{font:500 11px Inst;color:var(--soft)}
+.pin.g .b{background:var(--em);color:#fff;border-color:var(--em)}
+.pin.g .b small{color:rgba(255,255,255,.8)}
+.pin.c .b{border:1.5px dashed #9aa4ab;color:var(--soft)}
+.pin::after{content:"";width:10px;height:10px;background:inherit;margin-top:-6px;transform:rotate(45deg)}
+.pin .tip{width:10px;height:10px;transform:rotate(45deg);margin-top:-6px;background:#fff;border-right:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.pin.g .tip{background:var(--em);border-color:var(--em)}
+.mapchips{position:absolute;top:10px;left:12px;right:0;display:flex;gap:6px;z-index:2}
+.mapchips span{background:#fff;font:600 13px Inst;padding:7px 12px;border-radius:99px;box-shadow:0 2px 6px rgba(0,0,0,.1);white-space:nowrap}
+.mapchips span.on{background:var(--em);color:#fff}
+.me{position:absolute;width:18px;height:18px;border-radius:50%;background:#2F6FEB;border:3px solid #fff;box-shadow:0 0 0 10px rgba(47,111,235,.18),0 2px 4px rgba(0,0,0,.2);transform:translate(-50%,-50%)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.12);padding:8px 16px 14px}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--hair);margin:0 auto 10px}
+
+/* chart */
+.ranges{display:flex;gap:4px;background:var(--tile);border-radius:12px;padding:3px}
+.ranges span{flex:1;text-align:center;font:600 13px Inst;color:var(--soft);padding:6px 0;border-radius:9px}
+.ranges span.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.kv{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--hair);font:400 14px Inst}
+.kv:last-child{border-bottom:0}
+.kv b{font:600 15px Bric}
+
+/* gold table */
+.gt{width:100%;border-collapse:collapse}
+.gt th{font:500 12px Inst;color:var(--soft);text-align:right;padding:8px 14px;border-bottom:1px solid var(--hair)}
+.gt th:first-child,.gt td:first-child{text-align:left}
+.gt td{font:600 15px Bric;text-align:right;padding:10px 14px;border-bottom:1px solid var(--hair)}
+.gt tr:last-child td{border-bottom:0}
+.gt td small{display:block;font:400 11.5px Inst;color:var(--soft)}
+.bar{display:inline-block;width:22px;height:14px;border-radius:3px;background:linear-gradient(135deg,#F7D774,#D9A42B 60%,#B9861A);vertical-align:-2px;margin-right:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+
+/* feature graphic */
+.feature{width:1024px;height:500px;position:relative;overflow:hidden;background:var(--brand)}
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+
+<script>
+const L = n => `../../web/public/bank-logos/${n}.png`;
+const sp = n => n.toLocaleString('ru-RU').replace(/ /g,' ');   // 12 080 000 with thin spaces
+const LOGO = `<svg viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#2F7A68"/><path d="M7.5 21.5l5.5-5.5 4 4 6.5-7" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.8" cy="12.6" r="3" fill="#F2C14E"/></svg>`;
+
+const ICON = {
+  kurs:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>`,
+  map:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>`,
+  hist:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-4 3 3 5-6"/></svg>`,
+  dir:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 22 12 12 22 2 12z"/><path d="M9 13v-2h5l-2-2M14 11l-2 2"/></svg>`,
+  bell:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
+  star:`<svg width="18" height="18" viewBox="0 0 24 24" fill="#F2C14E"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>`,
+  search:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A6670" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  gear:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A6670" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+};
+
+const statusBar = `<div class="sb"><span>9:41</span><span class="ic">
+  <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 11h2V8H1zM5 11h2V6H5zM9 11h2V3H9zM13 11h2V0h-2z" fill="#121A1F"/></svg>
+  <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5 1 4.5a10 10 0 0 1 14 0z" fill="#121A1F"/></svg>
+  <svg width="24" height="12" viewBox="0 0 24 12"><rect x=".5" y=".5" width="20" height="11" rx="3" fill="none" stroke="#121A1F"/><rect x="2" y="2" width="14" height="8" rx="1.5" fill="#121A1F"/><rect x="21.5" y="4" width="1.8" height="4" rx=".9" fill="#121A1F"/></svg>
+</span></div>`;
+
+const topBar = (right='') => `<div class="top"><div class="brandrow">${LOGO}<span>Qulay <span style="color:#2F7A68">Kurs</span></span></div>${right||`<div style="display:flex;gap:14px">${ICON.search}${ICON.gear}</div>`}</div>`;
+const curTabs = (on='USD') => `<div class="tabs">${['USD','EUR','RUB'].map(c=>`<span class="${c===on?'on':''}">${c}</span>`).join('')}</div>`;
+const nav = on => `<div class="nav">${[['kurs','Kurs'],['map','Xarita'],['hist','Tarix']].map(([k,t])=>`<div class="${k===on?'on':''}"><span class="pi">${ICON[k]}</span>${t}</div>`).join('')}</div>`;
+const phone = (inner, style='') => `<div class="phone" style="${style}"><div class="screen"><div class="app">${inner}</div></div></div>`;
+
+function spark(w,h,pts,color='#0A7C72',fill=true){
+  const min=Math.min(...pts),max=Math.max(...pts);
+  const xy=pts.map((p,i)=>[i*(w/(pts.length-1)),h-((p-min)/(max-min||1))*(h-4)-2]);
+  const d=xy.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block">
+   ${fill?`<defs><linearGradient id="g${w}${h}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".22"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${d} L${w} ${h} L0 ${h}Z" fill="url(#g${w}${h})"/>`:''}
+   <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+// deterministic pseudo-random walk
+function walk(n,start,vol,drift,seed){let s=seed,v=start,out=[];for(let i=0;i<n;i++){s=(s*9301+49297)%233280;v+=((s/233280)-.5)*vol+drift;out.push(v)}return out}
+
+const swoosh = (flip=false) => `<svg class="swoosh" viewBox="0 0 600 520" preserveAspectRatio="none" style="${flip?'transform:scaleX(-1)':''}">
+  <path d="M0 210 C 140 120, 300 300, 600 150 L600 520 L0 520Z" fill="#ffffff" opacity=".10"/>
+  <path d="M0 290 C 170 190, 330 380, 600 230 L600 520 L0 520Z" fill="#F4F6F5"/></svg>`;
+
+function slide(head, body, opts={}){
+  return `<div class="slide" data-name="${opts.name}"><div class="bg"></div><div class="dots"></div>${swoosh(opts.flip)}
+   <div class="head">${head.kicker?`<div class="kicker"><i></i>${head.kicker}</div>`:''}<h1>${head.h1}</h1>${head.p?`<p>${head.p}</p>`:''}</div>
+   ${body}</div>`;
+}
+
+/* ----------------------------- Data ----------------------------- */
+const BANKS = [
+  ['kapitalbank','Kapitalbank',12080,'1,2 km','Ochiq · 18:00 gacha',true],
+  ['hamkorbank','Hamkorbank',12075,'850 m','Ochiq · 17:00 gacha',true],
+  ['ipak-yuli','Ipak Yoʻli banki',12070,'2,4 km','Ochiq · 19:00 gacha',true],
+  ['anorbank','Anorbank',12065,'3,1 km','Ochiq · 24/7',true],
+  ['nbu','Milliy bank (NBU)',12060,'1,8 km','Ochiq · 17:00 gacha',true],
+  ['asakabank','Asakabank',12055,'640 m','Ochiq · 18:00 gacha',true],
+  ['xalq-bank','Xalq banki',12050,'2,0 km','Yopiq · 09:00 da',false],
+  ['davrbank','Davr bank',12045,'4,3 km','Ochiq · 18:00 gacha',true],
+  ['agrobank','Agrobank',12040,'1,5 km','Ochiq · 17:00 gacha',true],
+  ['infinbank','InFinBank',12035,'3,8 km','Ochiq · 18:00 gacha',true],
+];
+const AMT=1000;
+function rows(list, from=0, count=6){
+  return list.slice(from,from+count).map((b,i)=>{
+    const tot=b[2]*AMT, diff=(BANKS[0][2]-b[2])*AMT, r=from+i+1;
+    return `<div class="row ${r===1?'first':''}"><span class="rk">${r}</span><span class="logo"><img src="${L(b[0])}"></span>
+      <div class="info"><div class="n">${b[1]}</div><div class="mm">${b[3]} · <span class="${b[5]?'open':'closed'}">${b[4]}</span></div></div>
+      <div class="val"><div class="t num">${sp(tot)}</div><div class="df ${r===1?'best':''}">${r===1?'Eng yaxshi':'−'+sp(diff)}</div></div></div>`;
+  }).join('');
+}
+
+const tickers = `<div class="tick">
+  <div class="tc sel"><div class="c"><span>USD · MB</span><span class="d">▲ 12,30</span></div><div class="v num">12 045,60</div>${spark(118,28,walk(30,11990,22,1.8,7))}</div>
+  <div class="tc"><div class="c">EUR</div><div class="v num">13 982</div><div class="d dn">▼ 8,4</div></div>
+  <div class="tc"><div class="c">RUB</div><div class="v num">152,4</div><div class="d">▲ 0,6</div></div></div>`;
+
+/* ----------------------------- Screen 1: Kurs ----------------------------- */
+const s1 = statusBar + topBar(`<div class="fresh"><i></i>Yangilandi 09:12</div>`) + curTabs('USD') + `<div class="body">
+  ${tickers}
+  <div class="seg"><span class="on">Men sotaman</span><span>Men olaman</span></div>
+  <div class="card amount"><div class="l">Summa</div><div class="a num">1 000 <small>USD</small></div>
+    <div class="chips"><span class="chip">100</span><span class="chip">500</span><span class="chip on">1 000</span><span class="chip">5 000</span></div></div>
+  <div class="card hero"><div class="l">Qoʻlingizga tegadi</div>
+    <div class="big num">12 080 000 <small>soʻm</small></div>
+    <div class="m">1 USD = 12 080 soʻm, 29 bankdan eng yaxshisi</div>
+    <div class="bankrow"><span class="logo"><img src="${L('kapitalbank')}"></span><div><div class="n">Kapitalbank</div><div class="mm">1,2 km · 18:00 gacha</div></div>
+      <span class="pill">${ICON.dir}Yoʻnalish</span></div></div>
+  <div class="sec"><b>Barcha banklar</b><span>Soʻm boʻyicha ▾</span></div>
+  <div class="list">${rows(BANKS,1,3)}</div>
+</div>` + nav('kurs');
+
+/* ----------------------------- Screen 2: Ranking ----------------------------- */
+const s2 = statusBar + topBar() + curTabs('USD') + `<div class="body">
+  <div class="seg"><span class="on">Men sotaman</span><span>Men olaman</span></div>
+  <div style="display:flex;gap:6px;flex-wrap:nowrap">
+    <span class="chip on">Soʻm</span><span class="chip">Masofa</span><span class="chip">Kurs</span><span class="chip">Ochiq hozir</span></div>
+  <div class="sec"><b>29 bank · 1 000 USD</b><span>Yangilandi 09:12</span></div>
+  <div class="list">${rows(BANKS,0,10)}</div>
+</div>` + nav('kurs');
+
+/* ----------------------------- Screen 3: Map ----------------------------- */
+function mapSvg(){
+  return `<svg width="360" height="560" viewBox="0 0 360 560" style="position:absolute;inset:0">
+    <rect width="360" height="560" fill="#EEF0EA"/>
+    <path d="M-20 400 C 60 360, 120 430, 200 380 S 330 300, 400 330 L400 380 C 330 360, 260 430, 200 440 S 60 420, -20 460Z" fill="#BFDDF0"/>
+    <rect x="210" y="70" width="110" height="90" rx="10" fill="#D5E8CF"/>
+    <rect x="20" y="210" width="80" height="70" rx="10" fill="#D5E8CF"/>
+    <circle cx="250" cy="480" r="40" fill="#D5E8CF"/>
+    <g stroke="#fff" stroke-linecap="round" fill="none">
+      <path d="M-10 120 L370 60" stroke-width="16"/><path d="M-10 300 L370 250" stroke-width="12"/>
+      <path d="M120 -10 L160 570" stroke-width="16"/><path d="M290 -10 L250 570" stroke-width="10"/>
+      <path d="M-10 190 L370 170" stroke-width="7"/><path d="M60 -10 L80 570" stroke-width="7"/>
+      <path d="M200 -10 L215 570" stroke-width="6"/><path d="M-10 500 L370 520" stroke-width="7"/>
+      <path d="M330 -10 L340 570" stroke-width="5"/>
+    </g>
+    <g stroke="#F6D88A" stroke-linecap="round" fill="none"><path d="M120 -10 L160 570" stroke-width="5"/><path d="M-10 120 L370 60" stroke-width="5"/></g>
+    <g fill="#E3E6DE"><rect x="10" y="20" width="40" height="30" rx="4"/><rect x="170" y="10" width="20" height="40" rx="4"/><rect x="10" y="320" width="45" height="30" rx="4"/><rect x="175" y="200" width="20" height="38" rx="4"/><rect x="300" y="190" width="40" height="40" rx="4"/><rect x="170" y="300" width="30" height="35" rx="4"/><rect x="90" y="140" width="22" height="30" rx="4"/></g>
+    <text x="234" y="120" font-family="Inst" font-size="11" fill="#6C8B67">Bog‘</text>
+    <text x="40" y="430" font-family="Inst" font-size="11" fill="#5F8DA8" font-style="italic">Ankhor kanali</text>
+  </svg>`;
+}
+const pin=(x,y,txt,cls='',sub='')=>`<div class="pin ${cls}" style="left:${x}px;top:${y}px"><div class="b">${txt}${sub?`<small>${sub}</small>`:''}</div><div class="tip"></div></div>`;
+const s3 = statusBar + topBar() + curTabs('USD') + `<div class="map">${mapSvg()}
+  <div class="mapchips"><span class="on">Ochiq hozir</span><span>Eng yaxshi</span><span>Bank</span><span>Bankomatlar</span></div>
+  ${pin(150,128,'12 080','g','Kapitalbank')}
+  ${pin(258,190,'12 075','g','Hamkor')}
+  ${pin(70,250,'12 055','','Asaka')}
+  ${pin(240,300,'12 060','','NBU')}
+  ${pin(92,370,'12 050','c','Xalq')}
+  ${pin(305,380,'12 045','','Davr')}
+  ${pin(200,92,'12 070 · 6','g','')}
+  <div class="me" style="left:178px;top:228px"></div>
+  <div class="sheet"><div class="grab"></div>
+    <div class="bankrow" style="margin:0"><span class="logo"><img src="${L('kapitalbank')}"></span><div><div class="n">Kapitalbank · Amir Temur filiali</div><div class="mm"><span style="color:#0A7C72">Ochiq</span> · 18:00 gacha · 1,2 km</div></div></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <div style="flex:1;background:var(--tint);border-radius:14px;padding:8px 12px"><div style="font:400 12px Inst;color:var(--soft)">Bank oladi</div><div class="num" style="font:600 20px Bric;color:var(--em)">12 080</div></div>
+      <div style="flex:1;background:var(--ground);border-radius:14px;padding:8px 12px"><div style="font:400 12px Inst;color:var(--soft)">Bank sotadi</div><div class="num" style="font:600 20px Bric">12 160</div></div></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><span class="pill" style="margin:0;flex:1;justify-content:center">${ICON.dir}Yoʻnalish</span><span class="pill" style="margin:0;background:var(--tile);color:var(--ink)">Ulashish</span></div>
+  </div>
+</div>` + nav('map');
+
+/* ----------------------------- Screen 4: History ----------------------------- */
+function chart(){
+  const pts=walk(90,11720,38,3.6,21); const w=328,h=190;
+  const min=Math.min(...pts)-20,max=Math.max(...pts)+20;
+  const xy=pts.map((p,i)=>[i*(w/(pts.length-1)),h-((p-min)/(max-min))*h]);
+  const d=xy.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const k=58,[px,py]=xy[k];
+  return `<svg width="${w}" height="${h+22}" viewBox="0 0 ${w} ${h+22}" style="display:block;overflow:visible">
+    <defs><linearGradient id="hc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A7C72" stop-opacity=".22"/><stop offset="1" stop-color="#0A7C72" stop-opacity="0"/></linearGradient></defs>
+    ${[0,1,2,3].map(i=>`<line x1="0" x2="${w}" y1="${i*h/3}" y2="${i*h/3}" stroke="#DDE2E7" stroke-dasharray="3 4"/>`).join('')}
+    <path d="${d} L${w} ${h} L0 ${h}Z" fill="url(#hc)"/><path d="${d}" fill="none" stroke="#0A7C72" stroke-width="2.4" stroke-linejoin="round"/>
+    <line x1="${px}" x2="${px}" y1="0" y2="${h}" stroke="#121A1F" stroke-width="1" stroke-dasharray="2 3"/>
+    <circle cx="${px}" cy="${py}" r="6" fill="#fff" stroke="#0A7C72" stroke-width="3"/>
+    <circle cx="${w}" cy="${xy[xy.length-1][1]}" r="4.5" fill="#0A7C72"/>
+    <g font-family="Inst" font-size="11" fill="#5A6670"><text x="0" y="${h+16}">21 avg</text><text x="${w/2-14}" y="${h+16}">5 okt</text><text x="${w-34}" y="${h+16}">19 noy</text></g>
+  </svg>
+  <div style="position:absolute;left:${px-78}px;top:${py+16}px;background:#121A1F;color:#fff;border-radius:12px;padding:8px 11px;font:400 12px Inst;line-height:1.35;white-space:nowrap">
+    <div style="opacity:.75">14.10.2026</div><div class="num" style="font:600 16px Bric">11 902,35 soʻm</div><div style="color:#7FE3BE">bugungacha +143,25</div></div>`;
+}
+const s4 = statusBar + topBar() + curTabs('USD') + `<div class="body">
+  <div><div style="font:400 13px Inst;color:var(--soft)">Markaziy bank kursi · 1 USD</div>
+    <div class="num" style="font:700 38px Bric;letter-spacing:-.025em;line-height:1.1">12 045,60 <span style="font:500 17px Inst;color:var(--soft)">soʻm</span></div>
+    <div style="font:500 13px Inst;color:var(--em)">▲ +325,40 (2,8%) · 90 kun</div></div>
+  <div class="ranges"><span>7k</span><span>30k</span><span class="on">90k</span><span>1y</span><span>5y</span><span>Max</span></div>
+  <div style="position:relative;padding-top:4px">${chart()}</div>
+  <div style="background:var(--tile);border-radius:10px;height:34px;position:relative;overflow:hidden">${spark(328,34,walk(120,8000,40,32,3),'#8A979F',false)}<div style="position:absolute;right:0;top:0;bottom:0;width:36px;border:2px solid var(--em);border-radius:8px;background:rgba(10,124,114,.12)"></div></div>
+  <div class="sec"><b>Bugun banklarda</b></div>
+  <div class="list"><div class="kv"><span>Eng yaxshi sotib oluvchi<br><small style="color:var(--soft)">Kapitalbank</small></span><b style="color:var(--em)">12 080</b></div>
+    <div class="kv"><span>Eng arzon sotuvchi<br><small style="color:var(--soft)">Hamkorbank</small></span><b>12 140</b></div></div>
+</div>` + nav('hist');
+
+/* ----------------------------- Screen 5: Alerts ----------------------------- */
+const alertRow=(cur,cond,val,who,on=true)=>`<div class="row" style="padding:12px 14px"><span class="logo" style="background:${on?'var(--tint)':'var(--tile)'};border:0;font:700 12px Bric;color:${on?'var(--em)':'var(--soft)'}">${cur}</span>
+  <div class="info"><div class="n">${cur} ${cond} <span class="num">${val}</span></div><div class="mm">${who}</div></div>
+  <span style="width:42px;height:24px;border-radius:12px;background:${on?'var(--em)':'#C9D0D6'};position:relative;flex:none"><i style="position:absolute;top:3px;${on?'right':'left'}:3px;width:18px;height:18px;border-radius:50%;background:#fff"></i></span></div>`;
+const s5 = statusBar + `<div class="top"><div style="font:600 20px Bric">Ogohlantirishlar</div><span style="font:600 14px Inst;color:var(--em)">Yopish</span></div>` + `<div class="body" style="padding-top:8px">
+  <div style="font:400 14px/1.45 Inst;color:var(--soft)">Kurs belgilangan qiymatga yetsa, xabar keladi.</div>
+  <div class="list">
+    ${alertRow('USD','≥','12 100','Bozordagi eng yaxshi · sotish')}
+    ${alertRow('USD','≤','11 950','Kapitalbank · olish')}
+    ${alertRow('EUR','≥','14 000','Bozordagi eng yaxshi · sotish')}
+    ${alertRow('RUB','≤','148','Markaziy bank kursi',false)}
+  </div>
+  <div style="border:1.5px dashed var(--hair);border-radius:16px;padding:14px;text-align:center;font:600 15px Inst;color:var(--em)">+ Ogohlantirish qoʻshish</div>
+  <div class="sec"><b>Yangi ogohlantirish</b></div>
+  <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+    <div class="seg"><span class="on">USD</span><span>EUR</span><span>RUB</span></div>
+    <div class="seg"><span class="on">≥ oshsa</span><span>≤ tushsa</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:400 13px Inst;color:var(--soft)">Chegara</span><span class="num" style="font:600 28px Bric">12 100 <small style="font:500 15px Inst;color:var(--soft)">soʻm</small></span></div>
+    <span class="pill" style="margin:0;justify-content:center">Saqlash</span>
+  </div>
+</div>` + nav('hist');
+
+/* ----------------------------- Screen 6: Gold ----------------------------- */
+const GOLD=[[5,'5 g',8_690_000,7_960_000],[10,'10 g',17_210_000,15_920_000],[20,'20 g',34_150_000,31_840_000],[50,'50 g',84_640_000,79_600_000],[100,'100 g',168_480_000,159_200_000]];
+const s6 = statusBar + topBar() + `<div class="body">
+  <div class="card" style="padding:16px;background:linear-gradient(135deg,#FFF8E4,#fff 60%);border-color:#F1E2B5">
+    <div style="display:flex;align-items:center;gap:8px;font:600 13px Inst;color:#8A5A00"><span class="bar" style="margin:0"></span>Markaziy bank oltin quymalari</div>
+    <div style="font:400 13px Inst;color:var(--soft);margin-top:10px">1 gramm narxi</div>
+    <div class="num" style="font:700 36px Bric;letter-spacing:-.025em">1 642 500 <span style="font:500 16px Inst;color:var(--soft)">soʻm</span></div>
+    <div style="font:500 13px Inst;color:var(--em)">▲ +18 400 · 30 kun</div>
+    <div style="margin-top:8px">${spark(296,46,walk(30,1610,9,1.1,11),'#C8941E')}</div>
+  </div>
+  <div class="sec"><b>Quymalar narxi</b><span>cbu.uz</span></div>
+  <div class="list"><table class="gt"><tr><th>Ogʻirlik</th><th>Sotish</th><th>Qaytarib olish</th></tr>
+    ${GOLD.map(g=>`<tr><td><span class="bar" style="width:${14+g[0]/8}px"></span>${g[1]}</td><td>${sp(g[2])}</td><td>${sp(g[3])}<small>yoʻqotish ${((1-g[3]/g[2])*100).toFixed(1).replace('.',',')}%</small></td></tr>`).join('')}
+  </table></div>
+  <div style="font:400 12px Inst;color:var(--soft);text-align:center">Manba: cbu.uz · oflaynda ham koʻrinadi</div>
+</div>` + nav('hist');
+
+/* ----------------------------- Slides ----------------------------- */
+const W=document.getElementById('wrap');
+const add=h=>W.insertAdjacentHTML('beforeend',h);
+
+add(slide({kicker:'29 bank · 1 ekran',h1:'Qaysi bank <em>koʻproq</em><br>soʻm beradi?',p:'Summangizni kiriting — eng foydali bank darhol chiqadi'},
+  phone(s1) +
+  `<div class="float toast" style="right:14px;top:735px;transform:rotate(3deg)"><span class="ic">${ICON.star}</span><div><div class="t1">+40 000 soʻm foyda</div><div class="t2">eng past kursga nisbatan</div></div></div>`,
+  {name:'01-kurs'}));
+
+add(slide({kicker:'Reyting',h1:'Barcha banklar<br><em>bitta roʻyxatda</em>',p:'Soʻm, masofa, kurs va ish vaqti boʻyicha saralang'},
+  phone(s2) +
+  `<div class="float" style="right:20px;top:330px;transform:rotate(4deg);display:flex;align-items:center;gap:10px"><span class="logo" style="width:36px;height:36px"><img src="${L('kapitalbank')}" style="width:26px;height:26px"></span><div><div style="font:600 12px Inst;color:var(--soft)">1-oʻrin</div><div class="num" style="font:700 18px Bric;color:var(--em)">12 080</div></div></div>`,
+  {name:'02-reyting',flip:true}));
+
+add(slide({kicker:'Xarita',h1:'Eng yaqin <em>foydali</em><br>filialni toping',p:'Kurs yozilgan pinlar va bir bosishda marshrut'},
+  phone(s3) +
+  `<div class="float" style="left:18px;top:520px;transform:rotate(-5deg);display:flex;gap:8px;align-items:center;padding:10px 12px">
+     ${['Yandex','2GIS','Google'].map((t,i)=>`<span style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font:700 10px Inst;color:#fff;background:${['#FC3F1D','#2BB24C','#4285F4'][i]}">${t}</span>`).join('')}
+     <div style="font:600 12.5px Inst;line-height:1.25">Sevimli<br>navigatorda</div></div>`,
+  {name:'03-xarita'}));
+
+add(slide({kicker:'Tarix',h1:'Bugungi kurs<br><em>odatdagidek</em>mi?',p:'Markaziy bank kursi 2009-yildan — interaktiv grafikda'},
+  phone(s4),
+  {name:'04-tarix',flip:true}));
+
+add(slide({kicker:'Ogohlantirishlar',h1:'Kurs kerakli<br>darajaga yetsa — <em>xabar</em>'},
+  phone(s5) +
+  `<div class="float toast" style="left:30px;right:30px;top:194px;border-radius:20px">
+    <span class="ic">${ICON.bell}</span><div style="flex:1"><div style="display:flex;justify-content:space-between"><span class="t1">Qulay Kurs</span><span class="t2">hozir</span></div>
+    <div class="t2" style="color:var(--ink)">USD 12 100 soʻmdan oshdi — Kapitalbank 12 105 da oladi</div></div></div>`,
+  {name:'05-ogohlantirish'}));
+
+add(slide({kicker:'Oltin',h1:'Oltin quymalari<br><em>narxi</em> ham shu yerda',p:'5–100 g, sotish va qaytarib sotib olish narxlari'},
+  phone(s6),
+  {name:'06-oltin',flip:true}));
+
+/* ----------------------------- Feature graphic 1024x500 ----------------------------- */
+add(`<div class="feature" data-name="feature-graphic">
+  <div class="bg" style="position:absolute;inset:0;background:radial-gradient(70% 90% at 90% 10%,#3E9580 0%,rgba(62,149,128,0) 60%),linear-gradient(160deg,#2F7A68,#1C5246)"></div>
+  <div class="dots" style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.07) 1.4px,transparent 1.5px);background-size:22px 22px"></div>
+  <svg style="position:absolute;inset:0" width="1024" height="500" viewBox="0 0 1024 500"><path d="M520 500 C 620 380, 760 470, 1024 300 L1024 500Z" fill="#F4F6F5"/><path d="M460 500 C 580 340, 760 420, 1024 230 L1024 300 C 760 470, 620 380, 520 500Z" fill="#fff" opacity=".1"/></svg>
+  <div style="position:absolute;left:64px;top:96px;color:#fff;width:520px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:26px"><span style="width:60px;height:60px;display:block">${LOGO.replace('<svg','<svg width="60" height="60"').replace('fill="#2F7A68"','fill="#fff"').replace('stroke="#fff"','stroke="#2F7A68"')}</span><span style="font:700 34px Bric;letter-spacing:-.02em">Qulay Kurs</span></div>
+    <div style="font:700 50px/1.05 Bric;letter-spacing:-.03em">Valyutani qayerda<br>almashtirish <span style="color:#F2C14E">foydali?</span></div>
+    <div style="font:400 20px Inst;color:rgba(255,255,255,.82);margin-top:18px">29 bank kursi · xarita · MB kursi tarixi · oltin</div>
+  </div>
+  <div style="position:absolute;left:640px;top:60px;width:330px;transform:rotate(-3deg)">
+    <div class="card hero" style="box-shadow:0 30px 60px -20px rgba(6,30,24,.6)">
+      <div class="l">Qoʻlingizga tegadi · 1 000 USD</div>
+      <div class="big num">12 080 000 <small>soʻm</small></div>
+      <div class="m">1 USD = 12 080 soʻm, 29 bankdan eng yaxshisi</div>
+      <div class="bankrow"><span class="logo"><img src="${L('kapitalbank')}"></span><div><div class="n">Kapitalbank</div><div class="mm">1,2 km · 18:00 gacha</div></div><span class="pill">${ICON.dir}Yoʻnalish</span></div>
+    </div>
+    <div class="list" style="margin-top:12px;box-shadow:0 20px 40px -20px rgba(6,30,24,.5);transform:translateX(24px)">${rows(BANKS,1,2)}</div>
+  </div>
+</div>`);
+</script>
+</body>
+</html>
