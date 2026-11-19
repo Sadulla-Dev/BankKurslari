@@ -21,7 +21,18 @@ async function png(svg, size, file) {
   await page.locator("svg").screenshot({ path: file, omitBackground: true });
   await page.close();
 }
-await png(square(1.12), 640, join(ROOT, "brand", "telegram-avatar.png"));
+// Telegram channel avatar: logo with the two-line wordmark beside it on soft mint, sized to stay inside the round crop.
+const avatar = `<div style="width:640px;height:640px;background:#E1EEE8;display:flex;align-items:center;justify-content:center;gap:24px;font-family:Onest,system-ui,sans-serif">
+  ${rounded.replace("<svg ", '<svg width="170" height="170" ')}
+  <div style="font-size:86px;font-weight:700;letter-spacing:-2px;color:#12171A;line-height:1">Qulay<br><span style="color:#2F7A68">Kurs</span></div>
+</div>`;
+{
+  const page = await browser.newPage({ viewport: { width: 640, height: 640 } });
+  await page.setContent(`<html><head><link href="https://fonts.googleapis.com/css2?family=Onest:wght@700&display=block" rel="stylesheet"></head><body style="margin:0">${avatar}</body></html>`, { waitUntil: "networkidle" });
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({ path: join(ROOT, "brand", "telegram-avatar.png"), clip: { x: 0, y: 0, width: 640, height: 640 } });
+  await page.close();
+}
 await png(square(1.12), 1024, join(ROOT, "brand", "app-icon-1024.png"));
 await png(square(1.12), 1024, join(ROOT, "iosApp", "iosApp", "Assets.xcassets", "AppIcon.appiconset", "AppIcon-1024.png"));
 await png(rounded, 512, join(ROOT, "brand", "logo-512.png"));
