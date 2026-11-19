@@ -99,6 +99,7 @@ p { margin: 0; }
 .top { position: sticky; top: 0; z-index: 900; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
 .top-in { height: var(--top-h); display: flex; align-items: center; gap: 24px; }
 .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; font-size: 18px; letter-spacing: -.02em; flex: none; }
+.logo-k { font-weight: inherit; color: var(--accent); }
 .tabs-nav { display: flex; gap: 4px; padding: 4px; background: var(--fill); border-radius: 14px; margin-left: 24px; }
 .tabs-nav a { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 7px 16px; border-radius: 10px; color: var(--ink-2); font-weight: 500; transition: color .15s, background .15s; }
 .tabs-nav a:hover { color: var(--ink); }

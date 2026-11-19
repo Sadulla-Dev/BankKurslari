@@ -154,7 +154,7 @@ function html({ banks, cbu, when }) {
 </style></head><body><div class="card">
   <header>
     <div class="brand">
-      <svg viewBox="0 0 32 32" width="52" height="52"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M8.5 20l5.2-5.2 3.6 3.6L23.5 12" stroke="#2F7A68" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.5" cy="12" r="2.2" fill="#2F7A68"/></svg>
+      <svg viewBox="0 0 32 32" width="52" height="52"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M7.5 21.5l5.5-5.5 4 4 6.5-7" stroke="#2F7A68" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.8" cy="12.6" r="3" fill="#F2C14E"/></svg>
       <div><h1>Dollar kursi: banklar reytingi</h1><p class="sub">Qayerda sotish va qayerda olish foydali — 1 $ uchun, so‘mda</p></div>
     </div>
     <div class="when"><b>${when.dd}.${when.mm}.${when.year} · ${when.time}</b><span>Toshkent vaqti</span></div>
