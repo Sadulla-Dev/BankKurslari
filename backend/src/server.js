@@ -762,7 +762,7 @@ async function getBranches({ force = false } = {}) {
   if (staticBranches && staticBranches.length) {
     // Manually confirmed branches (user reports) that no official list contains.
     const manual = (await loadStatic("manual-branches.json")) || [];
-    const merged = [...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual];
+    const merged = dedupeBranches([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual]);
     cachedBranches = { cachedAt: Date.now(), branches: merged };
     return merged;
   }
@@ -781,6 +781,55 @@ async function getBranches({ force = false } = {}) {
 
   cachedBranches = { cachedAt: Date.now(), branches };
   return branches;
+}
+
+const SAME_BRANCH_M = 60;
+const branchBankKey = (name) => String(name || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+// Who knows a branch's position best: a user-confirmed point, then the bank's own list, then everything else.
+const sourceRank = (b) => (/^manual/i.test(b.source || "") ? 0 : b.source && !/bank\.uz|osm|yandex/i.test(b.source) ? 1 : 2);
+// Same rank: keep the record with opening hours, then the one whose address is plain Latin (some official lists
+// spell it in a Turkish-style transliteration, "Maxtumquli köçasi").
+const branchScore = (b) => [sourceRank(b), b.hours ? 0 : 1, /[şçöğı]/i.test(b.address || "") ? 1 : 0];
+const better = (a, b) => {
+  const x = branchScore(a), y = branchScore(b);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? a : b;
+  return a;
+};
+
+/**
+ * One point per real branch. The sources overlap (bank.uz, each bank's own list, manual reports), so one branch can
+ * arrive two or three times a few dozen metres apart under differently spelled addresses. Same bank within
+ * SAME_BRANCH_M metres is treated as one branch; the best-sourced record wins and borrows the other's hours if it has none.
+ */
+function dedupeBranches(list) {
+  const cell = 0.001; // ~110 m of latitude: neighbours within 60 m are always in this or an adjacent cell
+  const grid = new Map();
+  const kept = [];
+  for (const b of list) {
+    if (!Number.isFinite(b.lat) || !Number.isFinite(b.lng)) { kept.push(b); continue; }
+    const key = branchBankKey(b.bank);
+    const gx = Math.floor(b.lat / cell), gy = Math.floor(b.lng / cell);
+    let hit = -1;
+    for (let dx = -1; dx <= 1 && hit < 0; dx++) for (let dy = -1; dy <= 1 && hit < 0; dy++) {
+      for (const i of grid.get(`${gx + dx},${gy + dy}`) || []) {
+        const o = kept[i];
+        if (branchBankKey(o.bank) !== key) continue;
+        const m = Math.hypot((o.lat - b.lat) * 111320, (o.lng - b.lng) * 111320 * Math.cos((b.lat * Math.PI) / 180));
+        if (m <= SAME_BRANCH_M) { hit = i; break; }
+      }
+    }
+    if (hit < 0) {
+      const k = `${gx},${gy}`;
+      if (!grid.has(k)) grid.set(k, []);
+      grid.get(k).push(kept.length);
+      kept.push(b);
+      continue;
+    }
+    const o = kept[hit];
+    const win = better(o, b), lose = win === o ? b : o;
+    kept[hit] = win.hours || !lose.hours ? win : { ...win, hours: lose.hours };
+  }
+  return kept;
 }
 
 async function fetchYandexBranches() {
