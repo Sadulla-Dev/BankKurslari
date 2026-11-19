@@ -29,3 +29,7 @@ backend/data/official-branches.json
 backend/worker/public/
 backend/worker/.wrangler/
 web/.wrangler/
+
+# Play upload key and its passwords: never commit
+/release-keys/
+*.jks
