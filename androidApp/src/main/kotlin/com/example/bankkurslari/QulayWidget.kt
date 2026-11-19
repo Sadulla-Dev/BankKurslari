@@ -63,7 +63,7 @@ private val WIDE = DpSize(250.dp, 110.dp)
  *  - wide: both rankings side by side, as many places as the height fits (logos and gaps once it is tall).
  * Reads the rates the app and [RateWorker] cache; tapping opens the app.
  */
-abstract class QulayWidget(private val currency: String) : GlanceAppWidget() {
+abstract class QulayWidget(private val currency: String, private val compactOnly: Boolean = false) : GlanceAppWidget() {
     // Exact: the real size, so the rankings fill whatever height the user resizes the widget to.
     override val sizeMode = SizeMode.Exact
 
@@ -77,7 +77,7 @@ abstract class QulayWidget(private val currency: String) : GlanceAppWidget() {
             val names = model?.let { (it.sell.take(5) + it.buy.take(5)).mapNotNull { e -> e.logo } }.orEmpty().toSet()
             names.associateWith { loadLogo(context, it) }.filterValues { it != null }.mapValues { it.value!! }
         }
-        provideContent { WidgetContent(model, logos) }
+        provideContent { WidgetContent(model, logos, compactOnly) }
     }
 
     private fun loadLogo(context: Context, stem: String): Bitmap? = runCatching {
@@ -92,9 +92,12 @@ abstract class QulayWidget(private val currency: String) : GlanceAppWidget() {
 class UsdWidget : QulayWidget("USD")
 class EurWidget : QulayWidget("EUR")
 class RubWidget : QulayWidget("RUB")
+class CompactUsdWidget : QulayWidget("USD", compactOnly = true)
+class CompactEurWidget : QulayWidget("EUR", compactOnly = true)
+class CompactRubWidget : QulayWidget("RUB", compactOnly = true)
 
 @Composable
-private fun WidgetContent(model: WidgetModel?, logos: Map<String, Bitmap>) {
+private fun WidgetContent(model: WidgetModel?, logos: Map<String, Bitmap>, compactOnly: Boolean) {
     val size = LocalSize.current
     val root = GlanceModifier.fillMaxSize().appWidgetBackground().cornerRadius(22.dp).background(WColors.card)
         .clickable(actionStartActivity<MainActivity>())
@@ -104,9 +107,13 @@ private fun WidgetContent(model: WidgetModel?, logos: Map<String, Bitmap>) {
         }
         return
     }
+    if (compactOnly) {
+        CompactRates(model, root)
+        return
+    }
     when {
         size.width < WIDE.width -> {
-            // header + two column titles take a fixed band; split the rest between the two rankings.
+            // Existing resizable widgets keep their ranked layout at compact sizes.
             val each = (((size.height - 74.dp) / 19.dp).toInt() / 2).coerceIn(1, minOf(6, model.sell.size, model.buy.size))
             Small(model, root, each)
         }
@@ -128,6 +135,65 @@ private fun sellTitle() = trSaved("Sotsangiz", "Продаёте", "Selling")
 private fun buyTitle() = trSaved("Olsangiz", "Покупаете", "Buying")
 private fun som() = trSaved("soʻm", "сум", "UZS")
 private fun time(m: WidgetModel) = m.updatedAt?.formatUpdatedAt().orEmpty()
+
+/** 2×2: the two best bank rates, large and easy to scan. */
+@Composable
+private fun CompactRates(m: WidgetModel, root: GlanceModifier) {
+    val size = LocalSize.current
+    val oneRow = size.height < 95.dp || size.height < size.width * 0.75f
+    if (oneRow) {
+        CompactRatesShort(m, root)
+        return
+    }
+    Column(root.padding(horizontal = 11.dp, vertical = 9.dp)) {
+        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(Currency.entries.firstOrNull { it.code == m.currency }?.symbol ?: "$",
+                style = TextStyle(color = WColors.emerald, fontSize = 17.sp, fontWeight = FontWeight.Bold))
+            Spacer(GlanceModifier.width(6.dp))
+            Text(m.currency, style = TextStyle(color = WColors.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold))
+        }
+        Spacer(GlanceModifier.height(4.dp))
+        CompactRateRow(trSaved("Sotish", "Продажа", "Sell"), m.sell.firstOrNull()?.rate,
+            WColors.emerald, GlanceModifier.fillMaxWidth().defaultWeight())
+        Box(GlanceModifier.fillMaxWidth().height(1.dp).background(WColors.tile)) {}
+        CompactRateRow(trSaved("Olish", "Покупка", "Buy"), m.buy.firstOrNull()?.rate,
+            WColors.ink, GlanceModifier.fillMaxWidth().defaultWeight())
+    }
+}
+
+/** One-row height keeps the width at two cells and fits both prices in a horizontal strip. */
+@Composable
+private fun CompactRatesShort(m: WidgetModel, root: GlanceModifier) {
+    Row(root.padding(horizontal = 7.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(m.currency, style = TextStyle(color = WColors.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+        Spacer(GlanceModifier.width(5.dp))
+        CompactShortRate(trSaved("Sotish", "Продажа", "Sell"), m.sell.firstOrNull()?.rate, WColors.emerald,
+            GlanceModifier.defaultWeight())
+        Spacer(GlanceModifier.width(3.dp))
+        CompactShortRate(trSaved("Olish", "Покупка", "Buy"), m.buy.firstOrNull()?.rate, WColors.ink,
+            GlanceModifier.defaultWeight())
+    }
+}
+
+@Composable
+private fun CompactShortRate(label: String, rate: Int?, color: ColorProvider, modifier: GlanceModifier) {
+    val valueSize = if (LocalSize.current.width < 108.dp) 9.sp else 11.sp
+    Column(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = TextStyle(color = WColors.soft, fontSize = 8.sp), maxLines = 1)
+        Text(rate?.toLong()?.formatUzsL() ?: "—",
+            style = TextStyle(color = color, fontSize = valueSize, fontWeight = FontWeight.Bold), maxLines = 1)
+    }
+}
+
+@Composable
+private fun CompactRateRow(label: String, rate: Int?, color: ColorProvider, modifier: GlanceModifier) {
+    Column(modifier,
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = TextStyle(color = WColors.soft, fontSize = 10.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+        Text(rate?.toLong()?.formatUzsL() ?: "—",
+            style = TextStyle(color = color, fontSize = 25.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+    }
+}
 
 @Composable
 private fun Header(m: WidgetModel, showCbu: Boolean) {

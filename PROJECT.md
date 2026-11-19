@@ -195,7 +195,7 @@ Server manzili `composeApp/.../Models.kt` da: Android emulator avtomatik `10.0.2
 ## 5. Hozirgi holat va cheklovlar
 
 - **Server lokal kompyuterda ishlaydi** — ilova faqat shu kompyuter bilan bir Wi‑Fi tarmog‘ida ishlaydi. Ommaga chiqarishdan oldin server internetga joylanishi kerak.
-- Paket nomi hali `com.example.bankkurslari` (Android), Play Store uchun o‘zgartirilishi kerak.
+- Android Play Store package nomi (`applicationId`): `uz.qulaykurs.app`. Ichki `namespace` va Kotlin package nomlari `com.example.bankkurslari` bo‘lib qoladi.
 - iOS’da vidjet va fon ogohlantirishlari yo‘q (ogohlantirishlar faqat Android’da fonda ishlaydi).
 - Bank kurslari bank.uz saytidan olinadi; tijorat foydalanish uchun manba bilan kelishuv kerak.
 - Tillar: faqat o‘zbek (lotin) va rus; kirill va ingliz hali yo‘q.

@@ -10,6 +10,6 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/glance_default_loading_layout"
-    android:previewImage="@drawable/widget_preview"
+    android:previewImage="@drawable/widget_preview_rub"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

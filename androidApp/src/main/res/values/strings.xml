@@ -6,4 +6,8 @@
     <string name="widget_label_usd">Dollar kursi</string>
     <string name="widget_label_eur">Yevro kursi</string>
     <string name="widget_label_rub">Rubl kursi</string>
+    <string name="widget_label_usd_compact">Dollar kursi · Ixcham</string>
+    <string name="widget_label_eur_compact">Yevro kursi · Ixcham</string>
+    <string name="widget_label_rub_compact">Rubl kursi · Ixcham</string>
+    <string name="widget_description_compact">Ixcham 2×1 yoki 2×2: sotish va olish kurslari</string>
 </resources>

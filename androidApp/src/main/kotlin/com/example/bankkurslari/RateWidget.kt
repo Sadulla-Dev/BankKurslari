@@ -28,11 +28,17 @@ class RateWidgetProvider : CurrencyWidgetReceiver(UsdWidget()) {
             UsdWidget().updateAll(context)
             EurWidget().updateAll(context)
             RubWidget().updateAll(context)
+            CompactUsdWidget().updateAll(context)
+            CompactEurWidget().updateAll(context)
+            CompactRubWidget().updateAll(context)
         }
     }
 }
 
 class EurWidgetProvider : CurrencyWidgetReceiver(EurWidget())
 class RubWidgetProvider : CurrencyWidgetReceiver(RubWidget())
+class CompactUsdWidgetProvider : CurrencyWidgetReceiver(CompactUsdWidget())
+class CompactEurWidgetProvider : CurrencyWidgetReceiver(CompactEurWidget())
+class CompactRubWidgetProvider : CurrencyWidgetReceiver(CompactRubWidget())
 
 val WIDGET_CURRENCIES = listOf("USD", "EUR", "RUB")
