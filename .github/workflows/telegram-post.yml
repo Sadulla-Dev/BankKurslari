@@ -1,0 +1,53 @@
+# Posts today's bank dollar rates (picture + caption) to the Telegram channel once a day.
+# Needs repo secrets:
+#   TELEGRAM_BOT_TOKEN  token from @BotFather; the bot must be an admin of the channel with "Post messages"
+#   TELEGRAM_CHAT_ID    the channel, e.g. @qulaykurs (or its numeric id, -100…)
+# Optional repo variable TELEGRAM_CHANNEL_HANDLE (e.g. @qulaykurs) is printed on the picture and in the caption.
+name: Telegram post
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 11:00 Tashkent, after banks have set the day's rates
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render only, do not post"
+        type: boolean
+        default: false
+
+concurrency:
+  group: telegram-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            backend
+            web/public/bank-logos
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      # ubuntu-latest ships Google Chrome; playwright-core drives it without downloading a browser.
+      - name: Post
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHANNEL_HANDLE: ${{ vars.TELEGRAM_CHANNEL_HANDLE }}
+        run: node scripts/telegram-post.mjs --out dollar-kursi.png ${{ inputs.dry_run && '--dry-run' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dollar-kursi
+          path: backend/dollar-kursi.png
+          if-no-files-found: ignore
