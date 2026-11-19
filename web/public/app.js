@@ -29,6 +29,8 @@ const T = {
     "spread.buy": "Bugun eng yuqori xarid", "spread.sell": "Bugun eng past sotuv",
     "spread.note": "Xarid — bank sizdan valyutani oladigan narx. Sotuv — bank sizga sotadigan narx.",
     "foot.updated": "Har soatda yangilanadi", "foot.tg": "Telegram kanalimiz", "store.tgNow": "Har kuni kurs", "theme.dark": "Qorong‘i rejim", "theme.light": "Yorug‘ rejim",
+    "all.btn": "Boshqa valyutalar", "all.title": "Barcha valyutalar", "all.search": "Valyuta qidirish", "all.favs": "Sevimlilar", "all.all": "Barchasi", "all.empty": "Hech narsa topilmadi", "all.som": "so‘m", "all.swap": "Yo‘nalishni almashtirish", "all.fav": "Sevimlilarga",
+    allSub: (n) => `Markaziy bank kursi · ${n} ta valyuta`, allNote: (d) => `Markaziy bank kursi · ${d} · banklarda naqd kurs boshqacha bo‘lishi mumkin`,
     "sh.buys": "Bank sotib oladi", "sh.sells": "Bank sotadi", "sh.near": "Eng yaqin filiallar", "sh.showMap": "Xaritada", "sh.go": "Yo‘nalish",
     title: { USD: "Banklarda dollar kursi", EUR: "Banklarda yevro kursi", RUB: "Banklarda rubl kursi" },
     tblSub: (n, t, s) => `${n} bank · ${t} holatiga · ${s}`,
@@ -71,6 +73,8 @@ const T = {
     "spread.buy": "Лучшая покупка сегодня", "spread.sell": "Лучшая продажа сегодня",
     "spread.note": "Покупка — цена, по которой банк берёт у вас валюту. Продажа — цена, по которой продаёт вам.",
     "foot.updated": "Обновляется каждый час", "foot.tg": "Наш Telegram-канал", "store.tgNow": "Курс каждый день", "theme.dark": "Тёмная тема", "theme.light": "Светлая тема",
+    "all.btn": "Другие валюты", "all.title": "Все валюты", "all.search": "Поиск валюты", "all.favs": "Избранные", "all.all": "Все", "all.empty": "Ничего не найдено", "all.som": "сум", "all.swap": "Поменять направление", "all.fav": "В избранное",
+    allSub: (n) => `Курс ЦБ · ${n} валют`, allNote: (d) => `Курс ЦБ · ${d} · наличный курс в банках может отличаться`,
     "sh.buys": "Банк покупает", "sh.sells": "Банк продаёт", "sh.near": "Ближайшие филиалы", "sh.showMap": "На карте", "sh.go": "Маршрут",
     title: { USD: "Курс доллара в банках", EUR: "Курс евро в банках", RUB: "Курс рубля в банках" },
     tblSub: (n, t, s) => `${n} банков · на ${t} · ${s}`,
@@ -113,6 +117,8 @@ const T = {
     "spread.buy": "Best buy rate today", "spread.sell": "Best sell rate today",
     "spread.note": "Buy is what a bank pays you for currency. Sell is what it charges you.",
     "foot.updated": "Updated every hour", "foot.tg": "Our Telegram channel", "store.tgNow": "Daily rates", "theme.dark": "Dark mode", "theme.light": "Light mode",
+    "all.btn": "Other currencies", "all.title": "All currencies", "all.search": "Search currency", "all.favs": "Favourites", "all.all": "All", "all.empty": "Nothing found", "all.som": "som", "all.swap": "Swap direction", "all.fav": "Favourite",
+    allSub: (n) => `Central Bank rate · ${n} currencies`, allNote: (d) => `Central Bank rate · ${d} · bank cash rates may differ`,
     "sh.buys": "Bank buys at", "sh.sells": "Bank sells at", "sh.near": "Nearest branches", "sh.showMap": "Show on map", "sh.go": "Directions",
     title: { USD: "Dollar rates at banks", EUR: "Euro rates at banks", RUB: "Ruble rates at banks" },
     tblSub: (n, t, s) => `${n} banks · as of ${t} · ${s}`,
@@ -497,6 +503,123 @@ function renderCbu() {
       <span class="l2">${c} · ${t.cbu}</span>
     </button>`;
   }).join("");
+}
+
+/* ---------- all CBU currencies (sheet) ---------- */
+
+const AC_DEFAULT_FAVS = ["CNY", "KZT", "TRY", "AED", "KRW", "GBP"];
+const AC = {
+  list: null, query: "", toSom: true, amount: 100,
+  sel: store.get("acSel") || "CNY",
+  favs: (() => { try { const v = JSON.parse(store.get("acFavs")); return Array.isArray(v) ? v : AC_DEFAULT_FAVS; } catch { return AC_DEFAULT_FAVS; } })()
+};
+const loadCbuAll = () => AC.list ? Promise.resolve(AC.list) : once("cbuall", async () => (AC.list = (await getJSON("/api/cbu/all")).currencies || []));
+const acName = (c) => c.names?.[S.lang] || c.names?.en || c.code;
+const acRate = (c) => c.rate / (c.nominal || 1);
+/** "1 803" for big rates, "8,21" / "0,0821" for small ones (KRW, JPY per unit). */
+const acRateFmt = (v) => (v >= 1000 ? group(v) : dec(v >= 1 ? v.toFixed(2) : v.toFixed(4)));
+const acEsc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+function renderAllBtn() {
+  const t = L();
+  setText("allCurSub", AC.list ? t.allSub(AC.list.length) : t["hist.cbu"]);
+  setText("allCurIc", AC.list ? `+${Math.max(0, AC.list.length - CURS.length)}` : "+");
+}
+function renderAllConv() {
+  const t = L();
+  const c = AC.list?.find((x) => x.code === AC.sel);
+  if (!c) { setText("acRes", "—"); setText("acRate", ""); return; }
+  const r = acRate(c);
+  setText("acFrom", AC.toSom ? c.code : t["all.som"]);
+  setText("acTo", AC.toSom ? t["all.som"] : c.code);
+  const out = AC.toSom ? AC.amount * r : AC.amount / r;
+  setText("acRes", out >= 100 || out === 0 ? group(out) : acRateFmt(out));
+  setText("acRate", `1 ${c.code} = ${acRateFmt(r)} ${t["all.som"]} · ${acName(c)}`);
+}
+function renderAllList() {
+  const t = L();
+  if (!AC.list) { $("acList").innerHTML = `<div class="cbu-i skel-box"></div><div class="cbu-i skel-box"></div><div class="cbu-i skel-box"></div>`; return; }
+  const q = AC.query.trim().toLowerCase();
+  const match = (c) => !q || c.code.toLowerCase().includes(q) || Object.values(c.names || {}).some((n) => String(n).toLowerCase().includes(q));
+  const items = AC.list.filter(match);
+  const favs = AC.favs.map((code) => items.find((c) => c.code === code)).filter(Boolean);
+  const rest = items.filter((c) => !AC.favs.includes(c.code));
+  const row = (c) => {
+    const d = c.diff / (c.nominal || 1);
+    const cls = d > 0 ? "up-t" : d < 0 ? "down-t" : "";
+    const fav = AC.favs.includes(c.code);
+    return `<div class="ac-i${c.code === AC.sel ? " on" : ""}" role="button" tabindex="0" data-code="${acEsc(c.code)}">
+      <span class="ac-sym">${acEsc(c.code)}</span>
+      <span class="ac-n"><b>${acEsc(acName(c))}</b><small>${c.nominal > 1 ? `${c.nominal} ${acEsc(c.code)} = ${acRateFmt(c.rate)}` : `1 ${acEsc(c.code)}`}</small></span>
+      <span class="ac-r"><b>${acRateFmt(acRate(c))}</b><em class="${cls}">${d ? `${d > 0 ? "▲" : "▼"} ${acRateFmt(Math.abs(d))}` : ""}</em></span>
+      <button type="button" class="ac-star${fav ? " on" : ""}" data-star="${acEsc(c.code)}" aria-label="${t["all.fav"]}" aria-pressed="${fav}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.6l2.3 4.7 5.1.7-3.7 3.6.9 5.1L10 14.3l-4.6 2.4.9-5.1L2.6 8l5.1-.7z" fill="${fav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+    </div>`;
+  };
+  let html = "";
+  if (favs.length) html += `<h4 class="ac-h">${t["all.favs"]}</h4>` + favs.map(row).join("");
+  if (rest.length) html += `<h4 class="ac-h">${t["all.all"]}</h4>` + rest.map(row).join("");
+  $("acList").innerHTML = html || `<p class="muted ac-empty">${t["all.empty"]}</p>`;
+}
+function renderAllSheet() {
+  const t = L();
+  const date = AC.list?.[0]?.date;
+  setText("allNote", t.allNote(date || "…"));
+  $("acSearch").placeholder = t["all.search"];
+  $("acSwap").setAttribute("aria-label", t["all.swap"]);
+  renderAllConv();
+  renderAllList();
+}
+async function openAll() {
+  S.allOpen = true;
+  renderAllSheet();
+  $("scrim").hidden = false;
+  $("allSheet").hidden = false;
+  requestAnimationFrame(() => { $("scrim").classList.add("on"); $("allSheet").classList.add("on"); });
+  document.body.style.overflow = "hidden";
+  $("allClose").focus({ preventScroll: true });
+  try { await loadCbuAll(); } catch { toast(L().error); }
+  renderAllBtn();
+  if (S.allOpen) renderAllSheet();
+}
+function closeAll() {
+  if ($("allSheet").hidden) return;
+  S.allOpen = false;
+  $("allSheet").classList.remove("on");
+  if (!S.sheetBank) { $("scrim").classList.remove("on"); document.body.style.overflow = ""; }
+  setTimeout(() => { if (!S.allOpen) { $("allSheet").hidden = true; if (!S.sheetBank) $("scrim").hidden = true; } }, 300);
+}
+function bindAll() {
+  $("allCurBtn").addEventListener("click", openAll);
+  $("allClose").addEventListener("click", closeAll);
+  $("acSearch").addEventListener("input", (e) => { AC.query = e.target.value; renderAllList(); });
+  $("acAmount").addEventListener("input", (e) => {
+    const el = e.target;
+    const digits = el.value.replace(/\D/g, "").slice(0, 13);
+    AC.amount = Number(digits) || 0;
+    el.value = digits ? group(AC.amount) : "";
+    renderAllConv();
+  });
+  $("acAmount").addEventListener("focus", (e) => e.target.select());
+  $("acSwap").addEventListener("click", () => { AC.toSom = !AC.toSom; renderAllConv(); });
+  $("acList").addEventListener("click", (e) => {
+    const star = e.target.closest("[data-star]");
+    if (star) {
+      const code = star.dataset.star;
+      AC.favs = AC.favs.includes(code) ? AC.favs.filter((c) => c !== code) : [...AC.favs, code];
+      store.set("acFavs", JSON.stringify(AC.favs));
+      renderAllList();
+      renderAllBtn();
+      return;
+    }
+    const it = e.target.closest(".ac-i");
+    if (!it) return;
+    AC.sel = it.dataset.code;
+    store.set("acSel", AC.sel);
+    renderAllConv();
+    renderAllList();
+    $("allSheet").scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("acList").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("ac-i")) { e.preventDefault(); e.target.click(); } });
 }
 
 /* ---------- bank table ---------- */
@@ -1261,6 +1384,8 @@ function applyLang() {
   updateThemeControl();
   document.title = `Qulay Kurs — ${t.title[S.cur].toLowerCase()}`;
   renderAll();
+  renderAllBtn();
+  if (S.allOpen) renderAllSheet();
   if (S.sheetBank) { const list = ranked(S.rates[S.cur]); const b = list.find((x) => x.bank === S.sheetBank); if (b) renderSheet(b, list); }
 }
 
@@ -1365,9 +1490,10 @@ function bind() {
     openSheet(it.dataset.bank);
   });
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
-  $("scrim").addEventListener("click", closeSheet);
+  $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); });
   $("shClose").addEventListener("click", closeSheet);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); } });
+  bindAll();
   $("locateBtn").addEventListener("click", async () => {
     const btn = $("locateBtn");
     btn.classList.add("busy");
@@ -1402,9 +1528,10 @@ async function init() {
   renderAll();
   for (const c of CURS) loadRates(c).then(renderCbu).catch(() => {});
   loadGold().then(renderGold).catch(() => {});
+  loadCbuAll().then(renderAllBtn).catch(() => {});
   loadBranches().then(() => { renderConv(); renderTable(); if (S.view === "map") renderMapWhenReady(); }).catch(() => {});
   setInterval(async () => {
-    S.rates = {}; S.bankHist = {}; S.gold = null;
+    S.rates = {}; S.bankHist = {}; S.gold = null; AC.list = null; delete inflight.cbuall;
     for (const k of Object.keys(inflight)) if (k[0] === "r" || k[0] === "b" || k === "gold") delete inflight[k];
     loadGold().then(renderGold).catch(() => {});
     try { await Promise.all(CURS.map(loadRates)); renderAll(); } catch { /* keep old */ }
