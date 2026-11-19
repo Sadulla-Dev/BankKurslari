@@ -32,7 +32,8 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         initPlatform(ctx)
         val selected = RateService.selectedCurrency()
         val alerts = Alerts.load()
-        val currencies = (listOf(selected) + alerts.map { it.currency }).distinct()
+        // All three: each currency has its own home-screen widget.
+        val currencies = (listOf(selected) + WIDGET_CURRENCIES + alerts.map { it.currency }).distinct()
 
         var selectedOk = false
         var anyOk = false

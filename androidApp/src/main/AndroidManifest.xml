@@ -45,13 +45,36 @@
 
         <receiver
             android:name=".RateWidgetProvider"
-            android:exported="false">
+            android:exported="false"
+            android:label="@string/widget_label_usd">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/rate_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".EurWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_eur">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/rate_widget_info_eur" />
+        </receiver>
+        <receiver
+            android:name=".RubWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_rub">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/rate_widget_info_rub" />
         </receiver>
     </application>
 

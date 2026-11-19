@@ -47,9 +47,18 @@ fun Double.formatSigned(): String {
     return if (this >= 0) "+$body" else "-$body"
 }
 
+/**
+ * "2026-11-19T08:46:00.000Z" → "13:46": the API stamps UTC, people read Tashkent time (UTC+5, no daylight saving).
+ * A stamp that already carries a non-UTC offset (or none) is shown as written.
+ */
 fun String.formatUpdatedAt(): String {
     val timePart = substringAfter('T', missingDelimiterValue = "")
-    return if (timePart.isEmpty()) this else timePart.take(5)
+    if (timePart.length < 5) return this
+    val hh = timePart.take(2).toIntOrNull() ?: return timePart.take(5)
+    val mm = timePart.substring(3, 5)
+    val utc = timePart.endsWith("Z") || timePart.endsWith("+00:00")
+    val h = if (utc) (hh + 5) % 24 else hh
+    return "${h.toString().padStart(2, '0')}:$mm"
 }
 
 /** Whole so'm for big-unit currencies (USD/EUR), two decimals for RUB-scale rates. */

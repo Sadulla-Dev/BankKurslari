@@ -6,9 +6,38 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B1B2C3D4E5F6000000000002 /* QulayWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B1B2C3D4E5F6000000000001 /* QulayWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B1B2C3D4E5F6000000000091 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1B2C3D4E5F6000000000070 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B1B2C3D4E5F6000000000020;
+			remoteInfo = QulayWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B1B2C3D4E5F6000000000033 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B1B2C3D4E5F6000000000002 /* QulayWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A1B2C3D4E5F6000000000001 /* Qulay Kurs.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Qulay Kurs.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F6000000000002 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		B1B2C3D4E5F6000000000001 /* QulayWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QulayWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -18,6 +47,13 @@
 				Info.plist,
 			);
 			target = A1B2C3D4E5F6000000000020 /* iosApp */;
+		};
+		B1B2C3D4E5F6000000000010 /* Exceptions for "QulayWidget" folder in "QulayWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B1B2C3D4E5F6000000000020 /* QulayWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -30,10 +66,25 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		B1B2C3D4E5F6000000000011 /* QulayWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B1B2C3D4E5F6000000000010 /* Exceptions for "QulayWidget" folder in "QulayWidgetExtension" target */,
+			);
+			path = QulayWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A1B2C3D4E5F6000000000030 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1B2C3D4E5F6000000000030 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -48,6 +99,7 @@
 			children = (
 				A1B2C3D4E5F6000000000041 /* Configuration */,
 				A1B2C3D4E5F6000000000011 /* iosApp */,
+				B1B2C3D4E5F6000000000011 /* QulayWidget */,
 				A1B2C3D4E5F6000000000042 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,6 +116,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D4E5F6000000000001 /* Qulay Kurs.app */,
+				B1B2C3D4E5F6000000000001 /* QulayWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -79,10 +132,12 @@
 				A1B2C3D4E5F6000000000031 /* Sources */,
 				A1B2C3D4E5F6000000000030 /* Frameworks */,
 				A1B2C3D4E5F6000000000032 /* Resources */,
+				B1B2C3D4E5F6000000000033 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B1B2C3D4E5F6000000000090 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A1B2C3D4E5F6000000000011 /* iosApp */,
@@ -93,6 +148,28 @@
 			productName = iosApp;
 			productReference = A1B2C3D4E5F6000000000001 /* Qulay Kurs.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B1B2C3D4E5F6000000000020 /* QulayWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1B2C3D4E5F6000000000060 /* Build configuration list for PBXNativeTarget "QulayWidgetExtension" */;
+			buildPhases = (
+				B1B2C3D4E5F6000000000031 /* Sources */,
+				B1B2C3D4E5F6000000000030 /* Frameworks */,
+				B1B2C3D4E5F6000000000032 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B1B2C3D4E5F6000000000011 /* QulayWidget */,
+			);
+			name = QulayWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = QulayWidgetExtension;
+			productReference = B1B2C3D4E5F6000000000001 /* QulayWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -105,6 +182,9 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					A1B2C3D4E5F6000000000020 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					B1B2C3D4E5F6000000000020 = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -124,12 +204,20 @@
 			projectRoot = "";
 			targets = (
 				A1B2C3D4E5F6000000000020 /* iosApp */,
+				B1B2C3D4E5F6000000000020 /* QulayWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A1B2C3D4E5F6000000000032 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1B2C3D4E5F6000000000032 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -168,7 +256,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B1B2C3D4E5F6000000000031 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B1B2C3D4E5F6000000000090 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B1B2C3D4E5F6000000000020 /* QulayWidgetExtension */;
+			targetProxy = B1B2C3D4E5F6000000000091 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1B2C3D4E5F6000000000080 /* Debug */ = {
@@ -299,6 +402,58 @@
 			};
 			name = Release;
 		};
+		B1B2C3D4E5F6000000000082 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8U2W28Y3J6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = QulayWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Qulay Kurs";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "${PRODUCT_BUNDLE_IDENTIFIER}.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B1B2C3D4E5F6000000000083 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8U2W28Y3J6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = QulayWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Qulay Kurs";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "${PRODUCT_BUNDLE_IDENTIFIER}.widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -316,6 +471,15 @@
 			buildConfigurations = (
 				A1B2C3D4E5F6000000000080 /* Debug */,
 				A1B2C3D4E5F6000000000081 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B1B2C3D4E5F6000000000060 /* Build configuration list for PBXNativeTarget "QulayWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1B2C3D4E5F6000000000082 /* Debug */,
+				B1B2C3D4E5F6000000000083 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

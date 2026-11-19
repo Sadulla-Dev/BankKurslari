@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One resizable widget: 2×2 shows the best rates, 4×2 the top-3 rankings, 4×4 the top-5 rankings (QulayWidget). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description_rub"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:previewImage="@drawable/widget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

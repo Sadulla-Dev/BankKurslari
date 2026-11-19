@@ -11,6 +11,7 @@ composeBom = "2024.09.00"
 maplibreCompose = "0.19.0"
 maplibreNativeFfi = "0.202609.5"
 work = "2.9.1"
+glance = "1.1.1"
 
 composeMultiplatform = "1.11.1"
 composeMaterial3 = "1.9.0"
@@ -39,6 +40,7 @@ maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.r
 # Native renderer for maplibre-compose (OpenGL works on every device and the emulator).
 maplibre-runtime-opengl = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-opengl", version.ref = "maplibreNativeFfi" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

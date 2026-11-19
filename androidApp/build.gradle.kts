@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.compose.runtime)
     implementation(libs.compose.ui)
     implementation(libs.kotlinx.coroutines.android)
