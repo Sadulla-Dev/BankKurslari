@@ -201,6 +201,11 @@ p { margin: 0; }
 .store { display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 12px; background: #0D1210; color: #fff; }
 .store small { display: block; font-size: 10px; opacity: .7; line-height: 1.1; }
 .store b { display: block; font-size: 15px; line-height: 1.2; font-weight: 600; }
+.store-tg { background: #229ED9; text-decoration: none; transition: filter .15s; }
+.store-tg:hover { filter: brightness(1.08); }
+.foot-tg { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; font-weight: 600; }
+.foot-tg svg { color: #229ED9; }
+.foot-tg:hover span { text-decoration: underline; }
 
 /* ---------- map view ---------- */
 .mapv { display: grid; grid-template-columns: 380px minmax(0, 1fr); height: calc(100dvh - var(--top-h) - env(safe-area-inset-top, 0px)); }
