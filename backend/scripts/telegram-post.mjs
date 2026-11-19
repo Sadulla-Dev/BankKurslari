@@ -74,71 +74,104 @@ function tashkentParts(iso) {
   return { day: Number(p.day), month: Number(p.month), year: p.year, time: `${p.hour}:${p.minute}`, dd: p.day, mm: String(p.month).padStart(2, "0") };
 }
 
+/** Standard competition ranking (1, 1, 3, …): banks with the same rate share a place. */
+function ranked(banks, field, better) {
+  const list = [...banks].sort((a, b) => better(a[field], b[field]) || a.name.localeCompare(b.name, "uz"));
+  const best = list[0][field];
+  let place = 0;
+  return list.map((b, i) => {
+    if (i === 0 || b[field] !== list[i - 1][field]) place = i + 1;
+    return { ...b, place, rate: b[field], gap: Math.abs(b[field] - best) };
+  });
+}
+
+/**
+ * Two leaderboards side by side, each answering one question: where do I get the most so'm for my dollars (bank
+ * buy rate, highest first) and where do I pay the least for dollars (bank sell rate, lowest first).
+ */
 function html({ banks, cbu, when }) {
-  const half = Math.ceil(banks.length / 2);
-  const cols = [banks.slice(0, half), banks.slice(half)];
-  const row = (b) => b
-    ? `<tr>
-        <td class="bank">${b.logo ? `<img src="${b.logo}" alt="">` : `<span class="ph">${esc(b.name.slice(0, 2))}</span>`}<span>${esc(b.name)}</span></td>
-        <td class="n${b.bestBuy ? " best" : ""}">${group(b.buy)}</td>
-        <td class="n${b.bestSell ? " best" : ""}">${group(b.sell)}</td>
-      </tr>`
-    : `<tr class="empty"><td colspan="3"></td></tr>`;
-  const table = (list) => `<table>
-      <thead><tr><th class="bank">Banklar</th><th class="n">Sotib oladi</th><th class="n">Sotadi</th></tr></thead>
-      <tbody>${Array.from({ length: half }, (_, i) => row(list[i])).join("")}</tbody>
-    </table>`;
+  const sellSide = ranked(banks, "buy", (a, b) => b - a);
+  const buySide = ranked(banks, "sell", (a, b) => a - b);
+  const medal = (p) => (p === 1 ? "m1" : p === 2 ? "m2" : p === 3 ? "m3" : "");
+  const row = (sign) => (b) => `<div class="row ${medal(b.place)}">
+      <span class="place">${b.place}</span>
+      ${b.logo ? `<img src="${b.logo}" alt="">` : `<span class="ph">${esc(b.name.slice(0, 2))}</span>`}
+      <span class="name">${esc(b.name)}</span>
+      <span class="rate">${group(b.rate)}</span>
+      <span class="gap">${b.gap ? `${sign}${group(b.gap)}` : "eng yaxshi"}</span>
+    </div>`;
+  const board = (title, hint, icon, list, tone, sign) => `<section class="board ${tone}">
+      <div class="bh"><span class="ic">${icon}</span><div><h2>${title}</h2><p>${hint}</p></div></div>
+      <div class="cols"><span>#</span><span></span><span>Bank</span><span>Kurs</span><span>Farq</span></div>
+      ${list.map(row(sign)).join("")}
+    </section>`;
   const diff = cbu.diff || 0;
   return `<!doctype html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700;800&display=block" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { width: 1000px; font-family: Onest, system-ui, sans-serif; background: #F4F5F2; color: #12171A; font-feature-settings: "tnum", "lnum"; }
-  .card { margin: 0; background: #fff; }
-  header { display: flex; align-items: center; justify-content: space-between; padding: 26px 30px 22px; background: linear-gradient(135deg, #2F7A68, #1B4F43); color: #fff; }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .brand svg { flex: none; }
-  h1 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
-  .sub { margin-top: 4px; font-size: 16px; font-weight: 500; opacity: .85; }
+  body { width: 1000px; font-family: Onest, system-ui, sans-serif; background: #EEF1EC; color: #12171A; font-feature-settings: "tnum", "lnum"; }
+  .card { padding: 0 0 0; background: #EEF1EC; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 26px 30px 24px; background: linear-gradient(135deg, #2F7A68, #1B4F43); color: #fff; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  h1 { font-size: 31px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .sub { margin-top: 5px; font-size: 16px; font-weight: 500; opacity: .85; }
   .when { text-align: right; }
-  .when b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+  .when b { display: block; font-size: 25px; font-weight: 800; }
   .when span { font-size: 15px; opacity: .85; }
   .cbu { display: flex; align-items: baseline; gap: 12px; padding: 14px 30px; background: #E1EEE8; font-size: 18px; font-weight: 600; color: #1E5A4B; }
   .cbu b { font-size: 22px; font-weight: 800; color: #12171A; }
   .cbu .d { font-weight: 700; color: ${diff < 0 ? "#B4532F" : "#2F7A68"}; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-  .grid > table + table { border-left: 2px solid #E6E9E5; }
-  table { width: 100%; border-collapse: collapse; }
-  th { font-size: 14px; font-weight: 700; color: #5B6463; text-transform: uppercase; letter-spacing: .04em; padding: 12px 16px; background: #F0F2EF; text-align: left; }
-  th.n, td.n { text-align: right; }
-  td { padding: 0 16px; height: 50px; border-bottom: 1px solid #ECEEEB; font-size: 21px; font-weight: 600; }
-  tr:nth-child(even) td { background: #FAFBF9; }
-  td.bank { display: flex; align-items: center; gap: 12px; height: 50px; font-size: 19px; font-weight: 700; white-space: nowrap; }
-  td.bank img, .ph { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex: none; }
-  .ph { display: grid; place-items: center; background: #F0F2EF; color: #5B6463; font-size: 13px; }
-  td.best { background: #2F7A68 !important; color: #fff; font-weight: 800; }
-  tr.empty td { border-bottom: 0; background: #fff !important; }
-  footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 30px; background: #12171A; color: #fff; font-size: 17px; font-weight: 600; }
-  footer .legend { display: flex; align-items: center; gap: 10px; font-weight: 500; opacity: .9; }
-  footer .legend i { width: 18px; height: 18px; border-radius: 5px; background: #2F7A68; display: inline-block; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+  .board { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 1px 2px rgba(18,23,26,.05), 0 8px 24px -12px rgba(18,23,26,.15); }
+  .bh { display: flex; align-items: center; gap: 12px; padding: 16px 18px 14px; }
+  .ic { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; flex: none; }
+  .sell .ic { background: #E1EEE8; color: #2F7A68; }
+  .buy .ic { background: #FBEBDD; color: #B4632F; }
+  h2 { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+  .bh p { font-size: 14px; font-weight: 500; color: #5B6463; margin-top: 1px; }
+  .cols, .row { display: grid; grid-template-columns: 34px 30px 1fr auto 86px; align-items: center; gap: 10px; padding: 0 16px; }
+  .cols { height: 30px; background: #F3F5F2; font-size: 12px; font-weight: 700; color: #8A9391; text-transform: uppercase; letter-spacing: .05em; }
+  .cols span:nth-child(4), .cols span:nth-child(5) { text-align: right; }
+  .row { height: 41px; border-top: 1px solid #EEF0ED; }
+  .place { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #5B6463; background: #F0F2EF; }
+  .row img, .ph { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
+  .ph { display: grid; place-items: center; background: #F0F2EF; color: #5B6463; font-size: 11px; }
+  .name { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rate { font-size: 19px; font-weight: 800; text-align: right; }
+  .gap { font-size: 14px; font-weight: 600; color: #A0692B; text-align: right; }
+  .row.m1 { background: #2F7A68; color: #fff; border-top-color: #2F7A68; height: 48px; }
+  .row.m1 .place { background: #F2C14E; color: #5A3F00; }
+  .row.m1 .gap { color: #CFEADF; }
+  .row.m1 img, .row.m1 .ph { background: #fff; padding: 2px; }
+  .row.m1 .name { font-size: 18px; }
+  .row.m1 .rate { font-size: 21px; }
+  .row.m2 .place { background: #DDE2E6; color: #3E4A52; }
+  .row.m3 .place { background: #EBCFB2; color: #6B4220; }
+  .row.m2, .row.m3 { background: #F7FAF8; }
+  footer { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: #12171A; color: #fff; font-size: 17px; font-weight: 600; }
+  footer span:last-child { font-weight: 500; opacity: .8; font-size: 15px; }
 </style></head><body><div class="card">
   <header>
     <div class="brand">
       <svg viewBox="0 0 32 32" width="52" height="52"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M8.5 20l5.2-5.2 3.6 3.6L23.5 12" stroke="#2F7A68" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.5" cy="12" r="2.2" fill="#2F7A68"/></svg>
-      <div><h1>Banklarda dollar kursi</h1><p class="sub">1 AQSH dollari uchun, so‘mda</p></div>
+      <div><h1>Dollar kursi: banklar reytingi</h1><p class="sub">Qayerda sotish va qayerda olish foydali — 1 $ uchun, so‘mda</p></div>
     </div>
     <div class="when"><b>${when.dd}.${when.mm}.${when.year} · ${when.time}</b><span>Toshkent vaqti</span></div>
   </header>
   <div class="cbu">Markaziy bank kursi: <b>1 $ = ${money(cbu.rate)}</b><span class="d">(${diff < 0 ? "−" : "+"}${money(Math.abs(diff))})</span></div>
-  <div class="grid">${table(cols[0])}${table(cols[1])}</div>
-  <footer><span>${esc(SITE)}${CHANNEL ? ` · ${esc(CHANNEL)}` : ""}</span><span class="legend"><i></i>eng yaxshi kurs</span></footer>
+  <div class="grid">
+    ${board("Dollar sotsangiz", "Bank sizdan oladi — eng qimmati tepada", `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>`, sellSide, "sell", "−")}
+    ${board("Dollar olsangiz", "Bank sizga sotadi — eng arzoni tepada", `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>`, buySide, "buy", "+")}
+  </div>
+  <footer><span>${esc(SITE)}${CHANNEL ? ` · ${esc(CHANNEL)}` : ""}</span><span>Farq — eng yaxshi kursdan necha so‘m yomon (1 $ uchun)</span></footer>
 </div></body></html>`;
 }
 
 async function render(page) {
   const browser = await chromium.launch({ channel: process.env.CHROME_CHANNEL || "chrome" });
   try {
-    const tab = await browser.newPage({ viewport: { width: 1000, height: 800 }, deviceScaleFactor: 1.28 });
+    const tab = await browser.newPage({ viewport: { width: 1000, height: 1600 }, deviceScaleFactor: 1.28 });
     await tab.setContent(page, { waitUntil: "networkidle" });
     await tab.evaluate(() => document.fonts.ready);
     return await tab.locator(".card").screenshot({ type: "png" });
