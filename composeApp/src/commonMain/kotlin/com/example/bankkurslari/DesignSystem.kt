@@ -262,23 +262,23 @@ fun VsTraySurface(modifier: Modifier = Modifier, content: @Composable ColumnScop
     }
 }
 
-/** Dark ink pill: symbol circle + code + chevron. The one dark control on Today. */
+/** Light pill on the segmented-control track: green symbol circle + code + chevron. */
 @Composable
 fun VsCurrencyChip(symbol: String, code: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val src = remember { MutableInteractionSource() }
     Row(
-        modifier.heightIn(min = 44.dp).pressScale(src).clip(CircleShape).background(VsInk)
+        modifier.heightIn(min = 44.dp).pressScale(src).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsGround)
             .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = description }
-            .padding(start = 6.dp, end = 12.dp),
+            .padding(start = 5.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(Modifier.size(32.dp).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsBg.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-            Text(symbol, style = VsType.Value, color = com.example.bankkurslari.ui.theme.VsBg)
+        Box(Modifier.size(34.dp).clip(CircleShape).background(VsEmerald), contentAlignment = Alignment.Center) {
+            Text(symbol, style = VsType.Value, color = VsOnAccent)
         }
-        Text(code, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp)), color = com.example.bankkurslari.ui.theme.VsBg)
-        Icon(androidx.compose.material.icons.Icons.Outlined.KeyboardArrowDown, null, tint = com.example.bankkurslari.ui.theme.VsBg.copy(alpha = 0.75f), modifier = Modifier.size(16.dp))
+        Text(code, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp)), color = VsInk)
+        Icon(androidx.compose.material.icons.Icons.Outlined.KeyboardArrowDown, null, tint = VsInkSoft, modifier = Modifier.size(16.dp))
     }
 }
 

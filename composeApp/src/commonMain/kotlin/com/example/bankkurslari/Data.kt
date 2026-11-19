@@ -235,7 +235,10 @@ suspend fun fetchBankHistory(cur: Currency, days: Int = 7): List<Pair<String, Ma
         }
     }
 
-/** Daily CBU price per gram (from the largest bar), as collected by our server: (yyyy-MM-dd, so'm). */
+/**
+ * CBU price per gram (yyyy-MM-dd, so'm): archived snapshots since late 2020, then daily. Taken from the 10 g bar, which
+ * every snapshot has (the largest bar changed from 50 g to 100 g in 2025, which would put a jump in the line).
+ */
 suspend fun fetchGoldHistory(): List<Pair<String, Double>> = withContext(Dispatchers.Default) {
     val body = httpGet("$backendBase/api/gold/history", 15_000)
     (parseJsonObject(body).arr("points") ?: JsonArray(emptyList())).objects().mapNotNull { p ->
@@ -245,7 +248,7 @@ suspend fun fetchGoldHistory(): List<Pair<String, Double>> = withContext(Dispatc
             val grams = g.toDoubleOrNull() ?: return@mapNotNull null
             val sell = (v as? JsonObject)?.dbl("sell") ?: return@mapNotNull null
             grams to sell
-        }.maxByOrNull { it.first } ?: return@mapNotNull null
+        }.let { all -> all.firstOrNull { it.first == 10.0 } ?: all.maxByOrNull { it.first } } ?: return@mapNotNull null
         date to best.second / best.first
     }
 }

@@ -537,6 +537,8 @@ fun KursScreen(
         isRefreshing = measuring,
         onRefresh = { user = true; kick++; before = ranked.associate { it.rate.bank to it.perUnit.toDouble() }; onRefresh() },
         state = pullState,
+        // Opaque: the list slides down while pulling, and the map tab is kept alive underneath this screen.
+        modifier = Modifier.fillMaxSize().background(VsBg),
         indicator = { BestBarsIndicator(pullState, measuring, innerPadding.calculateTopPadding()) }
     ) {
         LazyColumn(

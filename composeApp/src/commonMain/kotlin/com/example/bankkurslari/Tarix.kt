@@ -41,6 +41,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -98,6 +99,17 @@ fun TarixScreen(
     var alerts by remember { mutableStateOf(Alerts.load()) }
     var showAdd by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
+    // Gold sits beside the currencies in the switcher: its own chart (CBU price per gram) and the bar table.
+    var goldMode by rememberSaveable { mutableStateOf(false) }
+    var goldSeries by remember { mutableStateOf<List<HistoryPoint>?>(null) }
+    var goldFailed by remember { mutableStateOf(false) }
+    LaunchedEffect(goldMode) {
+        if (goldMode && goldSeries == null) {
+            runCatching { fetchGoldHistory().map { (d, v) -> HistoryPoint(d, v) } }
+                .onSuccess { goldSeries = it; goldFailed = false }
+                .onFailure { goldFailed = true }
+        }
+    }
 
     val cur = payload.cbu.rate
     val tickerHistory = tickers[currency]?.history.orEmpty()
@@ -124,9 +136,12 @@ fun TarixScreen(
         // Topbar: currency pill + share (+ settings, kept so it stays reachable from this tab).
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Segmented(
-                options = Currency.entries.map { it.code },
-                selected = Currency.entries.indexOf(currency),
-                onSelect = { onCurrency(Currency.entries[it]) },
+                options = Currency.entries.map { it.code } + pick(lang, "Oltin", "Золото", "Gold"),
+                selected = if (goldMode) Currency.entries.size else Currency.entries.indexOf(currency),
+                onSelect = { i ->
+                    if (i == Currency.entries.size) goldMode = true
+                    else { goldMode = false; onCurrency(Currency.entries[i]) }
+                },
                 cellWidth = 64.dp
             )
             Spacer(Modifier.weight(1f))
@@ -136,6 +151,29 @@ fun TarixScreen(
             })
         }
 
+        val gs = goldSeries
+        if (goldMode) {
+            if (gs != null && gs.size >= 2) {
+                InteractiveHistory(
+                    series = gs, today = gs.last().rate, currency = currency, amount = 0.0, ru = ru, unit = unit,
+                    title = pick(lang, "Oltin, 1 gramm (10 g quyma)", "Золото, 1 грамм (слиток 10 г)", "Gold, per gram (10 g bar)"),
+                    allowAmount = false
+                )
+                RangePosition(gs, gs.last().rate, unit)
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(VsShape.Panel).background(VsCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (goldFailed) pick(lang, "Oltin tarixi mavjud emas. Keyinroq urinib koʻring.", "История золота недоступна. Попробуйте позже.", "Gold history unavailable. Try again later.")
+                        else pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…"),
+                        style = VsType.Meta, color = VsInkSoft
+                    )
+                }
+            }
+            GoldSection(ru = ru, unit = unit)
+        } else {
         if (series.size >= 2) {
             InteractiveHistory(series = series, today = cur, currency = currency, amount = amount, ru = ru, unit = unit)
         } else {
@@ -230,6 +268,7 @@ fun TarixScreen(
             Icon(if (goldOpen) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
         }
         if (goldOpen) GoldSection(ru = ru, unit = unit)
+        }
 
         // Sources
         Row(

@@ -259,6 +259,16 @@ fun SettingsScreen(
                 }
                 VsDivider()
                 ValueRow(
+                    title = tr("Telegram kanalimiz", "Наш Telegram-канал", "Our Telegram channel"), value = "@qulay_kurs",
+                    onClick = { openUri("https://t.me/qulay_kurs") }
+                )
+                VsDivider()
+                ValueRow(
+                    title = tr("Saytimiz", "Наш сайт", "Our website"), value = "qulaykurs.uz",
+                    onClick = { openUri("https://qulaykurs.uz") }
+                )
+                VsDivider()
+                ValueRow(
                     title = tr("Fikr yuborish", "Обратная связь", "Send feedback"), value = "",
                     onClick = { openUri("mailto:?subject=Qulay%20Kurs") }
                 )

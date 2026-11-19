@@ -30,6 +30,15 @@ import com.example.bankkurslari.ui.theme.VsCard
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsType
 import kotlin.math.roundToLong
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 private fun gramsText(g: Double): String = if (g % 1.0 == 0.0) g.toLong().toString() else g.toString()
 
@@ -116,7 +125,10 @@ private fun GoldRow(bar: GoldBar, ru: Boolean, unit: String, last: Boolean) {
             .padding(vertical = 4.dp)
     ) {
         Row(Modifier.fillMaxWidth()) {
-            Text("${gramsText(bar.grams)} g", style = VsType.Value.copy(fontSize = 15.sp), color = VsInk, modifier = Modifier.weight(0.8f).alignByBaseline())
+            Row(Modifier.weight(0.8f).alignByBaseline(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GoldBarIcon(bar.grams)
+                Text("${gramsText(bar.grams)} g", style = VsType.Value.copy(fontSize = 15.sp), color = VsInk)
+            }
             Text(bar.sell.formatUzsL(), style = VsType.Value.copy(fontSize = 15.sp), color = VsInk, textAlign = TextAlign.End, modifier = Modifier.weight(1.3f).alignByBaseline())
             Text(bar.buyback?.formatUzsL() ?: "—", style = VsType.Value.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = VsInk, textAlign = TextAlign.End, modifier = Modifier.weight(1.3f).alignByBaseline())
         }
@@ -143,6 +155,38 @@ private fun GoldRow(bar: GoldBar, ru: Boolean, unit: String, last: Boolean) {
     if (!last) VsDivider()
 }
 
+
+private val BAR_WEIGHTS = listOf(5.0, 10.0, 20.0, 50.0, 100.0)
+
+/**
+ * A minted gold bar standing upright (same drawing as the website's table): polished rim, an inner stamped panel and a
+ * shine. Heavier bars are drawn taller inside a fixed slot, so the weights still line up.
+ */
+@Composable
+private fun GoldBarIcon(grams: Double) {
+    val i = BAR_WEIGHTS.indexOf(grams).coerceAtLeast(0)
+    val h = (20 + i * 3).dp
+    Box(Modifier.size(width = 20.dp, height = 32.dp), contentAlignment = Alignment.BottomCenter) {
+        Canvas(Modifier.size(width = h * 0.62f, height = h)) {
+            val w = size.width; val hh = size.height
+            val rim = Brush.linearGradient(
+                listOf(Color(0xFFFFF0B3), Color(0xFFF2C95A), Color(0xFFC98E22), Color(0xFFF5D27A), Color(0xFFB07A16)),
+                start = Offset.Zero, end = Offset(w, hh)
+            )
+            val panel = Brush.linearGradient(listOf(Color(0xFFF9DE8C), Color(0xFFE6B649), Color(0xFFD19B2E)), start = Offset.Zero, end = Offset(w, hh))
+            val r = w * 0.16f
+            drawRoundRect(rim, cornerRadius = CornerRadius(r))
+            drawRoundRect(Color(0xFF8C5F12), cornerRadius = CornerRadius(r), style = Stroke(width = w * 0.03f))
+            val inset = w * 0.1f
+            drawRoundRect(panel, topLeft = Offset(inset, inset), size = Size(w - 2 * inset, hh - 2 * inset), cornerRadius = CornerRadius(r * 0.6f))
+            drawRoundRect(Color(0xFFFFF2C2), topLeft = Offset(inset, inset), size = Size(w - 2 * inset, hh - 2 * inset), cornerRadius = CornerRadius(r * 0.6f), style = Stroke(width = w * 0.035f))
+            // stamp lines and a diagonal shine
+            drawLine(Color(0x739A6612), Offset(w * 0.3f, hh * 0.45f), Offset(w * 0.7f, hh * 0.45f), strokeWidth = w * 0.05f)
+            drawLine(Color(0x739A6612), Offset(w * 0.3f, hh * 0.58f), Offset(w * 0.7f, hh * 0.58f), strokeWidth = w * 0.035f)
+            drawLine(Color(0x99FFFFFF), Offset(w * 0.2f, hh * 0.32f), Offset(w * 0.45f, hh * 0.1f), strokeWidth = w * 0.06f)
+        }
+    }
+}
 
 /** Price per gram over the days our server has collected; needs two days before it can draw anything. */
 @Composable

@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.TextMeasurer
@@ -100,7 +101,6 @@ import kotlin.math.roundToLong
 
 private const val MIN_SPAN_DAYS = 5.0
 private val CHART_H = 240.dp
-private val NAV_H = 48.dp
 
 /** Visible time window of the chart, in epoch days. Clamped to the data's [first]..[last]. */
 @Stable
@@ -129,12 +129,11 @@ private class ChartViewport(val first: Double, val last: Double, start: Double, 
     }
 }
 
-/** Presets: 7 / 30 / 90 days, 1 year ending today, or the whole history since 2009 (null). */
-private val PRESETS: List<Int?> = listOf(7, 30, 90, 365, null)
+/** Presets: 7 / 30 / 90 days, 1 and 5 years ending today, or the whole history (null). */
+private val PRESETS: List<Int?> = listOf(7, 30, 90, 365, 1825, null)
 
 /**
- * Tarix chart: preset ranges, pinch-zoom + two-finger pan on the chart, a navigator strip with a draggable window
- * under it, one-finger scrub with a bubble, and an optional "my amount" mode (values = CBU rate × the Kurs amount).
+ * Tarix chart: preset ranges, pinch-zoom + two-finger pan on the chart, one-finger scrub with a bubble, and an optional "my amount" mode (values = CBU rate × the Kurs amount).
  */
 @Composable
 fun InteractiveHistory(
@@ -143,7 +142,11 @@ fun InteractiveHistory(
     currency: Currency,
     amount: Double,
     ru: Boolean,
-    unit: String
+    unit: String,
+    /** Hero caption; the CBU rate by default. */
+    title: String? = null,
+    /** false for series where "× my amount" means nothing (gold per gram): hides the 1 / amount chip. */
+    allowAmount: Boolean = true
 ) {
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -164,7 +167,8 @@ fun InteractiveHistory(
     fun stopAnim() { anim?.cancel(); anim = null }
 
     val amt = if (amount > 0) amount else 100.0
-    var amountMode by remember { mutableStateOf(appStore().getBoolean("chart_amount_mode", false)) }
+    var amountModePref by remember { mutableStateOf(appStore().getBoolean("chart_amount_mode", false)) }
+    val amountMode = allowAmount && amountModePref
     val mult = if (amountMode) amt else 1.0
     var hintSeen by remember { mutableStateOf(appStore().getBoolean("chart_hint_seen", false)) }
     fun markInteracted() {
@@ -180,10 +184,10 @@ fun InteractiveHistory(
 
     // ---- presets (computed first: the hero names the period) ----
     val labels = when (lang) {
-        Lang.RU -> listOf("1 нед", "1 мес", "3 мес", "1 год", "Всё")
-        Lang.UZ_CYRL -> listOf("1 ҳафта", "1 ой", "3 ой", "1 йил", "Ҳаммаси")
-        Lang.EN -> listOf("1W", "1M", "3M", "1Y", "All")
-        Lang.UZ -> listOf("1 hafta", "1 oy", "3 oy", "1 yil", "Hammasi")
+        Lang.RU -> listOf("1Н", "1М", "3М", "1Г", "5Л", "Всё")
+        Lang.UZ_CYRL -> listOf("1Ҳ", "1О", "3О", "1Й", "5Й", "Ҳамма")
+        Lang.EN -> listOf("1W", "1M", "3M", "1Y", "5Y", "All")
+        Lang.UZ -> listOf("1H", "1O", "3O", "1Y", "5Y", "Hamma")
     }
     val presetIdx = PRESETS.indexOfFirst { p ->
         val want = if (p == null) last - first else min(p.toDouble(), last - first)
@@ -205,21 +209,22 @@ fun InteractiveHistory(
         1 -> pick(lang, "oxirgi 30 kunda", "за 30 дней", "over 30 days")
         2 -> pick(lang, "oxirgi 3 oyda", "за 3 месяца", "over 3 months")
         3 -> pick(lang, "oxirgi 1 yilda", "за год", "over 1 year")
-        4 -> pick(lang, "butun davr uchun", "за всё время", "over all time")
+        4 -> pick(lang, "oxirgi 5 yilda", "за 5 лет", "over 5 years")
+        5 -> pick(lang, "butun davr uchun", "за всё время", "over all time")
         else -> "${shortDay(a.date)} – ${shortDay(b.date)}"
     }
     val heroName = currency.displayName(lang).lowercase()
 
     TrendHero(
-        label = pick(lang, "Markaziy bank kursi", "Курс ЦБ", "Central Bank rate"),
+        label = title ?: pick(lang, "Markaziy bank kursi", "Курс ЦБ", "Central Bank rate"),
         today = today, unit = unit,
         delta = HeroDelta(deltaText, gain, flat = abs(pct) < 0.005, period = periodText),
-        trailing = {
+        trailing = if (!allowAmount) null else ({
             UnitChip(
                 one = "1 $heroName", many = "${kGroup(amt.roundToLong())} $heroName", amountMode = amountMode,
-                onSelect = { m -> amountMode = m; appStore().putBoolean("chart_amount_mode", m) }
+                onSelect = { m -> amountModePref = m; appStore().putBoolean("chart_amount_mode", m) }
             )
-        }
+        })
     )
 
     // ---- main chart ----
@@ -230,6 +235,7 @@ fun InteractiveHistory(
     val bubbleStyle = VsType.Value.copy(fontSize = 13.sp)
     val noteStyle = VsType.Meta.copy(fontSize = 12.sp)
     val lowLabel = pick(lang, "eng past", "минимум", "the low")
+    val highLabel = pick(lang, "eng yuqori", "максимум", "the high")
     val todayLabel = pick(lang, "bugun", "сегодня", "today")
 
     // Y range follows the visible slice smoothly.
@@ -371,6 +377,19 @@ fun InteractiveHistory(
                 drawChip(measurer, listOf(txt to bubbleStyle.copy(fontSize = 12.sp, color = bg.copy(alpha = idleA))), lx, ly, leftPx, w - rightPx, topPx, plotB, ink, idleA)
             }
         }
+        // The high of the window, marked the same way as the low (chip above the line).
+        val highIdx = inside.maxByOrNull { series[it].rate }
+        if (highIdx != null && highIdx != lowIdx && !(showToday && highIdx == series.lastIndex)) {
+            val hx = xOf(t[highIdx]); val hy = yOf(series[highIdx].rate * mult)
+            drawCircle(card, radius = 6.dp.toPx() * dotA, center = Offset(hx, hy))
+            drawCircle(accent, radius = 4.dp.toPx() * dotA, center = Offset(hx, hy))
+            val idleA = (1f - selA) * dotA
+            if (idleA > 0f) {
+                val v = series[highIdx].rate
+                val vText = if (amountMode) (v * amt).roundToLong().formatUzsL() else if (today >= 1000) v.roundToLong().formatUzsL() else v.formatRate()
+                drawChip(measurer, listOf("$vText, $highLabel" to bubbleStyle.copy(fontSize = 12.sp, color = bg.copy(alpha = idleA))), hx, hy, leftPx, w - rightPx, topPx, plotB, ink, idleA)
+            }
+        }
         if (showToday) {
             val lx = xOf(t.last()); val ly = yOf(series.last().rate * mult)
             drawCircle(card, radius = 6.dp.toPx() * dotA, center = Offset(lx, ly))
@@ -416,11 +435,8 @@ fun InteractiveHistory(
         height = 40.dp
     )
 
-    // ---- navigator: whole history, draggable window ----
-    Navigator(series, t, vp, onInteract = { stopAnim(); markInteracted() }, onJump = { c ->
-        val sp = vp.span
-        goTo(c - sp / 2, c + sp / 2)
-    })
+
+    WindowStats(series, inside, mult, today, unit)
 
     AnimatedVisibility(!hintSeen) {
         Text(
@@ -432,86 +448,36 @@ fun InteractiveHistory(
     }
 }
 
-private enum class NavDrag { NONE, MOVE, LEFT, RIGHT }
-
+/** High, low, average and change over the visible window, as four quiet tiles (2 × 2). */
 @Composable
-private fun Navigator(series: List<HistoryPoint>, t: List<Double>, vp: ChartViewport, onInteract: () -> Unit, onJump: (Double) -> Unit) {
-    val ink = VsEmerald; val accent = VsEmerald; val bg = VsBg; val surface = VsCard; val hairline = VsHair; val handle = VsInk
-    val lo = remember(series) { series.minOf { it.rate } }
-    val hi = remember(series) { series.maxOf { it.rate } }
-    val haptic = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    val edgePx = with(density) { 16.dp.toPx() }
-    val minWinPx = with(density) { 28.dp.toPx() }
-    Canvas(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .height(NAV_H)
-            .semantics { contentDescription = "navigator" }
-            .pointerInput(series) {
-                fun tOf(x: Float) = vp.first + (x / size.width).coerceIn(0f, 1f) * (vp.last - vp.first)
-                fun xOf(tv: Double) = ((tv - vp.first) / (vp.last - vp.first)).toFloat() * size.width
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    onInteract()
-                    val x0 = down.position.x
-                    val (sx, ex) = navWindow(xOf(vp.start), xOf(vp.end), minWinPx)
-                    // Handles win only near the edges and never past the window's middle third, so a narrow window
-                    // can still be moved by grabbing its centre.
-                    val inner = (ex - sx) / 3f
-                    val mode = when {
-                        abs(x0 - sx) <= min(edgePx, inner) || (x0 < sx && sx - x0 <= edgePx) -> NavDrag.LEFT
-                        abs(x0 - ex) <= min(edgePx, inner) || (x0 > ex && x0 - ex <= edgePx) -> NavDrag.RIGHT
-                        x0 in sx..ex -> NavDrag.MOVE
-                        else -> NavDrag.NONE
-                    }
-                    if (mode != NavDrag.NONE) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    var moved = false
-                    while (true) {
-                        val ev = awaitPointerEvent()
-                        val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!ch.pressed) break
-                        val dxPx = ch.position.x - ch.previousPosition.x
-                        if (abs(ch.position.x - x0) > 4) moved = true
-                        if (mode == NavDrag.NONE) continue
-                        ch.consume()
-                        val dt = dxPx / size.width * (vp.last - vp.first)
-                        when (mode) {
-                            NavDrag.MOVE -> vp.set(vp.start + dt, vp.end + dt)
-                            NavDrag.LEFT -> vp.set(min(vp.start + dt, vp.end - MIN_SPAN_DAYS), vp.end)
-                            NavDrag.RIGHT -> vp.set(vp.start, max(vp.end + dt, vp.start + MIN_SPAN_DAYS))
-                            NavDrag.NONE -> {}
-                        }
-                    }
-                    // Tap outside the window: centre the window there.
-                    if (!moved && mode == NavDrag.NONE) onJump(tOf(x0))
-                }
-            }
-    ) {
-        val w = size.width
-        val h = size.height
-        val total = (vp.last - vp.first).coerceAtLeast(1.0)
-        fun x(tv: Double) = ((tv - vp.first) / total).toFloat() * w
-        fun y(v: Double) = 4.dp.toPx() + (1f - ((v - lo) / (hi - lo).coerceAtLeast(1e-9)).toFloat()) * (h - 8.dp.toPx())
-        val r = CornerRadius(8.dp.toPx())
-        drawRoundRect(surface, Offset.Zero, size, r)
-        drawRoundRect(hairline, Offset.Zero, size, r, style = Stroke(1.dp.toPx()))
-        val p = Path()
-        series.forEachIndexed { i, pt -> if (i == 0) p.moveTo(x(t[i]), y(pt.rate)) else p.lineTo(x(t[i]), y(pt.rate)) }
-        drawPath(p, ink.copy(alpha = 0.7f), style = Stroke(1.25.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-        val (sx, ex) = navWindow(x(vp.start), x(vp.end), minWinPx)
-        // dim outside the window
-        drawRect(bg.copy(alpha = 0.55f), Offset(0f, 0f), Size(sx, h))
-        drawRect(bg.copy(alpha = 0.55f), Offset(ex, 0f), Size(w - ex, h))
-        // window
-        val ww = max(ex - sx, 2.dp.toPx())
-        drawRoundRect(accent.copy(alpha = 0.10f), Offset(sx, 0f), Size(ww, h), CornerRadius(6.dp.toPx()))
-        drawRoundRect(accent, Offset(sx, 0f), Size(ww, h), CornerRadius(6.dp.toPx()), style = Stroke(1.5.dp.toPx()))
-        // handles
-        val hh = 16.dp.toPx(); val hw = 3.dp.toPx()
-        drawRoundRect(handle, Offset(sx - hw / 2, h / 2 - hh / 2), Size(hw, hh), CornerRadius(hw))
-        drawRoundRect(handle, Offset(sx + ww - hw / 2, h / 2 - hh / 2), Size(hw, hh), CornerRadius(hw))
+private fun WindowStats(series: List<HistoryPoint>, inside: List<Int>, mult: Double, today: Double, unit: String) {
+    if (inside.size < 2) return
+    val pts = inside.map { series[it] }
+    val hi = pts.maxBy { it.rate }; val lo = pts.minBy { it.rate }
+    val avg = pts.sumOf { it.rate } / pts.size
+    val a = pts.first().rate; val b = pts.last().rate
+    val change = b - a
+    val pct = if (a > 0) abs(change / a * 100) else 0.0
+    fun v(x: Double) = if (mult == 1.0 && today < 1000) x.formatRate() else (x * mult).roundToLong().formatUzsL()
+    val signed = (if (change > 0.004) "+" else if (change < -0.004) "−" else "±") + v(abs(change))
+    val changeColor = if (abs(change) < 0.005) VsInk else if (change > 0) VsEmerald else VsRoseText
+    @Composable
+    fun Tile(label: String, value: String, note: String, color: Color, m: Modifier) {
+        Column(m.clip(VsShape.Stat).background(VsCard).border(1.dp, VsHair, VsShape.Stat).padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(label, style = VsType.Meta, color = VsInkSoft, maxLines = 1)
+            Text(value, style = VsType.Value.copy(fontSize = 17.sp), color = color, maxLines = 1)
+            Text(note, style = VsType.Meta.copy(fontSize = 12.sp), color = VsInkSoft, maxLines = 1)
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Tile(pick(lang, "Eng yuqori", "Максимум", "High"), v(hi.rate), formatFullDate(hi.date), VsInk, Modifier.weight(1f))
+            Tile(pick(lang, "Eng past", "Минимум", "Low"), v(lo.rate), formatFullDate(lo.date), VsInk, Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Tile(pick(lang, "Oʻrtacha", "Среднее", "Average"), v(avg), unit, VsInk, Modifier.weight(1f))
+            Tile(pick(lang, "Oʻzgarish", "Изменение", "Change"), signed, "${pct.fixed(2).let { if (lang == Lang.EN) it else it.replace('.', ',') }}%", changeColor, Modifier.weight(1f))
+        }
     }
 }
 
@@ -591,13 +557,6 @@ private fun DrawScope.drawChip(
     drawRoundRect(fill.copy(alpha = alpha), Offset(bx, by), Size(bw, bh), CornerRadius(10.dp.toPx()))
     var y = by + padV
     rs.forEach { r -> drawText(r, topLeft = Offset(bx + padH, y)); y += r.size.height }
-}
-
-/** Window edges in the navigator, widened around their centre to at least [minW] so a short range stays grabbable. */
-private fun navWindow(sx: Float, ex: Float, minW: Float): Pair<Float, Float> {
-    if (ex - sx >= minW) return sx to ex
-    val c = (sx + ex) / 2
-    return (c - minW / 2) to (c + minW / 2)
 }
 
 private fun shortDay(iso: String): String {
