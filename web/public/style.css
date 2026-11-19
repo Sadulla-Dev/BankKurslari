@@ -346,6 +346,12 @@ body.v-map .foot { display: none; }
 .sh-title h3 { font-size: 21px; font-weight: 700; }
 .sh-title small { display: block; font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .icon-btn { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--fill); display: grid; place-items: center; color: var(--ink); }
+.tg-btn { color: #229ED9; text-decoration: none; transition: background .15s; }
+.tg-btn:hover { background: var(--hover); }
+@media (max-width: 400px) {
+  .top-r { gap: 6px; }
+  .top-r .icon-btn { width: 36px; height: 36px; }
+}
 .big-ib { width: 50px; height: 50px; border-radius: 14px; }
 .sh-total { margin-top: 20px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
 .big2 { font-size: 36px; font-weight: 700; letter-spacing: -.03em; }
