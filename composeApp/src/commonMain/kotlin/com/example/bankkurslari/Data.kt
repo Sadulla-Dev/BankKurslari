@@ -213,6 +213,32 @@ suspend fun fetchCbuAll(): List<CbuCurrency> = withContext(Dispatchers.Default) 
     list
 }
 
+/* ---------- bank cash rates for extra currencies (GBP, KZT) ---------- */
+
+/** A bank's cash rate for a currency outside the main tabs; KZT trades in tiyin, so rates keep their decimals. */
+data class ExtraBankRate(val bank: String, val buy: Double?, val sell: Double?)
+
+/** Currencies the API serves bank rates for besides USD/EUR/RUB (backend EXTRA_RATES). */
+val BANK_RATE_EXTRAS = setOf("GBP", "KZT")
+
+private fun parseExtraRates(body: String): List<ExtraBankRate> =
+    (parseJsonObject(body).arr("banks") ?: JsonArray(emptyList())).objects().mapNotNull { item ->
+        val buy = item.dbl("buy")
+        val sell = item.dbl("sell")
+        if (buy == null && sell == null) null else ExtraBankRate(item.str("bank") ?: return@mapNotNull null, buy, sell)
+    }
+
+suspend fun cachedExtraRates(code: String): List<ExtraBankRate> = withContext(Dispatchers.Default) {
+    RateService.loadCache("rates_x_$code")?.let { runCatching { parseExtraRates(it) }.getOrNull() }.orEmpty()
+}
+
+suspend fun fetchExtraRates(code: String): List<ExtraBankRate> = withContext(Dispatchers.Default) {
+    val body = httpGet("$backendBase/api/rates/${code.lowercase()}", 15_000)
+    val list = parseExtraRates(body)
+    RateService.saveCache("rates_x_$code", body)
+    list
+}
+
 /* ---------- per-bank daily history (collected by our server) ---------- */
 
 /** A bank's rates on one day: first and last (buy, sell) seen. */

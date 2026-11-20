@@ -1,6 +1,7 @@
 // api.qulaykurs.uz: serves the JSON files that src/build.js produces (GitHub Actions rebuilds and redeploys them).
 // Same routes and response shapes as the Express server, so the app works against either.
 const CURRENCIES = ["USD", "EUR", "RUB"];
+const EXTRA_RATES = ["GBP", "KZT"]; // bank rates only, see server.js
 const CORS = { "access-control-allow-origin": "*" };
 
 function json(body, status = 200) {
@@ -87,7 +88,7 @@ async function handle(request, env) {
     case "rates":
     case "history":
     case "analytics":
-      if (!CURRENCIES.includes(cur)) return json({ error: "unsupported_currency", supported: CURRENCIES }, 404);
+      if (!CURRENCIES.includes(cur) && !(kind === "rates" && EXTRA_RATES.includes(cur))) return json({ error: "unsupported_currency", supported: CURRENCIES }, 404);
       return serve(env, request, `/api/${kind}/${cur}.json`, `${kind}_unavailable`);
     case "branches":
       if (arg === "yandex") {

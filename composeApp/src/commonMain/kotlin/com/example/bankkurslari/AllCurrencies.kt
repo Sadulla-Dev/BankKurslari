@@ -104,6 +104,13 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
         favs = if (code in favs) favs - code else favs + code
         appStore().putStringSet(FAV_KEY, favs)
     }
+    // Bank cash rates for the few extra currencies banks publish (GBP, KZT); static files, so loading both is free.
+    var extra by remember { mutableStateOf<Map<String, List<ExtraBankRate>>>(emptyMap()) }
+    LaunchedEffect(Unit) {
+        extra = BANK_RATE_EXTRAS.associateWith { cachedExtraRates(it) }.filterValues { it.isNotEmpty() }
+        for (code in BANK_RATE_EXTRAS) runCatching { fetchExtraRates(code) }.onSuccess { extra = extra + (code to it) }
+    }
+    var sellSide by remember { mutableStateOf(true) }
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(appStore().getString("cbu_selected") ?: "CNY") }
 
@@ -128,26 +135,6 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
             val cur = list.firstOrNull { it.code == selected }
             if (cur != null) Converter(cur)
 
-            // search
-            BasicTextField(
-                value = query, onValueChange = { query = it }, singleLine = true,
-                textStyle = VsType.Body.copy(color = VsInk), cursorBrush = SolidColor(VsEmerald),
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                decorationBox = { inner ->
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsGround).padding(horizontal = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Outlined.Search, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Box(Modifier.weight(1f)) {
-                            if (query.isEmpty()) Text(tr("Valyuta yoki kod", "Валюта или код", "Currency or code"), style = VsType.Body, color = VsInkSoft)
-                            inner()
-                        }
-                    }
-                }
-            )
-
             if (list.isEmpty()) {
                 Text(
                     if (failed) tr("Kurslar hozircha mavjud emas.", "Курсы пока недоступны.", "Rates are not available yet.")
@@ -163,10 +150,36 @@ fun AllCurrenciesSheet(onDismiss: () -> Unit) {
                     c.nameRu.lowercase().contains(q) || c.nameEn.lowercase().contains(q))
             }.sortedWith(compareBy<CbuCurrency> { it.code !in favs }.thenBy { it.code })
 
-            LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp)) {
+            // Bank rows are inserted above the search field when they load or the currency changes; the list would keep
+            // its place on the search field and hide them, so jump back to the top.
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            val hasBanks = extra[selected] != null
+            LaunchedEffect(selected, hasBanks) { listState.scrollToItem(0) }
+            LazyColumn(Modifier.fillMaxWidth().weight(1f), state = listState) {
+                if (cur != null) bankRatesItems(selected, extra[selected], sellSide) { sellSide = it }
+                item(key = "search") {
+                BasicTextField(
+                    value = query, onValueChange = { query = it }, singleLine = true,
+                    textStyle = VsType.Body.copy(color = VsInk), cursorBrush = SolidColor(VsEmerald),
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
+                    decorationBox = { inner ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(CircleShape).background(com.example.bankkurslari.ui.theme.VsGround).padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.Search, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.weight(1f)) {
+                                if (query.isEmpty()) Text(tr("Valyuta yoki kod", "Валюта или код", "Currency or code"), style = VsType.Body, color = VsInkSoft)
+                                inner()
+                            }
+                        }
+                    }
+                )
+                }
                 items(shown, key = { it.code }) { c ->
                     CurrencyRow(
-                        c = c, fav = c.code in favs, selected = c.code == selected,
+                        c = c, fav = c.code in favs, selected = c.code == selected, bankCount = extra[c.code]?.size ?: 0,
                         onFav = { toggleFav(c.code) },
                         onClick = { selected = c.code; appStore().putString("cbu_selected", c.code) }
                     )
@@ -222,7 +235,7 @@ private fun Converter(c: CbuCurrency) {
 }
 
 @Composable
-private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, onFav: () -> Unit, onClick: () -> Unit) {
+private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, bankCount: Int, onFav: () -> Unit, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -234,6 +247,7 @@ private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, onFav: 
         Column(Modifier.weight(1f)) {
             Text(c.localName(), style = VsType.Body, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (c.nominal != 1) Text(tr("${c.nominal} birlik uchun", "за ${c.nominal} ед.", "per ${c.nominal} units"), style = VsType.Meta, color = VsInkSoft)
+            if (bankCount > 0) Text(tr("$bankCount ta bankda", "в $bankCount банках", "at $bankCount banks"), style = VsType.Meta, color = VsEmerald)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(rateText(c.rate), style = VsType.Value, color = VsInk, textAlign = TextAlign.End)
@@ -250,6 +264,77 @@ private fun CurrencyRow(c: CbuCurrency, fav: Boolean, selected: Boolean, onFav: 
                 if (fav) tr("Sevimlilardan olib tashlash", "Убрать из избранного", "Remove from favourites")
                 else tr("Sevimlilarga qoʻshish", "Добавить в избранное", "Add to favourites"),
                 tint = if (fav) VsEmerald else VsInkSoft, modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+/** "15 550" for pound-sized rates, "26.10" for tenge. */
+private fun bankRateText(v: Double): String = if (v >= 1000) v.roundToLong().formatUzsL() else v.fixed(2)
+
+/** Gap to the best rate without trailing zeros: "50", "0.3". */
+private fun gapText(v: Double): String {
+    val r = (v * 100).roundToLong() / 100.0
+    return if (r >= 1000 || r == r.roundToLong().toDouble()) r.roundToLong().formatUzsL() else r.fixed(2).trimEnd('0').trimEnd('.')
+}
+
+/**
+ * Bank cash rates for the selected currency, only from banks that publish one; other currencies get a short note.
+ * [sell]: the user sells the currency, so the bank's buy rate counts and the highest is best.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.bankRatesItems(
+    code: String, banks: List<ExtraBankRate>?, sell: Boolean, onSide: (Boolean) -> Unit
+) {
+    if (code !in BANK_RATE_EXTRAS) {
+        item(key = "banks-none") {
+            Text(
+                tr("Banklar bu valyuta kursini eʼlon qilmagan — faqat Markaziy bank kursi.",
+                    "Банки не публикуют курс этой валюты — только курс ЦБ.",
+                    "Banks don’t publish a rate for this currency — Central Bank rate only."),
+                style = VsType.Meta, color = VsInkSoft,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).clip(VsShape.Stat).background(com.example.bankkurslari.ui.theme.VsGround).padding(12.dp)
+            )
+        }
+        return
+    }
+    if (banks.isNullOrEmpty()) return
+    val ranked = banks.mapNotNull { b -> (if (sell) b.buy else b.sell)?.let { b.bank to it } }
+        .sortedBy { if (sell) -it.second else it.second }
+    if (ranked.isEmpty()) return
+    val best = ranked.first().second
+    item(key = "banks-head") {
+        Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("Banklarda (${banks.size})", "В банках (${banks.size})", "At banks (${banks.size})"), style = VsType.Value, color = VsInk, modifier = Modifier.weight(1f))
+                SegmentedHug(
+                    options = listOf(tr("Sotsangiz", "Продать", "Sell"), tr("Olsangiz", "Купить", "Buy")),
+                    selected = if (sell) 0 else 1, onSelect = { onSide(it == 0) }, height = 36.dp
+                )
+            }
+            Text(
+                if (sell) tr("Bank sizdan oladi — eng qimmati tepada", "Банк покупает у вас — самый дорогой сверху", "The bank buys from you — highest first")
+                else tr("Bank sizga sotadi — eng arzoni tepada", "Банк продаёт вам — самый дешёвый сверху", "The bank sells to you — cheapest first"),
+                style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
+        }
+    }
+    items(ranked, key = { "bank-" + it.first }) { (bank, rate) ->
+        val gap = abs(rate - best)
+        val top = gap < 1e-9
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(if (top) com.example.bankkurslari.ui.theme.VsEmeraldSoft else androidx.compose.ui.graphics.Color.Transparent)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BankTile(bank, size = 32.dp)
+            Spacer(Modifier.width(10.dp))
+            Text(shortBankName(bank), style = VsType.Body, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(bankRateText(rate), style = VsType.Value, color = VsInk)
+            Text(
+                if (top) tr("eng yaxshi", "лучший", "best") else (if (sell) "−" else "+") + gapText(gap),
+                style = VsType.Meta, color = if (top) VsEmerald else VsInkSoft, textAlign = TextAlign.End,
+                modifier = Modifier.width(76.dp)
             )
         }
     }

@@ -44,6 +44,8 @@ const TASHKENT_SPN = "0.60,0.48";
 const TASHKENT_BBOX = "41.15,69.10,41.40,69.40";
 
 const SUPPORTED = ["USD", "EUR", "RUB"];
+// Bank rates only (no CBU history or analytics): bank.uz publishes these for fewer banks, the site lists them per currency.
+const EXTRA_RATES = ["GBP", "KZT"];
 
 const app = express();
 // Per-currency caches, keyed by currency code.
@@ -88,7 +90,7 @@ const BANK_BRANCHES = {
 
 function normalizeCurrency(raw) {
   const cur = String(raw || "").toUpperCase();
-  return SUPPORTED.includes(cur) ? cur : null;
+  return SUPPORTED.includes(cur) || EXTRA_RATES.includes(cur) ? cur : null;
 }
 
 app.get("/health", (_request, response) => {
@@ -422,7 +424,7 @@ async function getCbuCurrent() {
   const data = await fetchJson(CBU_ALL_URL);
   const map = {};
   for (const row of Array.isArray(data) ? data : []) {
-    if (!SUPPORTED.includes(row.Ccy)) continue;
+    if (!SUPPORTED.includes(row.Ccy) && !EXTRA_RATES.includes(row.Ccy)) continue;
     map[row.Ccy] = {
       code: row.Ccy,
       rate: parseFloat(String(row.Rate).replace(",", ".")),
@@ -1017,4 +1019,4 @@ function normalizeBankName(value) {
   return cleanText(value).toLowerCase().replace(/['‘’`]/g, "").replace(/\s+/g, " ");
 }
 
-export { getRatesPayload, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED };
+export { getRatesPayload, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED, EXTRA_RATES };

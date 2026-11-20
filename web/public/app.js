@@ -325,6 +325,10 @@ const AC = {
   sel: store.get("acSel") || "CNY",
   favs: (() => { try { const v = JSON.parse(store.get("acFavs")); return Array.isArray(v) ? v : AC_DEFAULT_FAVS; } catch { return AC_DEFAULT_FAVS; } })()
 };
+// Currencies that bank.uz publishes bank cash rates for besides the main tabs (backend EXTRA_RATES).
+const AC_BANK_CURS = ["GBP", "KZT"];
+const AB = { sell: true };
+const loadAcBanks = (cur) => once("r" + cur, async () => (S.rates[cur] = await getJSON(`/api/rates/${cur.toLowerCase()}`)));
 const loadCbuAll = () => AC.list ? Promise.resolve(AC.list) : once("cbuall", async () => (AC.list = (await getJSON("/api/cbu/all")).currencies || []));
 const acName = (c) => c.names?.[S.lang] || c.names?.en || c.code;
 const acRate = (c) => c.rate / (c.nominal || 1);
@@ -362,7 +366,7 @@ function renderAllList() {
     const fav = AC.favs.includes(c.code);
     return `<div class="ac-i${c.code === AC.sel ? " on" : ""}" role="button" tabindex="0" data-code="${acEsc(c.code)}">
       <span class="ac-sym">${acEsc(c.code)}</span>
-      <span class="ac-n"><b>${acEsc(acName(c))}</b><small>${c.nominal > 1 ? `${c.nominal} ${acEsc(c.code)} = ${acRateFmt(c.rate)}` : `1 ${acEsc(c.code)}`}</small></span>
+      <span class="ac-n"><b>${acEsc(acName(c))}</b><small>${c.nominal > 1 ? `${c.nominal} ${acEsc(c.code)} = ${acRateFmt(c.rate)}` : `1 ${acEsc(c.code)}`}${AC_BANK_CURS.includes(c.code) && S.rates[c.code]?.banks?.length ? ` · <span class="ac-bk">${t.abBadge(S.rates[c.code].banks.length)}</span>` : ""}</small></span>
       <span class="ac-r"><b>${acRateFmt(acRate(c))}</b><em class="${cls}">${d ? `${d > 0 ? "▲" : "▼"} ${acRateFmt(Math.abs(d))}` : ""}</em></span>
       <button type="button" class="ac-star${fav ? " on" : ""}" data-star="${acEsc(c.code)}" aria-label="${t["all.fav"]}" aria-pressed="${fav}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.6l2.3 4.7 5.1.7-3.7 3.6.9 5.1L10 14.3l-4.6 2.4.9-5.1L2.6 8l5.1-.7z" fill="${fav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     </div>`;
@@ -372,6 +376,34 @@ function renderAllList() {
   if (rest.length) html += `<h4 class="ac-h">${t["all.all"]}</h4>` + rest.map(row).join("");
   $("acList").innerHTML = html || `<p class="muted ac-empty">${t["all.empty"]}</p>`;
 }
+/** Bank cash rates for the selected currency, only for banks that publish one. */
+function renderAcBanks() {
+  const t = L();
+  const box = $("acBanks");
+  const cur = AC.sel;
+  if (!AC.list) { box.hidden = true; return; }
+  box.hidden = false;
+  if (!AC_BANK_CURS.includes(cur)) { box.innerHTML = `<p class="ab-none">${t["ab.none"]}</p>`; return; }
+  const d = S.rates[cur];
+  if (!d) {
+    box.innerHTML = `<div class="cbu-i skel-box"></div><div class="cbu-i skel-box"></div>`;
+    loadAcBanks(cur).then(() => { if (S.allOpen && AC.sel === cur) { renderAcBanks(); renderAllList(); } }).catch(() => { box.hidden = true; });
+    return;
+  }
+  const field = AB.sell ? "buy" : "sell";
+  const banks = d.banks.filter((b) => Number.isFinite(b[field])).sort((a, b) => (AB.sell ? b[field] - a[field] : a[field] - b[field]));
+  if (!banks.length) { box.innerHTML = `<p class="ab-none">${t["ab.none"]}</p>`; return; }
+  const best = banks[0][field];
+  const fmt = (v) => { const r = Math.round(v * 100) / 100; return Number.isInteger(r) ? group(r) : dec(r.toFixed(2)); };
+  const rows = banks.map((b) => {
+    const gap = Math.abs(b[field] - best);
+    const top = gap < 1e-9;
+    return `<div class="ab-i${top ? " top" : ""}">${badgeHTML(b.bank, "sm")}<b class="ab-n">${esc(shortName(b.bank))}</b><b class="ab-r">${acRateFmt(b[field])}</b><em>${top ? t["ab.best"] : `${AB.sell ? "−" : "+"}${fmt(gap)}`}</em></div>`;
+  }).join("");
+  box.innerHTML = `<div class="ab-head"><h4 class="ac-h">${t.abTitle(d.banks.length)}</h4>
+    <div class="ab-seg" role="tablist"><button type="button" role="tab" data-ab="sell" aria-selected="${AB.sell}" class="${AB.sell ? "on" : ""}">${t["ab.sell"]}</button><button type="button" role="tab" data-ab="buy" aria-selected="${!AB.sell}" class="${AB.sell ? "" : "on"}">${t["ab.buy"]}</button></div></div>
+    <small class="ab-hint">${t.abHint(AB.sell)}</small>${rows}`;
+}
 function renderAllSheet() {
   const t = L();
   const date = AC.list?.[0]?.date;
@@ -379,6 +411,7 @@ function renderAllSheet() {
   $("acSearch").placeholder = t["all.search"];
   $("acSwap").setAttribute("aria-label", t["all.swap"]);
   renderAllConv();
+  renderAcBanks();
   renderAllList();
 }
 async function openAll() {
@@ -389,6 +422,8 @@ async function openAll() {
   requestAnimationFrame(() => { $("scrim").classList.add("on"); $("allSheet").classList.add("on"); });
   document.body.style.overflow = "hidden";
   $("allClose").focus({ preventScroll: true });
+  // Static files, so the "N ta bankda" marks in the list cost nothing to fetch up front.
+  for (const cur of AC_BANK_CURS) loadAcBanks(cur).then(() => { if (S.allOpen) renderAllList(); }).catch(() => {});
   try { await loadCbuAll(); } catch { toast(L().error); }
   renderAllBtn();
   if (S.allOpen) renderAllSheet();
@@ -413,6 +448,12 @@ function bindAll() {
   });
   $("acAmount").addEventListener("focus", (e) => e.target.select());
   $("acSwap").addEventListener("click", () => { AC.toSom = !AC.toSom; renderAllConv(); });
+  $("acBanks").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ab]");
+    if (!b) return;
+    AB.sell = b.dataset.ab === "sell";
+    renderAcBanks();
+  });
   $("acList").addEventListener("click", (e) => {
     const star = e.target.closest("[data-star]");
     if (star) {
@@ -428,6 +469,7 @@ function bindAll() {
     AC.sel = it.dataset.code;
     store.set("acSel", AC.sel);
     renderAllConv();
+    renderAcBanks();
     renderAllList();
     $("allSheet").scrollTo({ top: 0, behavior: "smooth" });
   });

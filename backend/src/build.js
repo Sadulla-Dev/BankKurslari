@@ -87,7 +87,7 @@ try {
   // No Yandex snapshot has been imported yet.
 }
 
-for (const cur of api.SUPPORTED) {
+for (const cur of [...api.SUPPORTED, ...api.EXTRA_RATES]) {
   await step(`rates ${cur}`, async () => put(`api/rates/${cur}.json`, await api.getRatesPayload(cur, { force: true })));
 }
 await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()));
@@ -144,6 +144,7 @@ const aliases = [["api/atms.json", "api/atms"], ["api/cbu/all.json", "api/cbu/al
 for (const cur of api.SUPPORTED) {
   for (const kind of ["rates", "history", "analytics"]) aliases.push([`api/${kind}/${cur}.json`, `api/${kind}/${cur.toLowerCase()}`]);
 }
+for (const cur of api.EXTRA_RATES) aliases.push([`api/rates/${cur}.json`, `api/rates/${cur.toLowerCase()}`]);
 for (const [from, to] of aliases) {
   if (files.includes(from)) await copyFile(join(SITE, from), join(SITE, to));
 }

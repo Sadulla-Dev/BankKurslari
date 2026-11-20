@@ -180,6 +180,25 @@ p { margin: 0; }
 .ac-in:focus { border-color: var(--accent); }
 .ac-out b { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-unit { flex: none; font-weight: 600; color: var(--ink-2); }
+.ac-banks { margin-top: 6px; }
+.ab-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.ab-head .ac-h { margin: 0; white-space: nowrap; }
+.ab-seg { display: flex; padding: 3px; border-radius: 999px; background: var(--fill); }
+.ab-seg button { border: 0; background: none; padding: 6px 12px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.ab-seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.ab-hint { display: block; font-size: 12px; color: var(--ink-2); margin: 4px 0 6px; }
+.ab-i { display: flex; align-items: center; gap: 10px; padding: 8px; margin: 0 -8px; border-radius: 12px; }
+.ab-i + .ab-i { box-shadow: 0 -1px 0 var(--line); }
+.ab-i.top { background: var(--accent-soft); box-shadow: none; }
+.ab-i.top + .ab-i { box-shadow: none; }
+.ab-i .badge.sm { width: 32px; height: 32px; border-radius: 10px; font-size: 11px; }
+.ab-i .badge.sm img { padding: 4px; }
+.ab-n { flex: 1; min-width: 0; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-r { flex: none; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.ab-i em { flex: none; width: 76px; text-align: right; font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.ab-i.top em { color: var(--accent); }
+.ab-none { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 13px; color: var(--ink-2); }
+.ac-bk { color: var(--accent); font-weight: 600; }
 .ac-search { margin-top: 14px; }
 .ac-search input { width: 100%; }
 .ac-h { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 16px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
