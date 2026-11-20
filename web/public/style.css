@@ -305,8 +305,9 @@ p { margin: 0; }
 .promo-copy { flex: 1; min-width: 220px; }
 .promo h2 { font-size: 18px; font-weight: 700; }
 .promo p { margin-top: 2px; font-size: 14px; color: var(--ink-2); }
-.store-tg { background: #1F8FC4; color: #fff; height: 46px; font-size: 15px; transition: background .15s; }
-.store-tg:hover { background: #1A7DAB; }
+/* Telegram blue, darkened until white text passes AA (5.3:1; the brand #229ED9 gives 3.0:1). */
+.store-tg { background: #17739E; color: #fff; height: 46px; font-size: 15px; transition: background .15s; }
+.store-tg:hover { background: #135F83; }
 .foot-tg { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; font-weight: 600; }
 .foot-tg svg { color: #229ED9; }
 .foot-tg:hover span { text-decoration: underline; }
