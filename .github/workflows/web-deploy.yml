@@ -33,10 +33,30 @@ jobs:
         with:
           node-version: 22
       # Fails (and so keeps the previous deploy) if the API cannot be read or returns too few banks.
+      # The two repo variables are optional: the ownership codes from Google Search Console and Yandex Webmaster.
       - name: Build pages
+        env:
+          GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+          YANDEX_VERIFICATION: ${{ vars.YANDEX_VERIFICATION }}
         run: node build.mjs
+      - name: Hour of this run
+        id: hour
+        run: echo "utc=$(date -u +%H)" >> "$GITHUB_OUTPUT"
       - name: Deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler@4 deploy
+      # www.qulaykurs.uz -> qulaykurs.uz. Changes only when web/www changes, so the hourly runs skip it.
+      - name: Deploy www redirect
+        if: github.event_name != 'schedule'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@4 deploy --config www/wrangler.toml
+      # Tells Yandex and Bing (IndexNow) which pages have new rates. Once a morning (the 04:12 or 05:12 UTC run, since
+      # GitHub sometimes drops one) and after a push; a failure here must not fail the deploy.
+      - name: Notify search engines
+        if: github.event_name != 'schedule' || contains(fromJSON('["04","05"]'), steps.hour.outputs.utc)
+        continue-on-error: true
+        run: curl -fsS -m 30 -X POST https://api.indexnow.org/indexnow -H "content-type: application/json; charset=utf-8" --data-binary @.indexnow.json

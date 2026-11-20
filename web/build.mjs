@@ -7,7 +7,12 @@
 //   currency pages   /, /yevro-kursi, /rubl-kursi …   the app itself, with the bank table already filled in
 //   bank pages       /bank/<slug>                     plain HTML: one bank's rates for all three currencies
 //   gold page        /oltin-narxi …                   plain HTML: Central Bank gold bar prices
-// plus sitemap.xml and 404.html. No dependencies. Runs hourly from .github/workflows/web-deploy.yml.
+//   all currencies   /valyutalar, /valyuta/<code>     plain HTML: every Central Bank rate, one page per currency
+//   amount pages     /100-dollar-necha-som …          plain HTML: what an amount is worth at each bank
+//   history pages    /dollar-kursi-tarixi …           plain HTML: the Central Bank rate by year and for the last 30 days
+// plus sitemap.xml, 404.html and .indexnow.json (the list of addresses the deploy workflow sends to IndexNow).
+// GOOGLE_SITE_VERIFICATION / YANDEX_VERIFICATION, when set, add the search consoles' ownership tags to every page. No dependencies. Runs hourly from .github/workflows/web-deploy.yml.
+import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,7 +23,16 @@ const PUBLIC = join(HERE, "public"), DIST = join(HERE, "dist");
 const API = (process.env.API_URL || "https://api.qulaykurs.uz").replace(/\/$/, "");
 const ORIGIN = "https://qulaykurs.uz";
 const LANGS = ["uz", "ru", "en"], CURS = ["USD", "EUR", "RUB"];
-const VERSION = new Date().toISOString().slice(0, 13).replace(/\D/g, ""); // cache-buster for css/js, changes hourly
+// Cache-buster for css/js: changes only when one of those files changes, so _headers can let browsers keep them for good.
+const VERSION = await (async () => {
+  const hash = createHash("sha1");
+  for (const f of ["style.css", "pages.css", "shared.js", "app.js"]) hash.update(await readFile(join(PUBLIC, f)));
+  return hash.digest("hex").slice(0, 10);
+})();
+// The key file public/<key>.txt proves to IndexNow (Yandex, Bing) that address lists come from this site. Not a secret.
+const INDEXNOW_KEY = "00ece51a0affd5c9f0edc23507e252e0";
+const VERIFY = [["google-site-verification", process.env.GOOGLE_SITE_VERIFICATION], ["yandex-verification", process.env.YANDEX_VERIFICATION]]
+  .filter(([, v]) => /^[\w-]{8,100}$/.test(v || "")).map(([name, v]) => `<meta name="${name}" content="${v}">`).join("\n");
 
 /* ---------- shared with the browser app ---------- */
 
@@ -38,6 +52,20 @@ const GOLD_SLUG = { uz: "oltin-narxi", ru: "cena-zolota", en: "gold-price" };
 const curUrl = (lang, cur) => `${PREFIX[lang]}/${CUR_SLUG[lang][cur]}`;
 const goldUrl = (lang) => `${PREFIX[lang]}/${GOLD_SLUG[lang]}`;
 const bankUrl = (lang, slug) => `${PREFIX[lang]}/bank/${slug}`;
+const CBU_DIR = { uz: "valyuta", ru: "valyuta", en: "currency" };
+const ALL_SLUG = { uz: "valyutalar", ru: "kursy-valyut", en: "currencies" };
+const HIST_SLUG = {
+  uz: { USD: "dollar-kursi-tarixi", EUR: "yevro-kursi-tarixi", RUB: "rubl-kursi-tarixi" },
+  ru: { USD: "kurs-dollara-istoriya", EUR: "kurs-evro-istoriya", RUB: "kurs-rublya-istoriya" },
+  en: { USD: "usd-rate-history", EUR: "eur-rate-history", RUB: "rub-rate-history" },
+};
+const UZ_UNIT = { USD: "dollar", EUR: "yevro", RUB: "rubl" };
+// Amounts people actually search for ("100 dollar necha so‘m"); each gets a page per language.
+const AMOUNTS = { USD: [1, 5, 10, 20, 50, 100, 200, 300, 500, 1000, 2000, 5000, 10000], EUR: [1, 5, 10, 20, 50, 100, 200, 300, 500, 1000, 2000, 5000, 10000], RUB: [100, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000] };
+const allUrl = (lang) => `${PREFIX[lang]}/${ALL_SLUG[lang]}`;
+const cbuUrl = (lang, code) => (CURS.includes(code) ? curUrl(lang, code) : `${PREFIX[lang]}/${CBU_DIR[lang]}/${code.toLowerCase()}`);
+const histUrl = (lang, cur) => `${PREFIX[lang]}/${HIST_SLUG[lang][cur]}`;
+const amountUrl = (lang, cur, n) => `${PREFIX[lang]}/${n}-${lang === "uz" ? `${UZ_UNIT[cur]}-necha-som` : lang === "ru" ? `${cur.toLowerCase()}-v-sumah` : `${cur.toLowerCase()}-to-uzs`}`;
 const fileOf = (url) => (url.endsWith("/") ? `${url}index.html` : `${url}.html`).slice(1);
 const slugify = (name) => name.toLowerCase().replace(/[‘’ʻ'`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const bankSlug = (name) => logoSlug(name) || slugify(name);
@@ -47,6 +75,15 @@ const bankSlug = (name) => logoSlug(name) || slugify(name);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const group = (n) => Math.round(Math.abs(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 const rate = (n, lang) => (Number.isInteger(n) ? group(n) : `${group(Math.trunc(n))}${lang === "en" ? "." : ","}${n.toFixed(2).split(".")[1]}`);
+// Any size of number: whole so‘m for big sums, more decimals the smaller the value (1 so‘m is 0.00008 dollars).
+function num(n, lang) {
+  const a = Math.abs(n), digits = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
+  const [whole, frac = ""] = a.toFixed(digits).split("."), tail = frac.replace(/0+$/, "");
+  return group(Number(whole)) + (tail ? (lang === "en" ? "." : ",") + tail : "");
+}
+const pct = (ratio, lang) => `${ratio < 0 ? "−" : "+"}${(Math.abs(ratio) * 100).toFixed(1).replace(".", lang === "en" ? "." : ",")}`;
+const dayLabel = (iso, lang) => (lang === "en" ? iso : iso.split("-").reverse().join("."));
+const delta = (n, lang) => (Math.abs(n) < 0.005 ? "0" : signed(n, lang));
 const signed = (n, lang) => `${n < 0 ? "−" : "+"}${rate(Math.abs(n), lang)}`;
 const MONTHS = {
   uz: ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"],
@@ -145,6 +182,77 @@ const X = {
   },
 };
 
+// Texts of the all-currencies, amount and history pages. `u(c, n)` is the currency word in the form the number needs.
+const u = (lang, c, n) => T[lang].unit[c](n);
+const Y = {
+  uz: {
+    allCur: "Barcha valyutalar — Markaziy bank kursi", amounts: "Ko‘p so‘raladigan summalar",
+    allTitle: (n) => `Markaziy bank valyuta kurslari bugun — ${n} ta valyuta | Qulay Kurs`, allH1: "Markaziy bank valyuta kurslari",
+    allDesc: (n, d, usd) => `O‘zbekiston Markaziy bankining ${d} sanasidagi rasmiy kurslari: ${n} ta valyuta. 1 dollar = ${usd} so‘m. Har bir valyuta uchun so‘mga hisoblash jadvali.`,
+    allLead: (n, d) => `Markaziy bank ${d} sanasiga ${n} ta xorijiy valyutaning so‘mga nisbatan rasmiy kursini belgilagan. Bu kurs buxgalteriya, bojxona va soliq hisob-kitoblarida ishlatiladi; banklardagi naqd almashtirish kursi undan farq qiladi.`,
+    allCols: ["Kod", "Valyuta", "Miqdor", "Kurs, so‘m", "O‘zgarish"],
+    cTitle: (c, name) => `${name} (${c}) kursi bugun — so‘mda, Markaziy bank | Qulay Kurs`, cH1: (c, name) => `${name} kursi bugun`,
+    cDesc: (c, name, r) => `Markaziy bank kursi: ${r.nominal} ${c} = ${r.rate} so‘m (${r.date}). ${c}dan so‘mga hisoblash jadvali.`,
+    cLead: (c, name, r) => `Markaziy bank kursi bo‘yicha ${r.nominal} ${name} (${c}) = ${r.rate} so‘m. Kurs ${r.date} sanasidan amal qiladi, oldingi kursdan farqi ${r.diff} so‘m. Bu rasmiy hisob-kitob kursi: banklar va ayirboshlash shoxobchalaridagi naqd kurs boshqacha bo‘lishi mumkin.`,
+    toUzs: (c) => `${c} → so‘m`, fromUzs: (c) => `So‘m → ${c}`, som: "so‘m",
+    amtLink: (n, c) => `${group(n)} ${u("uz", c, n)} necha so‘m`,
+    amtTitle: (n, c) => `${group(n)} ${u("uz", c, n)} necha so‘m? Bugungi kurs — banklar va Markaziy bank | Qulay Kurs`, amtH1: (n, c) => `${group(n)} ${u("uz", c, n)} necha so‘m bo‘ladi?`,
+    amtDesc: (n, c, a) => `Bugun ${group(n)} ${u("uz", c, n)} Markaziy bank kursi bo‘yicha ${a.cbu} so‘m. Bankka sotsangiz ${a.get} so‘mgacha olasiz (${a.buyBank}), sotib olish ${a.pay} so‘mdan (${a.sellBank}).`,
+    amtLead: (n, c, a) => `Bugun ${group(n)} ${u("uz", c, n)} Markaziy bank kursi bo‘yicha ${a.cbu} so‘m bo‘ladi. ${group(n)} ${u("uz", c, n)}ni bankka sotsangiz, eng ko‘pi bilan ${a.get} so‘m olasiz — eng yuqori kurs ${a.buyBank}da. ${group(n)} ${u("uz", c, n)} sotib olish esa eng arzoni ${a.pay} so‘mga tushadi (${a.sellBank}).`,
+    amtCols: ["Bank", "Sotib olish kursi", "Siz olasiz", "Sotish kursi", "Siz to‘laysiz"],
+    histLink: (c) => `${X.uz.Cur[c]} kursi tarixi`, histH1: (c) => `${X.uz.Cur[c]} kursi tarixi`,
+    histTitle: (c, h) => `${X.uz.Cur[c]} kursi tarixi: ${h.y0}-yildan bugungacha, yillar bo‘yicha | Qulay Kurs`,
+    histDesc: (c, h) => `Markaziy bankning ${X.uz.cur[c]} kursi ${h.y0}-yildan bugungacha: yillar bo‘yicha jadval va so‘nggi 30 kunlik kurs. Bugun 1 ${X.uz.cur[c]} = ${h.now} so‘m, bir yil oldin — ${h.yearAgo} so‘m.`,
+    histLead: (c, h) => `Bugun Markaziy bank kursi — 1 ${X.uz.cur[c]} = ${h.now} so‘m. Bir yil oldin u ${h.yearAgo} so‘m edi: bir yilda kurs ${h.yearPct}% o‘zgardi. ${h.y0}-yil boshida 1 ${X.uz.cur[c]} ${h.first} so‘m turgan.`,
+    yearsH: "Yillar bo‘yicha", yearCols: ["Yil", "Yil boshida", "Yil oxirida", "O‘zgarish"], ytd: "bugungacha",
+    daysH: "So‘nggi 30 kun", dayCols: ["Sana", "Kurs, so‘m", "O‘zgarish"], chart: "Interaktiv grafik",
+  },
+  ru: {
+    allCur: "Все валюты — курс ЦБ", amounts: "Популярные суммы",
+    allTitle: (n) => `Курсы валют ЦБ Узбекистана на сегодня — ${n} ${ruPlural(n, "валюта", "валюты", "валют")} | Qulay Kurs`, allH1: "Курсы валют Центрального банка Узбекистана",
+    allDesc: (n, d, usd) => `Официальные курсы Центрального банка Узбекистана на ${d}: ${n} ${ruPlural(n, "валюта", "валюты", "валют")}. 1 доллар = ${usd} сум. Для каждой валюты — таблица пересчёта в сумы.`,
+    allLead: (n, d) => `Центральный банк установил на ${d} официальные курсы иностранных валют к суму — всего ${n}. Этот курс используют в бухгалтерии, на таможне и для налогов; наличный курс обмена в банках отличается.`,
+    allCols: ["Код", "Валюта", "Единиц", "Курс, сум", "Изменение"],
+    cTitle: (c, name) => `${name} (${c}): курс к суму на сегодня — ЦБ Узбекистана | Qulay Kurs`, cH1: (c, name) => `${name}: курс к суму на сегодня`,
+    cDesc: (c, name, r) => `Курс ЦБ Узбекистана: ${r.nominal} ${c} = ${r.rate} сум (${r.date}). Таблица пересчёта ${c} в сумы.`,
+    cLead: (c, name, r) => `По курсу Центрального банка ${r.nominal} ${c} (${name}) = ${r.rate} сум. Курс действует с ${r.date}, изменение к предыдущему — ${r.diff} сум. Это официальный расчётный курс: наличный курс в банках и обменных пунктах может отличаться.`,
+    toUzs: (c) => `${c} → сум`, fromUzs: (c) => `Сум → ${c}`, som: "сум",
+    amtLink: (n, c) => `${group(n)} ${u("ru", c, n)} в сумах`,
+    amtTitle: (n, c) => `${group(n)} ${u("ru", c, n)} в сумах сегодня — по курсу банков и ЦБ | Qulay Kurs`, amtH1: (n, c) => `${group(n)} ${u("ru", c, n)} в сумах`,
+    amtDesc: (n, c, a) => `Сегодня ${group(n)} ${u("ru", c, n)} — это ${a.cbu} сум по курсу ЦБ. При продаже банку — до ${a.get} сум (${a.buyBank}), покупка — от ${a.pay} сум (${a.sellBank}).`,
+    amtLead: (n, c, a) => `Сегодня ${group(n)} ${u("ru", c, n)} по курсу Центрального банка — ${a.cbu} сум. Если продать ${group(n)} ${u("ru", c, n)} банку, вы получите максимум ${a.get} сум: самый высокий курс в ${a.buyBank}. Купить ${group(n)} ${u("ru", c, n)} дешевле всего в ${a.sellBank} — за ${a.pay} сум.`,
+    amtCols: ["Банк", "Курс покупки", "Вы получите", "Курс продажи", "Вы заплатите"],
+    histLink: (c) => `История курса ${X.ru.cur[c]}`, histH1: (c) => `История курса ${X.ru.cur[c]} к суму`,
+    histTitle: (c, h) => `История курса ${X.ru.cur[c]} к суму: по годам с ${h.y0} года | Qulay Kurs`,
+    histDesc: (c, h) => `Курс ${X.ru.cur[c]} ЦБ Узбекистана с ${h.y0} года до сегодня: таблица по годам и курс за последние 30 дней. Сегодня 1 ${X.ru.acc[c]} = ${h.now} сум, год назад — ${h.yearAgo} сум.`,
+    histLead: (c, h) => `Сегодня курс Центрального банка — 1 ${X.ru.acc[c]} = ${h.now} сум. Год назад он был ${h.yearAgo} сум: изменение за год — ${h.yearPct}%. В начале ${h.y0} года 1 ${X.ru.acc[c]} стоил ${h.first} сум.`,
+    yearsH: "По годам", yearCols: ["Год", "В начале года", "В конце года", "Изменение"], ytd: "до сегодня",
+    daysH: "Последние 30 дней", dayCols: ["Дата", "Курс, сум", "Изменение"], chart: "Интерактивный график",
+  },
+  en: {
+    allCur: "All currencies — Central Bank rates", amounts: "Popular amounts",
+    allTitle: (n) => `Central Bank of Uzbekistan exchange rates today — ${n} currencies | Qulay Kurs`, allH1: "Central Bank of Uzbekistan exchange rates",
+    allDesc: (n, d, usd) => `Official Central Bank of Uzbekistan rates for ${d}: ${n} currencies. 1 US dollar = ${usd} so‘m. A conversion table to so‘m for every currency.`,
+    allLead: (n, d) => `For ${d} the Central Bank has set official rates against the so‘m for ${n} foreign currencies. This rate is used for accounting, customs and taxes; the cash exchange rate at banks is different.`,
+    allCols: ["Code", "Currency", "Units", "Rate, so‘m", "Change"],
+    cTitle: (c, name) => `${c} to UZS today: ${name} rate — Central Bank of Uzbekistan | Qulay Kurs`, cH1: (c, name) => `${name} (${c}) to Uzbek so‘m today`,
+    cDesc: (c, name, r) => `Central Bank of Uzbekistan rate: ${r.nominal} ${c} = ${r.rate} so‘m (${r.date}). Conversion table from ${c} to UZS.`,
+    cLead: (c, name, r) => `At the Central Bank rate ${r.nominal} ${c} (${name}) = ${r.rate} so‘m. The rate applies from ${r.date}; the change from the previous rate is ${r.diff} so‘m. This is the official reference rate: cash rates at banks and exchange offices may differ.`,
+    toUzs: (c) => `${c} → UZS`, fromUzs: (c) => `UZS → ${c}`, som: "so‘m",
+    amtLink: (n, c) => `${group(n)} ${c} to UZS`,
+    amtTitle: (n, c) => `${group(n)} ${c} to UZS today: ${group(n)} ${u("en", c, n)} in Uzbek so‘m | Qulay Kurs`, amtH1: (n, c) => `${group(n)} ${c} to UZS`,
+    amtDesc: (n, c, a) => `Today ${group(n)} ${c} is ${a.cbu} so‘m at the Central Bank rate. Selling to a bank gets you up to ${a.get} so‘m (${a.buyBank}); buying costs from ${a.pay} so‘m (${a.sellBank}).`,
+    amtLead: (n, c, a) => `Today ${group(n)} ${u("en", c, n)} is ${a.cbu} so‘m at the Central Bank rate. If you sell ${group(n)} ${c} to a bank, the most you get is ${a.get} so‘m — the highest rate is at ${a.buyBank}. Buying ${group(n)} ${c} costs at least ${a.pay} so‘m (${a.sellBank}).`,
+    amtCols: ["Bank", "Buying rate", "You get", "Selling rate", "You pay"],
+    histLink: (c) => `${c} rate history`, histH1: (c) => `${X.en.Cur[c]} to UZS rate history`,
+    histTitle: (c, h) => `${c} to UZS history: ${X.en.cur[c]} rate by year since ${h.y0} | Qulay Kurs`,
+    histDesc: (c, h) => `The Central Bank of Uzbekistan ${X.en.cur[c]} rate from ${h.y0} to today: a table by year and the last 30 days. Today 1 ${c} = ${h.now} so‘m; a year ago it was ${h.yearAgo} so‘m.`,
+    histLead: (c, h) => `Today the Central Bank rate is 1 ${c} = ${h.now} so‘m. A year ago it was ${h.yearAgo} so‘m, a change of ${h.yearPct}% over the year. At the start of ${h.y0}, 1 ${c} cost ${h.first} so‘m.`,
+    yearsH: "By year", yearCols: ["Year", "Start of year", "End of year", "Change"], ytd: "to date",
+    daysH: "Last 30 days", dayCols: ["Date", "Rate, so‘m", "Change"], chart: "Interactive chart",
+  },
+};
+
 /* ---------- data ---------- */
 
 async function get(path) {
@@ -154,6 +262,9 @@ async function get(path) {
 }
 const rates = Object.fromEntries(await Promise.all(CURS.map(async (c) => [c, await get(`/api/rates/${c.toLowerCase()}`)])));
 const gold = await get("/api/gold").catch((e) => (console.warn(`gold skipped: ${e.message}`), null));
+const skip = (what) => (e) => (console.warn(`${what} skipped: ${e.message}`), null);
+const cbuAll = await get("/api/cbu/all").then((d) => (d.currencies?.length > 10 ? { ...d, currencies: d.currencies.filter((c) => /^[A-Z]{3}$/.test(c.code) && c.rate > 0) } : null)).catch(skip("all currencies"));
+const history = Object.fromEntries(await Promise.all(CURS.map(async (c) => [c, await get(`/api/history/${c.toLowerCase()}`).then((d) => (d.points?.length > 30 ? d.points : null)).catch(skip(`${c} history`))])));
 for (const c of CURS) if (!(rates[c].banks?.length > 5)) throw new Error(`${c}: too few banks, refusing to build`);
 
 // What the texts need about one currency, already formatted for `lang`.
@@ -193,7 +304,7 @@ ${alternates(urlOf)}
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="${{ uz: "uz_UZ", ru: "ru_RU", en: "en_US" }[lang]}">
-<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:card" content="summary_large_image">${VERIFY ? "\n" + VERIFY : ""}
 ${ld({ "@context": "https://schema.org", "@graph": [ORG, { "@type": "WebSite", "@id": `${ORIGIN}/#site`, name: "Qulay Kurs", url: `${ORIGIN}/`, publisher: { "@id": `${ORIGIN}/#org` }, inLanguage: LANGS }, ...graph] })}`;
 }
 
@@ -205,9 +316,13 @@ const badge = (name, extra = "") => {
 // Links every page carries at the bottom: the other currencies, gold, and each bank's page.
 function linkBlock(lang, bankNames, skipCur) {
   const x = X[lang];
-  const curs = CURS.filter((c) => c !== skipCur).map((c) => `<a href="${curUrl(lang, c)}">${esc(T[lang].title[c])}</a>`);
+  const y = Y[lang], curs = CURS.filter((c) => c !== skipCur).map((c) => `<a href="${curUrl(lang, c)}">${esc(T[lang].title[c])}</a>`);
   if (gold) curs.push(`<a href="${goldUrl(lang)}">${esc(x.gold)}</a>`);
-  return `<h3>${esc(x.other)}</h3><p class="seo-links">${curs.join("")}</p>
+  if (cbuAll) curs.push(`<a href="${allUrl(lang)}">${esc(y.allCur)}</a>`);
+  for (const c of CURS) if (history[c]) curs.push(`<a href="${histUrl(lang, c)}">${esc(y.histLink(c))}</a>`);
+  const amountsOf = skipCur || "USD";
+  return `<h3>${esc(y.amounts)}</h3><p class="seo-links">${AMOUNTS[amountsOf].map((n) => `<a href="${amountUrl(lang, amountsOf, n)}">${esc(y.amtLink(n, amountsOf))}</a>`).join("")}</p>
+  <h3>${esc(x.other)}</h3><p class="seo-links">${curs.join("")}</p>
   <h3>${esc(x.allBanks)}</h3><p class="seo-links">${bankNames.map((b) => `<a href="${bankUrl(lang, bankSlug(b))}">${esc(b)}</a>`).join("")}</p>
   <p class="seo-note">${esc(x.disclaimer)}</p>`;
 }
@@ -216,6 +331,9 @@ const langLinks = (lang, urlOf) => LANGS.map((l) => `<a href="${urlOf(l)}" hrefl
 /* ---------- currency pages: the app, pre-filled ---------- */
 
 const template = await readFile(join(PUBLIC, "index.html"), "utf8");
+const FONT_LATIN = '<link rel="preload" href="/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>';
+const FONT_CYRILLIC = FONT_LATIN.replace("latin", "cyrillic");
+if (!template.includes(FONT_LATIN)) throw new Error("template marker not found: font preload");
 function cut(html, from, to, replacement) {
   const a = html.indexOf(from), b = html.indexOf(to, a + from.length);
   if (a < 0 || b < 0) throw new Error(`template marker not found: ${from} … ${to}`);
@@ -257,7 +375,8 @@ function currencyPage(lang, cur) {
   ${linkBlock(lang, s.byBuy.map((b) => b.bank), cur)}
   <p class="seo-langs">${langLinks(lang, (l) => curUrl(l, cur))}</p>
 </section>`);
-  html = html.replace(/\?v=\d+/g, `?v=${VERSION}`).replace('<link rel="stylesheet" href="/style.css', '<link rel="stylesheet" href="/pages.css?v=' + VERSION + '">\n<link rel="stylesheet" href="/style.css');
+  if (lang === "ru") html = html.replace(FONT_LATIN, FONT_LATIN + "\n" + FONT_CYRILLIC);
+  html = html.replace(/\?v=\w+/g, `?v=${VERSION}`).replace('<link rel="stylesheet" href="/style.css', '<link rel="stylesheet" href="/pages.css?v=' + VERSION + '">\n<link rel="stylesheet" href="/style.css');
   return html.replace('<script src="/shared.js', `<script>window.QK=${JSON.stringify({ lang, cur, ...pageMap })}</script>\n<script src="/shared.js`);
 }
 
@@ -274,9 +393,7 @@ ${noindex ? `<title>${esc(title)}</title>\n<meta name="robots" content="noindex"
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+${FONT_LATIN}${lang === "ru" ? "\n" + FONT_CYRILLIC : ""}
 <script>try{const t=localStorage.getItem("theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch{document.documentElement.dataset.theme="light"}</script>
 <link rel="stylesheet" href="/style.css?v=${VERSION}">
 <link rel="stylesheet" href="/pages.css?v=${VERSION}">
@@ -347,6 +464,97 @@ function goldPage(lang, allNames) {
   return shell({ lang, url, urlOf: goldUrl, title: x.goldTitle, desc: x.goldDesc(g), body, graph: [crumbs([["Qulay Kurs", home], [x.gold, url]])] });
 }
 
+/* ---------- plain pages: every Central Bank currency ---------- */
+
+// `rows` is an array of arrays of ready HTML cells; the first column is text, the rest are numbers.
+const table = (cols, rows) => `<div class="tbl-scroll"><table class="tbl page-tbl">
+    <thead><tr>${cols.map((c, i) => `<th${i ? ' class="num"' : ""}>${esc(c)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td${i ? ' class="num"' : ""}>${c}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table></div>`;
+const crumbNav = (lang, ...items) => `<nav class="crumbs" aria-label="Breadcrumb"><a href="${curUrl(lang, "USD")}">Qulay Kurs</a>${items.map(([name, url]) => `<span>›</span>${url ? `<a href="${url}">${esc(name)}</a>` : `<span>${esc(name)}</span>`}`).join("")}</nav>`;
+const cbuName = (c, lang) => c.names?.[lang] || c.names?.en || c.code;
+
+function allPage(lang, bankNames) {
+  const y = Y[lang], url = allUrl(lang), list = cbuAll.currencies, date = list[0].date;
+  const usd = list.find((c) => c.code === "USD");
+  const body = `${crumbNav(lang, [y.allH1])}
+<div class="card page-card">
+  <div class="page-head"><div><h1>${esc(y.allH1)}</h1><p class="muted">cbu.uz · ${esc(date)}</p></div></div>
+  ${table(y.allCols, list.map((c) => [`<a href="${cbuUrl(lang, c.code)}"><b>${c.code}</b></a>`, `<a href="${cbuUrl(lang, c.code)}">${esc(cbuName(c, lang))}</a>`, c.nominal, rate(c.rate, lang), `<span class="muted">${delta(c.diff || 0, lang)}</span>`]))}
+  <div class="page-text"><p>${esc(y.allLead(list.length, date))}</p><p><a class="btn btn-accent" href="${curUrl(lang, "USD")}">${esc(X[lang].compare)}</a></p></div>
+</div>
+<section class="seo-copy">${linkBlock(lang, bankNames, null)}</section>`;
+  return shell({ lang, url, urlOf: allUrl, title: y.allTitle(list.length), desc: y.allDesc(list.length, date, usd ? rate(usd.rate, lang) : "—"), body, graph: [crumbs([["Qulay Kurs", curUrl(lang, "USD")], [y.allH1, url]])] });
+}
+
+function cbuPage(lang, c) {
+  const y = Y[lang], url = cbuUrl(lang, c.code), name = cbuName(c, lang), per = c.rate / c.nominal;
+  const r = { nominal: c.nominal, rate: rate(c.rate, lang), date: c.date, diff: delta(c.diff || 0, lang) };
+  const body = `${crumbNav(lang, [y.allH1, allUrl(lang)], [c.code])}
+<div class="card page-card">
+  <div class="page-head"><span class="badge">${c.code}</span><div><h1>${esc(y.cH1(c.code, name))}</h1><p class="muted">cbu.uz · ${esc(c.date)}</p></div></div>
+  <div class="page-text"><p>${esc(y.cLead(c.code, name, r))}</p></div>
+  ${table([y.toUzs(c.code), y.som], [1, 10, 100, 1000, 10000].map((n) => [`<b>${group(n)}</b> ${c.code}`, num(per * n, lang)]))}
+  ${c.rate < 1 ? "" /* too few digits in the published rate to divide by */ : table([y.fromUzs(c.code), c.code], [10000, 100000, 1000000, 10000000].map((n) => [`<b>${group(n)}</b> ${esc(y.som)}`, num(n / per, lang)]))}
+</div>
+<section class="seo-copy">
+  <h3>${esc(y.allCur)}</h3><p class="seo-links">${cbuAll.currencies.filter((o) => o.code !== c.code).map((o) => `<a href="${cbuUrl(lang, o.code)}" title="${esc(cbuName(o, lang))}">${o.code}</a>`).join("")}</p>
+  <p class="seo-note">${esc(X[lang].disclaimer)}</p>
+</section>`;
+  return shell({
+    lang, url, urlOf: (l) => cbuUrl(l, c.code), title: y.cTitle(c.code, name), desc: y.cDesc(c.code, name, r), body,
+    graph: [crumbs([["Qulay Kurs", curUrl(lang, "USD")], [y.allH1, allUrl(lang)], [c.code, url]])],
+  });
+}
+
+/* ---------- plain pages: one amount at every bank ---------- */
+
+function amountPage(lang, cur, n, bankNames) {
+  const y = Y[lang], t = T[lang], s = summary(cur, lang), url = amountUrl(lang, cur, n), at = when(rates[cur].updatedAt, lang);
+  const a = { cbu: num(rates[cur].cbu.rate * n, lang), get: num(s.bestBuy.buy * n, lang), pay: num(s.bestSell.sell * n, lang), buyBank: s.bestBuy.bank, sellBank: s.bestSell.bank };
+  const rows = s.byBuy.map((b) => [
+    `<a href="${bankUrl(lang, bankSlug(b.bank))}"><b>${esc(b.bank)}</b></a>`, `<span class="muted">${rate(b.buy, lang)}</span>`, `<span${b.buy === s.bestBuy.buy ? ' class="hi"' : ""}>${num(b.buy * n, lang)}</span>`,
+    `<span class="muted">${b.sell ? rate(b.sell, lang) : "—"}</span>`, b.sell ? `<span${b.sell === s.bestSell.sell ? ' class="hi"' : ""}>${num(b.sell * n, lang)}</span>` : "—",
+  ]);
+  const body = `${crumbNav(lang, [t.title[cur], curUrl(lang, cur)], [`${group(n)} ${cur}`])}
+<div class="card page-card">
+  <div class="page-head"><div><h1>${esc(y.amtH1(n, cur))}</h1><p class="muted">${esc(X[lang].updated(at.date, at.time))}</p></div></div>
+  <div class="page-text"><p class="page-big"><b>${a.cbu}</b> ${esc(y.som)} <span class="muted">· ${esc(X[lang].colCbu)}</span></p><p>${esc(y.amtLead(n, cur, a))}</p></div>
+  ${table(y.amtCols, rows)}
+  <div class="page-text"><p><a class="btn btn-accent" href="${curUrl(lang, cur)}">${esc(X[lang].compare)}</a></p></div>
+</div>
+<section class="seo-copy">${linkBlock(lang, bankNames, cur)}</section>`;
+  return shell({
+    lang, url, urlOf: (l) => amountUrl(l, cur, n), title: y.amtTitle(n, cur), desc: y.amtDesc(n, cur, a), body,
+    graph: [crumbs([["Qulay Kurs", curUrl(lang, "USD")], [t.title[cur], curUrl(lang, cur)], [`${group(n)} ${cur}`, url]])],
+  });
+}
+
+/* ---------- plain pages: Central Bank rate history ---------- */
+
+function historyPage(lang, cur, bankNames) {
+  const y = Y[lang], t = T[lang], url = histUrl(lang, cur), points = history[cur], last = points.at(-1), first = points[0];
+  const yearBack = `${Number(last.date.slice(0, 4)) - 1}${last.date.slice(4)}`, ago = points.findLast((p) => p.date <= yearBack) || first;
+  const h = { y0: first.date.slice(0, 4), now: rate(last.rate, lang), yearAgo: rate(ago.rate, lang), yearPct: pct(last.rate / ago.rate - 1, lang), first: rate(first.rate, lang) };
+  const years = Object.entries(Object.groupBy(points, (p) => p.date.slice(0, 4))).sort(([a], [b]) => b - a);
+  const yearRows = years.map(([year, list]) => [`<b>${year}</b>${year === last.date.slice(0, 4) ? ` <span class="muted">(${esc(y.ytd)})</span>` : ""}`, rate(list[0].rate, lang), rate(list.at(-1).rate, lang), `<span class="muted">${pct(list.at(-1).rate / list[0].rate - 1, lang)}%</span>`]);
+  const recent = points.slice(-31), dayRows = recent.slice(1).map((p, i) => [dayLabel(p.date, lang), rate(p.rate, lang), `<span class="muted">${delta(p.rate - recent[i].rate, lang)}</span>`]).reverse();
+  const body = `${crumbNav(lang, [t.title[cur], curUrl(lang, cur)], [y.histH1(cur)])}
+<div class="card page-card">
+  <div class="page-head"><div><h1>${esc(y.histH1(cur))}</h1><p class="muted">cbu.uz · ${esc(dayLabel(last.date, lang))}</p></div></div>
+  <div class="page-text"><p>${esc(y.histLead(cur, h))}</p><p><a class="btn btn-accent" href="${curUrl(lang, cur)}#/tarix">${esc(y.chart)}</a></p></div>
+  <h2 class="page-h2">${esc(y.daysH)}</h2>
+  ${table(y.dayCols, dayRows)}
+  <h2 class="page-h2">${esc(y.yearsH)}</h2>
+  ${table(y.yearCols, yearRows)}
+</div>
+<section class="seo-copy">${linkBlock(lang, bankNames, cur)}</section>`;
+  return shell({
+    lang, url, urlOf: (l) => histUrl(l, cur), title: y.histTitle(cur, h), desc: y.histDesc(cur, h), body,
+    graph: [crumbs([["Qulay Kurs", curUrl(lang, "USD")], [t.title[cur], curUrl(lang, cur)], [y.histH1(cur), url]])],
+  });
+}
+
 /* ---------- write everything ---------- */
 
 await rm(DIST, { recursive: true, force: true });
@@ -365,6 +573,14 @@ for (const lang of LANGS) {
   for (const cur of CURS) await page(curUrl(lang, cur), currencyPage(lang, cur), rates[cur].updatedAt, (l) => curUrl(l, cur));
   for (const [slug, name] of bySlug) await page(bankUrl(lang, slug), bankPage(lang, name, slug, [...bySlug.values()]), rates.USD.updatedAt, (l) => bankUrl(l, slug));
   if (gold) await page(goldUrl(lang), goldPage(lang, [...bySlug.values()]), gold.fetchedAt || rates.USD.updatedAt, goldUrl);
+  if (cbuAll) {
+    await page(allUrl(lang), allPage(lang, [...bySlug.values()]), cbuAll.updatedAt, allUrl);
+    for (const c of cbuAll.currencies) if (!CURS.includes(c.code)) await page(cbuUrl(lang, c.code), cbuPage(lang, c), cbuAll.updatedAt, (l) => cbuUrl(l, c.code));
+  }
+  for (const cur of CURS) {
+    for (const n of AMOUNTS[cur]) await page(amountUrl(lang, cur, n), amountPage(lang, cur, n, [...bySlug.values()]), rates[cur].updatedAt, (l) => amountUrl(l, cur, n));
+    if (history[cur]) await page(histUrl(lang, cur), historyPage(lang, cur, [...bySlug.values()]), rates[cur].updatedAt, (l) => histUrl(l, cur));
+  }
 }
 await writeFile(join(DIST, "404.html"), shell({ lang: "uz", title: "404 | Qulay Kurs", noindex: true, body: `<div class="card page-card"><div class="page-text"><h1>404</h1>${LANGS.map((l) => `<p>${esc(X[l].notFoundText)} <a href="${curUrl(l, "USD")}">${esc(X[l].toHome)}</a></p>`).join("")}</div></div>` }));
 
@@ -375,4 +591,6 @@ ${pages.map(([url, lastmod, urlOf]) => `  <url><loc>${ORIGIN}${url}</loc><lastmo
 </urlset>
 `;
 await writeFile(join(DIST, "sitemap.xml"), sitemap);
+// Read by the deploy workflow, which posts it to IndexNow after a deploy. Kept out of dist: it is not part of the site.
+await writeFile(join(HERE, ".indexnow.json"), JSON.stringify({ host: new URL(ORIGIN).host, key: INDEXNOW_KEY, keyLocation: `${ORIGIN}/${INDEXNOW_KEY}.txt`, urlList: pages.map(([url]) => ORIGIN + url) }));
 console.log(`Built ${pages.length} pages into dist (${bySlug.size} banks, rates as of ${rates.USD.updatedAt})`);

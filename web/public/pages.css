@@ -29,12 +29,19 @@ body.page .foot { display: block; }
 .page-text p:last-child { margin-bottom: 0; }
 .page-text h1 { margin: 0 0 8px; font-size: 40px; }
 body.page .seo-copy { padding-top: 12px; }
+.page-big { font-size: 17px; }
+.page-big b { font-size: 30px; letter-spacing: -.02em; }
+.page-h2 { margin: 0; padding: 18px 22px 8px; font-size: 17px; }
+.page-tbl .hi { color: var(--accent); }
+.page-head .badge { font-size: 14px; font-weight: 700; }
 
 @media (max-width: 720px) {
   body.page .tabs-nav { display: none; }
   .page-head { padding: 18px 16px 14px; }
   .page-head h1 { font-size: 20px; }
   .page-text { padding: 16px; }
+  .page-h2 { padding: 16px 16px 6px; }
+  .page-big b { font-size: 24px; }
   /* style.css turns .tbl rows into cards on phones; these small tables stay tables. */
   .page-tbl thead { display: table-header-group; }
   .page-tbl th, .page-tbl td { padding: 10px 12px !important; border-bottom: 1px solid var(--line) !important; font-size: 14px; }

@@ -1,0 +1,8 @@
+# www.qulaykurs.uz: a redirect to qulaykurs.uz and nothing else (see redirect.js). Deployed by .github/workflows/web-deploy.yml.
+name = "qulaykurs-www"
+main = "redirect.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [
+  { pattern = "www.qulaykurs.uz", custom_domain = true }
+]

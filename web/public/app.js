@@ -711,6 +711,22 @@ function addMousePanFallback(map) {
     if (usedFallback) map.dragPan.enable();
   });
 }
+// MapLibre (about 800 KB) is fetched only when the map is first opened, so the rates page paints without it.
+const MAPLIBRE = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl";
+let mapLibrary = null;
+function loadMapLibrary() {
+  if (window.maplibregl) return Promise.resolve();
+  mapLibrary ||= new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = `${MAPLIBRE}.css`;
+    // Before the site's own stylesheets, as it was in the HTML, so their map overrides keep winning.
+    document.head.insertBefore(css, document.querySelector('link[rel="stylesheet"]'));
+    const js = document.createElement("script");
+    js.src = `${MAPLIBRE}.js`; js.onload = resolve; js.onerror = () => { mapLibrary = null; reject(new Error("maplibre-gl.js")); };
+    document.head.append(js);
+  });
+  return mapLibrary;
+}
 function ensureMap() {
   mapReady ||= new Promise((resolve) => {
     const start = () => {
@@ -747,7 +763,7 @@ function ensureMap() {
         refreshMapData();
       });
     };
-    if (window.maplibregl) start(); else addEventListener("load", () => (window.maplibregl ? start() : resolve()));
+    loadMapLibrary().then(start, (error) => { console.error("Map library failed to load:", error); resolve(); });
   });
   return mapReady;
 }

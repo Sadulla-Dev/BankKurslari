@@ -32,3 +32,4 @@ web/.wrangler/
 
 # Built site (web/build.mjs)
 web/dist/
+web/.indexnow.json
