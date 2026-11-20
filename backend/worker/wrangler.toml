@@ -8,6 +8,10 @@ workers_dev = true
 
 # Built by ../src/build.js. The worker runs first for every path, so raw files are reachable only as routed above
 # (plus /_manifest.json and /_state/* that the builder pulls back).
+[triggers]
+# Starts .github/workflows/telegram-post.yml (see DISPATCH in worker.js). UTC.
+crons = ["55 2 * * *"]
+
 [assets]
 directory = "public"
 binding = "ASSETS"

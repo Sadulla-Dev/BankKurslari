@@ -26,7 +26,34 @@ async function serve(env, request, path, missing, status = 502) {
 
 const localDate = (ms) => new Date(ms + 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+// GitHub drops or delays many `schedule` runs, so the Worker's own cron starts the daily Telegram post instead.
+// Needs the GH_DISPATCH_TOKEN secret: a fine-grained token for this repo with "Actions: Read and write".
+const DISPATCH = {
+  "55 2 * * *": "telegram-post.yml" // 07:55 Tashkent: the post lands around 8:00
+};
+
+async function dispatchWorkflow(env, workflow) {
+  if (!env.GH_DISPATCH_TOKEN) throw new Error("GH_DISPATCH_TOKEN secret is not set");
+  const res = await fetch(`https://api.github.com/repos/Sadulla-Dev/BankKurslari/actions/workflows/${workflow}/dispatches`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+      accept: "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28",
+      "user-agent": "qulaykurs-api-cron",
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({ ref: "main" })
+  });
+  if (!res.ok) throw new Error(`dispatch ${workflow} failed: ${res.status} ${await res.text()}`);
+}
+
 export default {
+  async scheduled(event, env) {
+    const workflow = DISPATCH[event.cron];
+    if (workflow) await dispatchWorkflow(env, workflow);
+  },
+
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { headers: { ...CORS, "access-control-allow-methods": "GET" } });
     if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "method_not_allowed" }, 405);
