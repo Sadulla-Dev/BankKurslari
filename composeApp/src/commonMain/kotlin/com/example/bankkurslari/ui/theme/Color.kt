@@ -6,17 +6,17 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 // Dark scheme seeds (Material3 color scheme)
-val Green80 = Color(0xFF6CC48A)
-val Blue80 = Color(0xFF9FC4F2)
+val Green80 = Color(0xFF5FD3A0)
+val Blue80 = Color(0xFFA5A6F6)
 val Amber80 = Color(0xFFFFD27A)
 
 // Light scheme seeds
-val Green40 = Color(0xFF26794A)
-val Blue40 = Color(0xFF4F46E5)
+val Green40 = Color(0xFF0B7A54)
+val Blue40 = Color(0xFF5B5BD6)
 val Amber40 = Color(0xFFF2B01E)
 
-/** Qulay Kurs design tokens: warm gold ground, banknote green accent (same values as web/public/style.css).
- * Resolved through [LocalVsPalette] so the whole UI
+/** Qulay Kurs design tokens ("Mist"): cool-white ground, white cards, hairlines, banknote green accent,
+ *  and a faint pastel wash at the top of each tab. Resolved through [LocalVsPalette] so the whole UI
  *  can switch between light and dark without touching call sites. */
 data class VsPalette(
     val bg: Color,
@@ -42,59 +42,69 @@ data class VsPalette(
     val tealTint: Color,
     val roseMark: Color,
     val roseText: Color,
-    val roseTint: Color
+    val roseTint: Color,
+    // Pastel wash (sky -> lilac -> peach) behind the top of each tab, fading into ground.
+    val washTop: Color,
+    val washMid: Color,
+    val washEnd: Color
 )
 
 val LightVsPalette = VsPalette(
-    bg = Color(0xFFFBF6E9),
-    surface = Color(0xFFFBF6E9),
-    ink = Color(0xFF1B1710),
-    inkSoft = Color(0xFF6A6252),
-    line = Color(0xFFE8E0CC),
-    emerald = Color(0xFF26794A),        // accent: best result / primary action / selected
-    emeraldDeep = Color(0xFF26794A),
-    emeraldSoft = Color(0xFFE3F1E4),    // subtle selected fill only, never a card background
-    indigo = Color(0xFF5E584B),
-    indigoSoft = Color(0xFFFBF6E9),
-    danger = Color(0xFFB4433A),         // worse than reference only
+    bg = Color(0xFFF5F6F8),
+    surface = Color(0xFFF5F6F8),
+    ink = Color(0xFF1C1D22),
+    inkSoft = Color(0xFF5F6370),
+    line = Color(0xFFE6E8EE),
+    emerald = Color(0xFF0B7A54),        // accent: best result / primary action / selected
+    emeraldDeep = Color(0xFF0B7A54),
+    emeraldSoft = Color(0xFFE3F5EC),    // subtle selected fill only, never a card background
+    indigo = Color(0xFF5F6370),
+    indigoSoft = Color(0xFFF5F6F8),
+    danger = Color(0xFFC2453A),         // worse than reference only
     amber = Color(0xFF8A5A00),          // warn: stale data
-    heroTop = Color(0xFF26794A),
-    heroMid = Color(0xFF26794A),
-    heroBot = Color(0xFF26794A),
-    ground = Color(0xFFFBF6E9),
+    heroTop = Color(0xFF0B7A54),
+    heroMid = Color(0xFF0B7A54),
+    heroBot = Color(0xFF0B7A54),
+    ground = Color(0xFFF5F6F8),
     card = Color(0xFFFFFFFF),
-    hair = Color(0xFFE8E0CC),
-    tile = Color(0xFFF1EADB),
-    tealTint = Color(0xFFE3F1E4),
-    roseMark = Color(0xFFE2857B),
-    roseText = Color(0xFFB4433A),
-    roseTint = Color(0xFFFBE6E3)
+    hair = Color(0xFFE6E8EE),
+    tile = Color(0xFFEEF0F4),
+    tealTint = Color(0xFFE3F5EC),
+    roseMark = Color(0xFFEC8A7E),
+    roseText = Color(0xFFC2453A),
+    roseTint = Color(0xFFFCEBE8),
+    washTop = Color(0xFFEAF2FF),
+    washMid = Color(0xFFF1ECFF),
+    washEnd = Color(0xFFFFF0EA)
 )
 
 val DarkVsPalette = VsPalette(
-    bg = Color(0xFF15130E),
-    surface = Color(0xFF1F1C15),
-    ink = Color(0xFFF2EDE0),
-    inkSoft = Color(0xFFB5AC98),
-    line = Color(0xFF302B20),
-    emerald = Color(0xFF6CC48A),
-    emeraldDeep = Color(0xFF6CC48A),
-    emeraldSoft = Color(0xFF23382A),
-    indigo = Color(0xFFB5AC98),
-    indigoSoft = Color(0xFF1F1C15),
+    bg = Color(0xFF111215),
+    surface = Color(0xFF1A1B20),
+    ink = Color(0xFFEDEEF2),
+    inkSoft = Color(0xFFA3A6B1),
+    line = Color(0xFF2A2C33),
+    emerald = Color(0xFF5FD3A0),
+    emeraldDeep = Color(0xFF5FD3A0),
+    emeraldSoft = Color(0xFF173A2C),
+    indigo = Color(0xFFA3A6B1),
+    indigoSoft = Color(0xFF111215),
     danger = Color(0xFFFF8A80),
     amber = Color(0xFFF2C14E),
-    heroTop = Color(0xFF6CC48A),
-    heroMid = Color(0xFF6CC48A),
-    heroBot = Color(0xFF6CC48A),
-    ground = Color(0xFF15130E),
-    card = Color(0xFF1F1C15),
-    hair = Color(0xFF302B20),
-    tile = Color(0xFF29251C),
-    tealTint = Color(0xFF23382A),
+    heroTop = Color(0xFF5FD3A0),
+    heroMid = Color(0xFF5FD3A0),
+    heroBot = Color(0xFF5FD3A0),
+    ground = Color(0xFF111215),
+    card = Color(0xFF1A1B20),
+    hair = Color(0xFF2A2C33),
+    tile = Color(0xFF22242A),
+    tealTint = Color(0xFF173A2C),
     roseMark = Color(0xFFE2857B),
     roseText = Color(0xFFFF8A80),
-    roseTint = Color(0xFF3A1F1C)
+    roseTint = Color(0xFF3A1F1E),
+    washTop = Color(0xFF16192A),
+    washMid = Color(0xFF1C1730),
+    washEnd = Color(0xFF24181A)
 )
 
 val LocalVsPalette = staticCompositionLocalOf { LightVsPalette }

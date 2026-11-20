@@ -369,7 +369,7 @@ function head({ lang, url, urlOf, title, desc, graph }) {
   return `<title>${esc(fit(title))}</title>
 <meta name="description" content="${esc(desc)}">
 <meta name="robots" content="index, follow, max-image-preview:large">
-<meta name="theme-color" content="#FBF6E9">
+<meta name="theme-color" content="#F5F6F8">
 <link rel="canonical" href="${ORIGIN}${url}">
 ${alternates(urlOf)}
 <meta property="og:site_name" content="Qulay Kurs">
@@ -479,7 +479,7 @@ function shell({ lang, url, urlOf, title, desc, graph, body, noindex, calc }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-${noindex ? `<title>${esc(title)}</title>\n<meta name="robots" content="noindex">\n<meta name="theme-color" content="#FBF6E9">` : head({ lang, url, urlOf, title, desc, graph })}
+${noindex ? `<title>${esc(title)}</title>\n<meta name="robots" content="noindex">\n<meta name="theme-color" content="#F5F6F8">` : head({ lang, url, urlOf, title, desc, graph })}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">

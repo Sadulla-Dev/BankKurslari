@@ -162,13 +162,13 @@ private extension Color {
             return UIColor(red: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
         })
     }
-    static let wInk = Color(light: 0x1B1710, dark: 0xF2EDE0)
-    static let wSoft = Color(light: 0x6A6252, dark: 0xB5AC98)
-    static let wEmerald = Color(light: 0x26794A, dark: 0x6CC48A)
-    static let wOnEmerald = Color(light: 0xFFFFFF, dark: 0x15130E)
-    static let wTile = Color(light: 0xF4EEDF, dark: 0x29251C)
-    static let wTeal = Color(light: 0xE3F1E4, dark: 0x23382A)
-    static let wRose = Color(light: 0xB4433A, dark: 0xFF8A80)
+    static let wInk = Color(light: 0x1C1D22, dark: 0xEDEEF2)
+    static let wSoft = Color(light: 0x5F6370, dark: 0xA3A6B1)
+    static let wEmerald = Color(light: 0x0B7A54, dark: 0x5FD3A0)
+    static let wOnEmerald = Color(light: 0xFFFFFF, dark: 0x111215)
+    static let wTile = Color(light: 0xEEF0F4, dark: 0x22242A)
+    static let wTeal = Color(light: 0xE3F5EC, dark: 0x173A2C)
+    static let wRose = Color(light: 0xC2453A, dark: 0xFF8A80)
     static let wGold = Color(red: 0xF2 / 255, green: 0xB0 / 255, blue: 0x1E / 255)
 }
 

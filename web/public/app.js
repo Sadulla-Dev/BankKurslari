@@ -1276,7 +1276,7 @@ function updateThemeControl() {
 
 function applyTheme() {
   document.documentElement.dataset.theme = S.dark ? "dark" : "light";
-  document.querySelector('meta[name="theme-color"]').content = S.dark ? "#15130E" : "#FBF6E9";
+  document.querySelector('meta[name="theme-color"]').content = S.dark ? "#111215" : "#F5F6F8";
   updateThemeControl();
 }
 

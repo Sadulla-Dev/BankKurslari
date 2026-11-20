@@ -9,7 +9,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -113,7 +112,6 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import com.example.bankkurslari.ui.theme.VsAmber
-import com.example.bankkurslari.ui.theme.VsBg
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsEmeraldSoft
 import com.example.bankkurslari.ui.theme.VsInk
@@ -538,13 +536,13 @@ fun KursScreen(
         onRefresh = { user = true; kick++; before = ranked.associate { it.rate.bank to it.perUnit.toDouble() }; onRefresh() },
         state = pullState,
         // Opaque: the list slides down while pulling, and the map tab is kept alive underneath this screen.
-        modifier = Modifier.fillMaxSize().background(VsBg),
+        modifier = Modifier.fillMaxSize().vsWash(),
         indicator = { BestBarsIndicator(pullState, measuring, innerPadding.calculateTopPadding()) }
     ) {
         LazyColumn(
             modifier = Modifier
                 .graphicsLayer { translationY = pullState.distanceFraction.coerceIn(0f, 1.25f) * RefreshShift.toPx() }
-                .fillMaxWidth().background(VsBg),
+                .fillMaxWidth().vsWash(),
             contentPadding = PaddingValues(
                 start = 20.dp, end = 20.dp,
                 top = innerPadding.calculateTopPadding() + 6.dp,
@@ -790,7 +788,7 @@ fun KursScreen(
         val top = innerPadding.calculateTopPadding()
         if (top > 0.dp) Box(
             Modifier.align(Alignment.TopCenter).fillMaxWidth().height(top + 6.dp)
-                .background(Brush.verticalGradient(0f to VsBg, top.value / (top.value + 6f) to VsBg, 1f to VsBg.copy(alpha = 0f)))
+                .vsWashScrim(top.value / (top.value + 6f))
         )
     }
 
@@ -1169,7 +1167,7 @@ private fun SkeletonList() {
 @Composable
 fun KursBootSkeleton(innerPadding: PaddingValues) {
     Column(
-        Modifier.fillMaxSize().background(VsBg).padding(
+        Modifier.fillMaxSize().vsWash().padding(
             start = 20.dp, end = 20.dp,
             top = innerPadding.calculateTopPadding() + 6.dp,
             bottom = innerPadding.calculateBottomPadding() + 24.dp

@@ -63,7 +63,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bankkurslari.ui.theme.VsBg
 import com.example.bankkurslari.ui.theme.VsCard
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsGround
@@ -126,7 +125,7 @@ fun TarixScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(VsBg)
+            .vsWash()
             .padding(innerPadding)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)

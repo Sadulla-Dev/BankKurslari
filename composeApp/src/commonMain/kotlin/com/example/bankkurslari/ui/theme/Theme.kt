@@ -23,13 +23,21 @@ import org.jetbrains.compose.resources.Font
 private val DarkColorScheme = darkColorScheme(
     primary = Green80,
     secondary = Blue80,
-    tertiary = Amber80
+    tertiary = Amber80,
+    background = DarkVsPalette.ground,
+    surface = DarkVsPalette.card,
+    onBackground = DarkVsPalette.ink,
+    onSurface = DarkVsPalette.ink
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = Green40,
     secondary = Blue40,
-    tertiary = Amber40
+    tertiary = Amber40,
+    background = LightVsPalette.ground,
+    surface = LightVsPalette.card,
+    onBackground = LightVsPalette.ink,
+    onSurface = LightVsPalette.ink
 )
 
 @Composable
