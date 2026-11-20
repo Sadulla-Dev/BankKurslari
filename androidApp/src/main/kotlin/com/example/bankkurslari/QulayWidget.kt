@@ -44,15 +44,15 @@ import kotlinx.coroutines.withContext
 
 /** App palette (ui/theme/Color.kt), day and night, so the widget follows the system theme like the app does. */
 private object WColors {
-    val card = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF171B1E))
-    val ink = ColorProvider(day = Color(0xFF121A1F), night = Color(0xFFF2F4F5))
-    val soft = ColorProvider(day = Color(0xFF5A6670), night = Color(0xFFA3ACB2))
-    val emerald = ColorProvider(day = Color(0xFF0A7C72), night = Color(0xFF3DD6A0))
-    val onEmerald = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF0E1113))
-    val tile = ColorProvider(day = Color(0xFFF1F3F5), night = Color(0xFF22282C))
-    val tealTint = ColorProvider(day = Color(0xFFD3EEEA), night = Color(0xFF12332E))
+    val card = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF1F1C15))
+    val ink = ColorProvider(day = Color(0xFF1B1710), night = Color(0xFFF2EDE0))
+    val soft = ColorProvider(day = Color(0xFF6A6252), night = Color(0xFFB5AC98))
+    val emerald = ColorProvider(day = Color(0xFF26794A), night = Color(0xFF6CC48A))
+    val onEmerald = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF15130E))
+    val tile = ColorProvider(day = Color(0xFFFBF6E9), night = Color(0xFF29251C))
+    val tealTint = ColorProvider(day = Color(0xFFE3F1E4), night = Color(0xFF23382A))
     val rose = ColorProvider(day = Color(0xFFB4433A), night = Color(0xFFFF8A80))
-    val gold = ColorProvider(day = Color(0xFFF2C14E), night = Color(0xFFF2C14E))
+    val gold = ColorProvider(day = Color(0xFFF2B01E), night = Color(0xFFF2B01E))
 }
 
 private val WIDE = DpSize(250.dp, 110.dp)

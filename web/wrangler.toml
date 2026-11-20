@@ -1,4 +1,5 @@
-# qulaykurs.uz: the static site in ./public. Reads api.qulaykurs.uz from the browser (CORS is open there).
+# qulaykurs.uz: the static site. ./dist is built by build.mjs from ./public plus pre-rendered pages
+# (currency, bank and gold pages with today's rates in the HTML). The app still reads api.qulaykurs.uz from the browser.
 name = "qulaykurs-web"
 compatibility_date = "2026-10-01"
 workers_dev = true
@@ -8,5 +9,7 @@ routes = [
 ]
 
 [assets]
-directory = "public"
-not_found_handling = "single-page-application"
+directory = "dist"
+# Unknown addresses answer 404 with dist/404.html. (The old single-page fallback answered 200 for any address,
+# which search engines treat as duplicate pages.)
+not_found_handling = "404-page"

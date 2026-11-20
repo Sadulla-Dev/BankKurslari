@@ -93,7 +93,7 @@ import org.jetbrains.compose.resources.painterResource
  */
 
 /** Text/icon colour on a filled accent surface: white on the light teal, dark ink on the dark-theme mint. */
-val VsOnAccent: Color @Composable get() = if (VsEmerald.luminance() > 0.45f) Color(0xFF0E1113) else Color.White
+val VsOnAccent: Color @Composable get() = if (VsEmerald.luminance() > 0.45f) Color(0xFF15130E) else Color.White
 
 object VsShape {
     val Card = RoundedCornerShape(24.dp)
@@ -108,13 +108,13 @@ object VsShape {
 /** Resting card: hairline + 1px shadow. */
 @Composable
 fun Modifier.vsCard(shape: Shape = VsShape.Card): Modifier =
-    this.shadow(1.dp, shape, clip = false, ambientColor = Color(0x14121A1F), spotColor = Color(0x14121A1F))
+    this.shadow(1.dp, shape, clip = false, ambientColor = Color(0x141B1710), spotColor = Color(0x141B1710))
         .clip(shape).background(VsCard).border(BorderStroke(1.dp, VsHair), shape)
 
 /** Floating things (map capsules, pins, peek card): soft long shadow. */
 @Composable
 fun Modifier.vsFloating(shape: Shape): Modifier =
-    this.shadow(16.dp, shape, clip = false, ambientColor = Color(0x38121A1F), spotColor = Color(0x38121A1F))
+    this.shadow(16.dp, shape, clip = false, ambientColor = Color(0x381B1710), spotColor = Color(0x381B1710))
         .clip(shape).background(VsCard).border(BorderStroke(1.dp, VsHair), shape)
 
 @Composable
@@ -253,7 +253,7 @@ fun VsStat(label: String, value: String, modifier: Modifier = Modifier, delta: S
 @Composable
 fun VsTraySurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.shadow(20.dp, VsShape.Tray, clip = false, ambientColor = Color(0x59121A1F), spotColor = Color(0x59121A1F))
+        modifier.shadow(20.dp, VsShape.Tray, clip = false, ambientColor = Color(0x591B1710), spotColor = Color(0x591B1710))
             .clip(VsShape.Tray).background(VsCard).padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "web/public/index.html"
+        ],
+        "createdAt": "2026-11-20T11:12:31.262Z",
+        "reason": "user chose the warm gold brand direction in this session ('liked warm gold option also consider overall branding like that'); page ground follows the logo ground"
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One-colour Qulay Kurs mark: two banknotes. Used where Android tints the icon itself
+     (notification small icon, themed launcher icon). The colour mark is a bitmap, see render-brand.mjs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="-10">
+        <!-- back note: the part not covered by the front one -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M28,33H60a4,4 0,0 1,4 4V47H37V57H28a4,4 0,0 1,-4 -4V37a4,4 0,0 1,4 -4zM33.500,39a4,4 0,1 0,0 8a4,4 0,1 0,0 -8z" />
+        <!-- front note with its medallion cut out -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M44,50H76a4,4 0,0 1,4 4V70a4,4 0,0 1,-4 4H44a4,4 0,0 1,-4 -4V54a4,4 0,0 1,4 -4zM60,55.500a6.500,6.500 0,1 0,0 13a6.500,6.500 0,1 0,0 -13z" />
+    </group>
+</vector>

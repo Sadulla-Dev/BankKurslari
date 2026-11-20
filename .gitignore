@@ -29,3 +29,6 @@ backend/data/official-branches.json
 backend/worker/public/
 backend/worker/.wrangler/
 web/.wrangler/
+
+# Built site (web/build.mjs)
+web/dist/

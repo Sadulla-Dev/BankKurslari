@@ -6,7 +6,7 @@
 <title>Bugungi dollar kursi va banklardagi valyuta kurslari | Qulay Kurs</title>
 <meta name="description" content="O‘zbekistondagi banklarda dollar (USD), yevro (EUR) va rubl (RUB) kurslarini solishtiring. Bugungi bank kurslari, valyuta kalkulyatori va yaqin filiallar — Qulay Kursda.">
 <meta name="robots" content="index, follow, max-image-preview:large">
-<meta name="theme-color" content="#F4F5F2">
+<meta name="theme-color" content="#FBF6E9">
 <meta property="og:title" content="Qulay Kurs — banklarda valyuta kursi">
 <meta property="og:description" content="O‘zbekistondagi banklarda dollar, yevro va rubl kurslarini solishtiring. Bugungi kurslar va valyuta kalkulyatori.">
 <meta property="og:type" content="website">
@@ -15,14 +15,16 @@
 <meta name="twitter:card" content="summary">
 <link rel="canonical" href="https://qulaykurs.uz/">
 <link rel="sitemap" type="application/xml" href="https://qulaykurs.uz/sitemap.xml">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://api.qulaykurs.uz" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script>try{const t=localStorage.getItem("theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch{document.documentElement.dataset.theme="light"}</script>
-<link rel="stylesheet" href="style.css?v=20261119">
+<link rel="stylesheet" href="/style.css?v=20261120">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -39,7 +41,7 @@
 <header class="top">
   <div class="wrap top-in">
     <a class="logo" href="#/" aria-label="Qulay Kurs">
-      <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#2F7A68"/><path d="M7.5 21.5l5.5-5.5 4 4 6.5-7" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.8" cy="12.6" r="3" fill="#F2C14E"/></svg>
+      <img src="/logo.svg" width="32" height="32" alt="">
       <span>Qulay <b class="logo-k">Kurs</b></span>
     </a>
     <nav class="tabs-nav" aria-label="Menu">
@@ -172,7 +174,7 @@
   <!-- App promo: one quiet block at the bottom -->
   <div class="wrap">
     <div class="promo">
-      <div class="promo-ic"><svg viewBox="0 0 32 32" width="56" height="56" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M7.5 21.5l5.5-5.5 4 4 6.5-7" stroke="#2F7A68" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.8" cy="12.6" r="3" fill="#F2C14E"/></svg></div>
+      <div class="promo-ic"><img src="/logo.svg" width="72" height="72" alt="" loading="lazy"></div>
       <div class="promo-copy">
         <h2 data-i18n="promo.title">Qulay Kurs ilovasi</h2>
         <p data-i18n="promo.sub">Kurs ogohlantirishlari, bosh ekran vidjeti va xarita — telefoningizda. Tez kunda.</p>
@@ -297,6 +299,7 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" defer></script>
-<script src="app.js?v=20261119" defer></script>
+<script src="/shared.js?v=20261120" defer></script>
+<script src="/app.js?v=20261120" defer></script>
 </body>
 </html>

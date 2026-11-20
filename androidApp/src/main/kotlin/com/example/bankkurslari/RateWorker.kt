@@ -130,7 +130,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 context, a.id.hashCode(), Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
             )
             val n = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.drawable.ic_notes_mono)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -171,7 +171,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             val text = "$symbol 1 ${snap.currency} = ${RateService.formatRate(snap.rate)} UZS  $arrow $deltaStr"
 
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.drawable.ic_notes_mono)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)

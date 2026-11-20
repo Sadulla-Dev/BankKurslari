@@ -1,0 +1,201 @@
+// Shared by the browser app (app.js) and the page generator (../build.mjs): interface texts and bank-name helpers.
+// A classic script on purpose: everything here is a global, loaded before app.js. Keep it free of DOM access.
+"use strict";
+
+/* ---------- i18n ---------- */
+
+function ruPlural(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b === 1) return one;
+  if (b >= 2 && b <= 4) return few;
+  return many;
+}
+
+const T = {
+  uz: {
+    "tab.rates": "Kurslar", "tab.map": "Xarita", "tab.history": "Tarix",
+    "mode.sell": "Sotaman", "mode.buy": "Sotib olaman", "som": "so‘m", "go": "Yo‘l",
+    "col.bank": "Bank", "col.buy": "Sotib oladi", "col.sell": "Sotadi", "col.km": "Masofa",
+    "promo.title": "Qulay Kurs ilovasi", "promo.sub": "Kurs ogohlantirishlari, bosh ekran vidjeti va xarita — telefoningizda. Tez kunda.",
+    "store.soon": "Tez kunda", "hist.cbu": "Markaziy bank kursi",
+    "spread.buy": "Bugun eng yuqori xarid", "spread.sell": "Bugun eng past sotuv",
+    "spread.note": "Xarid — bank sizdan valyutani oladigan narx. Sotuv — bank sizga sotadigan narx.",
+    "foot.updated": "Har soatda yangilanadi", "foot.tg": "Telegram kanalimiz", "store.tgNow": "Har kuni kurs", "theme.dark": "Qorong‘i rejim", "theme.light": "Yorug‘ rejim",
+    "all.btn": "Boshqa valyutalar", "all.title": "Barcha valyutalar", "all.search": "Valyuta qidirish", "all.favs": "Sevimlilar", "all.all": "Barchasi", "all.empty": "Hech narsa topilmadi", "all.som": "so‘m", "all.swap": "Yo‘nalishni almashtirish", "all.fav": "Sevimlilarga",
+    allSub: (n) => `Markaziy bank kursi · ${n} ta valyuta`, allNote: (d) => `Markaziy bank kursi · ${d} · banklarda naqd kurs boshqacha bo‘lishi mumkin`,
+    "sh.buys": "Bank sotib oladi", "sh.sells": "Bank sotadi", "sh.near": "Eng yaqin filiallar", "sh.showMap": "Xaritada", "sh.go": "Yo‘nalish",
+    title: { USD: "Banklarda dollar kursi", EUR: "Banklarda yevro kursi", RUB: "Banklarda rubl kursi" },
+    tblSub: (n, t, s) => `${n} bank · ${t} holatiga · ${s}`,
+    sortBy: { best: "eng foydalisi tepada", buy: "xarid kursi bo‘yicha", sell: "sotuv kursi bo‘yicha", name: "nomi bo‘yicha", km: "yaqinlik bo‘yicha" },
+    getSell: "Siz olasiz", getBuy: "Siz to‘laysiz",
+    search: "Bank qidirish", near: "Yaqinini ko‘rsatish", nearOn: "Yaqinlari tepada",
+    status: (t, n) => `${t} holatiga · ${n} bank`,
+    unit: { USD: () => "dollar", EUR: () => "yevro", RUB: () => "rubl" },
+    perUnit: (r, u, n) => `1 ${u} uchun ${r} so‘m — ${n} ta bank ichida eng yaxshisi`,
+    perUnitBuy: (r, u, n) => `1 ${u} uchun ${r} so‘m — ${n} ta bank ichida eng arzoni`,
+    less: (v) => `−${v}`, more: (v) => `+${v}`, best: "eng yaxshi",
+    km: (v) => `${v} km`, away: (v) => `${v} km uzoqlikda`,
+    forAmt: (a, u) => `so‘m — ${a} ${u} uchun`,
+    cmpLess: (v, b) => `${b}dan ${v} so‘m kam`, cmpMore: (v, b) => `${b}dan ${v} so‘m qimmat`,
+    further: (k) => `, ${k} km uzoqroq`, isBest: "Hozir eng qulay kurs shu bankda",
+    today: "bugun", noChange: "o‘zgarmagan",
+    askLoc: "Masofani ko‘rsatish", noBranches: "Filiallar ro‘yxati topilmadi", noMatch: "Bunday bank topilmadi",
+    mapBest: (a, u) => `${a} ${u} uchun eng yaxshi`, branchesHere: (n) => `Bu yerda ${n} ta filial`,
+    sideHint: { sell: "Bank sizdan sotib oladigan kurs. Yuqoridagisi — eng foydalisi.", buy: "Bank sizga sotadigan kurs. Yuqoridagisi — eng arzoni." },
+    locFail: "Joylashuvni aniqlab bo‘lmadi", copied: "Havola nusxalandi",
+    share: (b, r, u) => `${b}: 1 ${u} = ${r} so‘m — qulaykurs.uz`,
+    src: "Manba", since: (y) => `${y}-yildan`,
+    ranges: ["1H", "1O", "3O", "1Y", "5Y", "Hammasi"], periods: ["7 kun", "30 kun", "3 oy", "1 yil", "5 yil"],
+    stHigh: "Eng yuqori", stLow: "Eng past", stAvg: "O‘rtacha", stChg: "O‘zgarish", avg: "o‘rtacha", prevPt: "oldingi nuqtaga",
+    toToday: "bugungacha", cbu: "Markaziy bank", tkBuy: "xarid", tkSell: "sotuv",
+    error: "Kurslarni yuklab bo‘lmadi. Internetni tekshirib, sahifani yangilang.",
+    "gold.title": "Oltin quymalar narxi", "gold.chart": "Grafik", "gold.bar": "Quyma", "gold.sell": "Sotib olish", "gold.buyback": "Qaytarib topshirish",
+    "gold.perGram": "1 gramm", "gold.loss": "Farq", "gold.tab": "Oltin",
+    "gold.note": "Narxlar — Markaziy bank o‘lchovli oltin quymalari uchun. “Sotib olish” — bankdan quyma olish narxi, “Qaytarib topshirish” — quymani bankka qaytarganda olinadigan pul (qadoq buzilmagan bo‘lsa). “Farq” — sotib olib darhol topshirsangiz yo‘qotadigan ulush.",
+    goldSub: (d, tm) => `Markaziy bank · ${d}, ${tm} holatiga`, grams: (g) => `${g} g`,
+    goldLabel: "Oltin, 1 gramm (10 g quyma)", goldSellL: "1 g — sotib olish narxi", goldBuyL: "1 g — qaytarib topshirish", goldSrc: "Markaziy bank · 10 g quyma",
+    goldSideNote: "Sotib olish — Markaziy bank quymani sizga sotadigan narx. Qaytarib topshirish — bank shikastlanmagan quymani sizdan qabul qiladigan narx."
+  },
+  ru: {
+    "tab.rates": "Курсы", "tab.map": "Карта", "tab.history": "История",
+    "mode.sell": "Продаю", "mode.buy": "Покупаю", "som": "сум", "go": "Маршрут",
+    "col.bank": "Банк", "col.buy": "Покупает", "col.sell": "Продаёт", "col.km": "Расстояние",
+    "promo.title": "Приложение Qulay Kurs", "promo.sub": "Уведомления о курсе, виджет на экране и карта — в вашем телефоне. Скоро.",
+    "store.soon": "Скоро", "hist.cbu": "Курс Центрального банка",
+    "spread.buy": "Лучшая покупка сегодня", "spread.sell": "Лучшая продажа сегодня",
+    "spread.note": "Покупка — цена, по которой банк берёт у вас валюту. Продажа — цена, по которой продаёт вам.",
+    "foot.updated": "Обновляется каждый час", "foot.tg": "Наш Telegram-канал", "store.tgNow": "Курс каждый день", "theme.dark": "Тёмная тема", "theme.light": "Светлая тема",
+    "all.btn": "Другие валюты", "all.title": "Все валюты", "all.search": "Поиск валюты", "all.favs": "Избранные", "all.all": "Все", "all.empty": "Ничего не найдено", "all.som": "сум", "all.swap": "Поменять направление", "all.fav": "В избранное",
+    allSub: (n) => `Курс ЦБ · ${n} валют`, allNote: (d) => `Курс ЦБ · ${d} · наличный курс в банках может отличаться`,
+    "sh.buys": "Банк покупает", "sh.sells": "Банк продаёт", "sh.near": "Ближайшие филиалы", "sh.showMap": "На карте", "sh.go": "Маршрут",
+    title: { USD: "Курс доллара в банках", EUR: "Курс евро в банках", RUB: "Курс рубля в банках" },
+    tblSub: (n, t, s) => `${n} банков · на ${t} · ${s}`,
+    sortBy: { best: "выгодные сверху", buy: "по покупке", sell: "по продаже", name: "по названию", km: "ближайшие сверху" },
+    getSell: "Вы получите", getBuy: "Вы заплатите",
+    search: "Поиск банка", near: "Показать ближайшие", nearOn: "Ближайшие сверху",
+    status: (t, n) => `на ${t} · ${n} банков`,
+    unit: { USD: (n) => ruPlural(n, "доллар", "доллара", "долларов"), EUR: () => "евро", RUB: (n) => ruPlural(n, "рубль", "рубля", "рублей") },
+    perUnit: (r, u, n) => `${r} сум за 1 ${u} — лучший из ${n} банков`,
+    perUnitBuy: (r, u, n) => `${r} сум за 1 ${u} — дешевле всех из ${n} банков`,
+    less: (v) => `−${v}`, more: (v) => `+${v}`, best: "лучший",
+    km: (v) => `${v} км`, away: (v) => `${v} км от вас`,
+    forAmt: (a, u) => `сум за ${a} ${u}`,
+    cmpLess: (v, b) => `На ${v} сум меньше, чем в ${b}`, cmpMore: (v, b) => `На ${v} сум дороже, чем в ${b}`,
+    further: (k) => `, на ${k} км дальше`, isBest: "Сейчас здесь самый выгодный курс",
+    today: "сегодня", noChange: "без изменений",
+    askLoc: "Показать расстояние", noBranches: "Список филиалов не найден", noMatch: "Банк не найден",
+    mapBest: (a, u) => `Лучший курс за ${a} ${u}`, branchesHere: (n) => `Здесь ${n} ${ruPlural(n, "филиал", "филиала", "филиалов")}`,
+    sideHint: { sell: "Курс, по которому банк покупает у вас. Сверху — самый выгодный.", buy: "Курс, по которому банк продаёт вам. Сверху — самый дешёвый." },
+    locFail: "Не удалось определить местоположение", copied: "Ссылка скопирована",
+    share: (b, r, u) => `${b}: 1 ${u} = ${r} сум — qulaykurs.uz`,
+    src: "Источник", since: (y) => `с ${y} г.`,
+    ranges: ["1Н", "1М", "3М", "1Г", "5Л", "Всё"], periods: ["7 дней", "30 дней", "3 месяца", "1 год", "5 лет"],
+    stHigh: "Максимум", stLow: "Минимум", stAvg: "Среднее", stChg: "Изменение", avg: "среднее", prevPt: "к предыдущей точке",
+    toToday: "до сегодня", cbu: "ЦБ", tkBuy: "покупка", tkSell: "продажа",
+    error: "Не удалось загрузить курсы. Проверьте интернет и обновите страницу.",
+    "gold.title": "Цены на золотые слитки", "gold.chart": "График", "gold.bar": "Слиток", "gold.sell": "Покупка", "gold.buyback": "Обратный выкуп",
+    "gold.perGram": "1 грамм", "gold.loss": "Разница", "gold.tab": "Золото",
+    "gold.note": "Цены на мерные золотые слитки Центрального банка. «Покупка» — за сколько вы покупаете слиток, «Обратный выкуп» — сколько банк платит за него (в целой упаковке). «Разница» — сколько вы теряете, если купите слиток и сразу сдадите его обратно.",
+    goldSub: (d, tm) => `Центральный банк · на ${d}, ${tm}`, grams: (g) => `${g} г`,
+    goldLabel: "Золото, 1 грамм (слиток 10 г)", goldSellL: "1 г — цена покупки", goldBuyL: "1 г — цена обратного выкупа", goldSrc: "Центральный банк · слиток 10 г",
+    goldSideNote: "Продажа — цена, по которой ЦБ продаёт вам слиток. Выкуп — цена, по которой ЦБ принимает неповреждённый слиток."
+  },
+  en: {
+    "tab.rates": "Rates", "tab.map": "Map", "tab.history": "History",
+    "mode.sell": "I sell", "mode.buy": "I buy", "som": "so‘m", "go": "Go",
+    "col.bank": "Bank", "col.buy": "Buys at", "col.sell": "Sells at", "col.km": "Distance",
+    "promo.title": "The Qulay Kurs app", "promo.sub": "Rate alerts, a home-screen widget and the map — on your phone. Coming soon.",
+    "store.soon": "Coming soon", "hist.cbu": "Central Bank rate",
+    "spread.buy": "Best buy rate today", "spread.sell": "Best sell rate today",
+    "spread.note": "Buy is what a bank pays you for currency. Sell is what it charges you.",
+    "foot.updated": "Updated every hour", "foot.tg": "Our Telegram channel", "store.tgNow": "Daily rates", "theme.dark": "Dark mode", "theme.light": "Light mode",
+    "all.btn": "Other currencies", "all.title": "All currencies", "all.search": "Search currency", "all.favs": "Favourites", "all.all": "All", "all.empty": "Nothing found", "all.som": "som", "all.swap": "Swap direction", "all.fav": "Favourite",
+    allSub: (n) => `Central Bank rate · ${n} currencies`, allNote: (d) => `Central Bank rate · ${d} · bank cash rates may differ`,
+    "sh.buys": "Bank buys at", "sh.sells": "Bank sells at", "sh.near": "Nearest branches", "sh.showMap": "Show on map", "sh.go": "Directions",
+    title: { USD: "Dollar rates at banks", EUR: "Euro rates at banks", RUB: "Ruble rates at banks" },
+    tblSub: (n, t, s) => `${n} banks · as of ${t} · ${s}`,
+    sortBy: { best: "best first", buy: "by buy rate", sell: "by sell rate", name: "by name", km: "nearest first" },
+    getSell: "You get", getBuy: "You pay",
+    search: "Search banks", near: "Show nearest", nearOn: "Nearest first",
+    status: (t, n) => `as of ${t} · ${n} banks`,
+    unit: { USD: (n) => (n === 1 ? "dollar" : "dollars"), EUR: (n) => (n === 1 ? "euro" : "euros"), RUB: (n) => (n === 1 ? "ruble" : "rubles") },
+    perUnit: (r, u, n) => `${r} so‘m per ${u} — the best of ${n} banks`,
+    perUnitBuy: (r, u, n) => `${r} so‘m per ${u} — the cheapest of ${n} banks`,
+    less: (v) => `−${v}`, more: (v) => `+${v}`, best: "best",
+    km: (v) => `${v} km`, away: (v) => `${v} km away`,
+    forAmt: (a, u) => `so‘m for ${a} ${u}`,
+    cmpLess: (v, b) => `${v} so‘m less than ${b}`, cmpMore: (v, b) => `${v} so‘m more than ${b}`,
+    further: (k) => `, ${k} km further`, isBest: "The best rate right now",
+    today: "today", noChange: "no change",
+    askLoc: "Show distance", noBranches: "No branch list found", noMatch: "No bank matches",
+    mapBest: (a, u) => `Best for ${a} ${u}`, branchesHere: (n) => `${n} branches here`,
+    sideHint: { sell: "What the bank pays you. The top one is the best.", buy: "What the bank charges you. The top one is the cheapest." },
+    locFail: "Couldn’t get your location", copied: "Link copied",
+    share: (b, r, u) => `${b}: 1 ${u} = ${r} so‘m — qulaykurs.uz`,
+    src: "Source", since: (y) => `since ${y}`,
+    ranges: ["1W", "1M", "3M", "1Y", "5Y", "All"], periods: ["7 days", "30 days", "3 months", "1 year", "5 years"],
+    stHigh: "High", stLow: "Low", stAvg: "Average", stChg: "Change", avg: "avg", prevPt: "vs previous point",
+    toToday: "to today", cbu: "CBU", tkBuy: "buy", tkSell: "sell",
+    error: "Couldn’t load rates. Check your connection and reload.",
+    "gold.title": "Gold bar prices", "gold.chart": "Chart", "gold.bar": "Bar", "gold.sell": "You buy at", "gold.buyback": "Buy-back",
+    "gold.perGram": "Per gram", "gold.loss": "Spread", "gold.tab": "Gold",
+    "gold.note": "Prices for the Central Bank of Uzbekistan’s gold bars. “You buy at” is what you pay for a bar, “Buy-back” is what the bank pays you for it (packaging intact). “Spread” is what you lose if you buy a bar and hand it straight back.",
+    goldSub: (d, tm) => `Central Bank · as of ${d}, ${tm}`, grams: (g) => `${g} g`,
+    goldLabel: "Gold, per gram (10 g bar)", goldSellL: "1 g — buy price", goldBuyL: "1 g — buy-back price", goldSrc: "Central Bank · 10 g bar",
+    goldSideNote: "Sell is what the CBU charges you for a bar. Buy-back is what it pays for an undamaged bar."
+  }
+};
+
+/* ---------- bank names ---------- */
+
+const bankKey = (n) => n.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+const SHORT = [
+  [/milliy/i, "NBU"], [/sanoatqurilish|промстрой/i, "SQB"], [/xalq/i, "Xalq"],
+  [/mikrokredit|mkbank/i, "MKBank"], [/orient\s*finans/i, "Orient Finans"],
+  [/asia\s*alliance/i, "Asia Alliance"], [/ipak\s*yo/i, "Ipak Yo‘li"], [/ipoteka/i, "Ipoteka"],
+  [/turonbank/i, "Turon"], [/hamkor/i, "Hamkor"], [/aloqa/i, "Aloqa"]
+];
+function shortName(name) {
+  for (const [re, s] of SHORT) if (re.test(name)) return s;
+  const s = name.replace(/\s*(aksiyadorlik|tijorat|ATB|AT|ATIB|banki|bank)\b\.?/gi, "").trim() || name;
+  return s.length > 14 ? s.slice(0, 13).trim() + "…" : s;
+}
+function initials(name) {
+  const s = shortName(name).replace(/[‘’ʻ'`]/g, "");
+  const words = s.split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words[0][0] + words[1][0] : s.slice(0, 2)).toUpperCase();
+}
+function logoSlug(name) {
+  const key = bankKey(name);
+  if (key.includes("anor")) return "anorbank";
+  if (key.includes("hayot")) return "hayot-bank";
+  if (key.includes("tenge")) return "tenge-bank";
+  if (key.includes("infin")) return "infinbank";
+  if (key.includes("hamkor")) return "hamkorbank";
+  if (key.includes("agro")) return "agrobank";
+  if (key.includes("trast") || key.includes("trust")) return "trastbank";
+  if (key.includes("universal")) return "universal-bank";
+  if (key.includes("poytaxt")) return "poytaxt-bank";
+  if (key.includes("ipoteka")) return "ipoteka-bank";
+  if (key.includes("asiaalliance")) return "asia-alliance";
+  if (key.includes("aloqa")) return "aloqabank";
+  if (key.includes("garant")) return "garant-bank";
+  if (key.includes("turon")) return "turonbank";
+  if (key.includes("orientfinans") || key.includes("orientfinance")) return "orient-finans";
+  if (key.includes("sanoatqurilish") || key === "sqb") return "sqb";
+  if (key.includes("mkbank") || key.includes("mikrokredit")) return "mkbank";
+  if (key.includes("xalq")) return "xalq-bank";
+  if (key.includes("ipakyuli")) return "ipak-yuli";
+  if (key === "brb") return "brb";
+  if (key.includes("asaka")) return "asakabank";
+  if (key.includes("davr")) return "davrbank";
+  if (key.includes("apex")) return "apexbank";
+  if (key.includes("milliy") || key === "nbu") return "nbu";
+  if (key.includes("openbank")) return "openbank";
+  if (key.includes("ziraat")) return "ziraat-bank";
+  if (key.includes("octo")) return "octobank";
+  if (key.startsWith("kdb")) return "kdb-bank";
+  if (key.includes("kapital")) return "kapitalbank";
+  return null;
+}

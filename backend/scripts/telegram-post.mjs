@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { icon } from "./render-brand.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const LOGOS = join(ROOT, "web", "public", "bank-logos");
@@ -110,51 +111,51 @@ function html({ banks, cbu, when }) {
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700;800&display=block" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { width: 1000px; font-family: Onest, system-ui, sans-serif; background: #EEF1EC; color: #12171A; font-feature-settings: "tnum", "lnum"; }
-  .card { padding: 0 0 0; background: #EEF1EC; }
-  header { display: flex; align-items: center; justify-content: space-between; padding: 26px 30px 24px; background: linear-gradient(135deg, #2F7A68, #1B4F43); color: #fff; }
+  body { width: 1000px; font-family: Onest, system-ui, sans-serif; background: #F6F0E1; color: #1B1710; font-feature-settings: "tnum", "lnum"; }
+  .card { padding: 0 0 0; background: #F6F0E1; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 26px 30px 24px; background: linear-gradient(180deg, #FFF6DC, #F3D98E); color: #1B1710; }
   .brand { display: flex; align-items: center; gap: 14px; }
   h1 { font-size: 31px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
-  .sub { margin-top: 5px; font-size: 16px; font-weight: 500; opacity: .85; }
+  .sub { margin-top: 5px; font-size: 16px; font-weight: 500; opacity: .72; }
   .when { text-align: right; }
   .when b { display: block; font-size: 25px; font-weight: 800; }
   .when span { font-size: 15px; opacity: .85; }
-  .cbu { display: flex; align-items: baseline; gap: 12px; padding: 14px 30px; background: #E1EEE8; font-size: 18px; font-weight: 600; color: #1E5A4B; }
-  .cbu b { font-size: 22px; font-weight: 800; color: #12171A; }
-  .cbu .d { font-weight: 700; color: ${diff < 0 ? "#B4532F" : "#2F7A68"}; }
+  .cbu { display: flex; align-items: baseline; gap: 12px; padding: 14px 30px; background: #1B1710; font-size: 18px; font-weight: 600; color: #D9D0BC; }
+  .cbu b { font-size: 22px; font-weight: 800; color: #fff; }
+  .cbu .d { font-weight: 700; color: ${diff < 0 ? "#F08B6A" : "#6CC48A"}; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
   .board { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 1px 2px rgba(18,23,26,.05), 0 8px 24px -12px rgba(18,23,26,.15); }
   .bh { display: flex; align-items: center; gap: 12px; padding: 16px 18px 14px; }
   .ic { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; flex: none; }
-  .sell .ic { background: #E1EEE8; color: #2F7A68; }
-  .buy .ic { background: #FBEBDD; color: #B4632F; }
+  .sell .ic { background: #E3F1E4; color: #26794A; }
+  .buy .ic { background: #E0EAFA; color: #2A62BE; }
   h2 { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
-  .bh p { font-size: 14px; font-weight: 500; color: #5B6463; margin-top: 1px; }
+  .bh p { font-size: 14px; font-weight: 500; color: #6A6252; margin-top: 1px; }
   .cols, .row { display: grid; grid-template-columns: 34px 30px 1fr auto 86px; align-items: center; gap: 10px; padding: 0 16px; }
-  .cols { height: 30px; background: #F3F5F2; font-size: 12px; font-weight: 700; color: #8A9391; text-transform: uppercase; letter-spacing: .05em; }
+  .cols { height: 30px; background: #F7F2E6; font-size: 12px; font-weight: 700; color: #948B78; text-transform: uppercase; letter-spacing: .05em; }
   .cols span:nth-child(4), .cols span:nth-child(5) { text-align: right; }
-  .row { height: 41px; border-top: 1px solid #EEF0ED; }
-  .place { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #5B6463; background: #F0F2EF; }
+  .row { height: 41px; border-top: 1px solid #F1EBDD; }
+  .place { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #6A6252; background: #F4EEDF; }
   .row img, .ph { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
-  .ph { display: grid; place-items: center; background: #F0F2EF; color: #5B6463; font-size: 11px; }
+  .ph { display: grid; place-items: center; background: #F4EEDF; color: #6A6252; font-size: 11px; }
   .name { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rate { font-size: 19px; font-weight: 800; text-align: right; }
   .gap { font-size: 14px; font-weight: 600; color: #A0692B; text-align: right; }
-  .row.m1 { background: #2F7A68; color: #fff; border-top-color: #2F7A68; height: 48px; }
-  .row.m1 .place { background: #F2C14E; color: #5A3F00; }
+  .row.m1 { background: #26794A; color: #fff; border-top-color: #26794A; height: 48px; }
+  .row.m1 .place { background: #F2B01E; color: #4A3300; }
   .row.m1 .gap { color: #CFEADF; }
   .row.m1 img, .row.m1 .ph { background: #fff; padding: 2px; }
   .row.m1 .name { font-size: 18px; }
   .row.m1 .rate { font-size: 21px; }
   .row.m2 .place { background: #DDE2E6; color: #3E4A52; }
   .row.m3 .place { background: #EBCFB2; color: #6B4220; }
-  .row.m2, .row.m3 { background: #F7FAF8; }
-  footer { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: #12171A; color: #fff; font-size: 17px; font-weight: 600; }
+  .row.m2, .row.m3 { background: #FCFAF3; }
+  footer { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background: #1B1710; color: #fff; font-size: 17px; font-weight: 600; }
   footer span:last-child { font-weight: 500; opacity: .8; font-size: 15px; }
 </style></head><body><div class="card">
   <header>
     <div class="brand">
-      <svg viewBox="0 0 32 32" width="52" height="52"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M7.5 21.5l5.5-5.5 4 4 6.5-7" stroke="#2F7A68" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.8" cy="12.6" r="3" fill="#F2C14E"/></svg>
+      ${icon().replace("<svg ", '<svg width="60" height="60" style="filter:drop-shadow(0 2px 6px rgba(90,63,0,.25))" ')}
       <div><h1>Dollar kursi: banklar reytingi</h1><p class="sub">Qayerda sotish va qayerda olish foydali — 1 $ uchun, so‘mda</p></div>
     </div>
     <div class="when"><b>${when.dd}.${when.mm}.${when.year}</b></div>

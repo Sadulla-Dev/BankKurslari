@@ -162,14 +162,14 @@ private extension Color {
             return UIColor(red: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
         })
     }
-    static let wInk = Color(light: 0x121A1F, dark: 0xF2F4F5)
-    static let wSoft = Color(light: 0x5A6670, dark: 0xA3ACB2)
-    static let wEmerald = Color(light: 0x0A7C72, dark: 0x3DD6A0)
-    static let wOnEmerald = Color(light: 0xFFFFFF, dark: 0x0E1113)
-    static let wTile = Color(light: 0xF1F3F5, dark: 0x22282C)
-    static let wTeal = Color(light: 0xD3EEEA, dark: 0x12332E)
+    static let wInk = Color(light: 0x1B1710, dark: 0xF2EDE0)
+    static let wSoft = Color(light: 0x6A6252, dark: 0xB5AC98)
+    static let wEmerald = Color(light: 0x26794A, dark: 0x6CC48A)
+    static let wOnEmerald = Color(light: 0xFFFFFF, dark: 0x15130E)
+    static let wTile = Color(light: 0xF4EEDF, dark: 0x29251C)
+    static let wTeal = Color(light: 0xE3F1E4, dark: 0x23382A)
     static let wRose = Color(light: 0xB4433A, dark: 0xFF8A80)
-    static let wGold = Color(red: 0xF2 / 255, green: 0xC1 / 255, blue: 0x4E / 255)
+    static let wGold = Color(red: 0xF2 / 255, green: 0xB0 / 255, blue: 0x1E / 255)
 }
 
 private let ru = (Locale.preferredLanguages.first ?? "uz").hasPrefix("ru")

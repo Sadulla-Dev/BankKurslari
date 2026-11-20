@@ -1,19 +1,23 @@
-/* Qulay Kurs web app — light and dark themes. Type: Onest. */
+/* Qulay Kurs web app — light and dark themes. Type: Onest.
+   Brand: warm gold ground, banknote green for the best offer and main action, banknote blue as the second colour. */
 :root {
-  --bg: #F4F5F2;
+  --bg: #FBF6E9;
   --card: #FFFFFF;
-  --ink: #12171A;
-  --ink-2: #5B6463;
-  --ink-3: #98A09E;
-  --line: rgba(18, 23, 26, .08);
-  --fill: #F0F2EF;
-  --hover: #F7F8F6;
-  --accent: #2F7A68;
-  --accent-deep: #1E5A4B;
-  --accent-soft: #E1EEE8;
+  --ink: #1B1710;
+  --ink-2: #6A6252;
+  --ink-3: #716A5A;
+  --line: rgba(27, 23, 16, .09);
+  --fill: #F4EEDF;
+  --hover: #FBF7EC;
+  --accent: #26794A;
+  --accent-deep: #1A5435;
+  --accent-soft: #E3F1E4;
+  --gold: #F2B01E;
+  --gold-soft: #FFF1C9;
+  --blue: #2A62BE;
   --warn: #A0692B;
   --warn-bar: #D2A061;
-  --up: #2F7A68;
+  --up: #26794A;
   --down: #B4532F;
   --shadow-sm: 0 1px 2px rgba(18, 23, 26, .05);
   --shadow: 0 1px 2px rgba(18, 23, 26, .04), 0 8px 24px -10px rgba(18, 23, 26, .12);
@@ -26,20 +30,23 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #111714;
-  --card: #1A211E;
-  --ink: #E8EFEB;
-  --ink-2: #A7B3AC;
-  --ink-3: #7F8D85;
-  --line: rgba(232, 239, 235, .1);
-  --fill: #222B27;
-  --hover: #252F2A;
-  --accent: #67B99D;
-  --accent-deep: #83CCB1;
-  --accent-soft: #263F35;
+  --bg: #15130E;
+  --card: #1F1C15;
+  --ink: #F2EDE0;
+  --ink-2: #B5AC98;
+  --ink-3: #9A927F;
+  --line: rgba(242, 237, 224, .1);
+  --fill: #29251C;
+  --hover: #2D291F;
+  --accent: #6CC48A;
+  --accent-deep: #8AD6A3;
+  --accent-soft: #23382A;
+  --gold: #F3C95A;
+  --gold-soft: #3A3018;
+  --blue: #7FB0F5;
   --warn: #E1B36D;
   --warn-bar: #D2A061;
-  --up: #67B99D;
+  --up: #6CC48A;
   --down: #F08B6A;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .18);
   --shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 8px 24px -10px rgba(0, 0, 0, .4);
@@ -99,6 +106,7 @@ p { margin: 0; }
 .top { position: sticky; top: 0; z-index: 900; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
 .top-in { height: var(--top-h); display: flex; align-items: center; gap: 24px; }
 .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; font-size: 18px; letter-spacing: -.02em; flex: none; }
+.logo img { display: block; border-radius: 8px; }
 .logo-k { font-weight: inherit; color: var(--accent); }
 .tabs-nav { display: flex; gap: 4px; padding: 4px; background: var(--fill); border-radius: 14px; margin-left: 24px; }
 .tabs-nav a { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 7px 16px; border-radius: 10px; color: var(--ink-2); font-weight: 500; transition: color .15s, background .15s; }
@@ -234,14 +242,15 @@ p { margin: 0; }
 .skel-row td { height: 64px; }
 
 /* ---------- promo ---------- */
-.promo { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 28px 32px; margin-bottom: 40px; border-radius: var(--r); color: #fff; background: radial-gradient(500px 300px at 90% 0%, rgba(255, 255, 255, .14), transparent 70%), linear-gradient(135deg, #2F7A68, #1B4F43); }
-.promo-ic { flex: none; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .2)); }
+.promo { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 28px 32px; margin-bottom: 40px; border-radius: var(--r); color: #1B1710; background: linear-gradient(180deg, #FFF6DC, #F3D98E); }
+.promo-ic { flex: none; }
+.promo-ic img { display: block; }
 .promo-copy { flex: 1; min-width: 240px; }
 .promo h2 { font-size: 22px; font-weight: 700; }
-.promo p { margin-top: 4px; color: rgba(255, 255, 255, .8); }
+.promo p { margin-top: 4px; color: rgba(27, 23, 16, .72); }
 .stores { display: flex; gap: 10px; flex-wrap: wrap; }
 .store { display: inline-flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 12px; background: #0D1210; color: #fff; }
-.store small { display: block; font-size: 10px; opacity: .7; line-height: 1.1; }
+.store small { display: block; font-size: 11px; opacity: .7; line-height: 1.1; }
 .store b { display: block; font-size: 15px; line-height: 1.2; font-weight: 600; }
 .store-tg { background: #229ED9; text-decoration: none; transition: filter .15s; }
 .store-tg:hover { filter: brightness(1.08); }
@@ -468,7 +477,7 @@ body.v-map .foot { display: none; }
   .bn b, .bn small { max-width: 52vw; }
   .tbl-foot { padding: 12px 16px; }
   .promo { padding: 22px; gap: 16px; margin-bottom: 24px; }
-  .promo-ic svg { width: 44px; height: 44px; }
+  .promo-ic img { width: 56px; height: 56px; }
   .mapv { grid-template-columns: minmax(0, 1fr); grid-template-rows: 58% 42%; height: calc(100dvh - var(--top-h) - 64px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px)); }
   .map-main { grid-row: 1; }
   .map-side { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); border-radius: 20px 20px 0 0; margin-top: -16px; position: relative; z-index: 6; box-shadow: 0 -8px 24px rgba(0, 0, 0, .08); }
