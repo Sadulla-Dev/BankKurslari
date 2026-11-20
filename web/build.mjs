@@ -3,7 +3,7 @@
 //
 //   node build.mjs            reads https://api.qulaykurs.uz (API_URL overrides), writes ./dist
 //
-// Pages, in Uzbek (/), Russian (/ru/) and English (/en/):
+// Pages, in Uzbek (/), Uzbek in Cyrillic (/uzc/, the Uzbek texts transliterated by shared.js), Russian (/ru/) and English (/en/):
 //   currency pages   /, /yevro-kursi, /rubl-kursi …   the app itself, with the bank table already filled in
 //   bank pages       /bank/<slug>                     plain HTML: one bank's rates for all three currencies
 //   gold page        /oltin-narxi …                   plain HTML: Central Bank gold bar prices
@@ -23,7 +23,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(HERE, "public"), DIST = join(HERE, "dist");
 const API = (process.env.API_URL || "https://api.qulaykurs.uz").replace(/\/$/, "");
 const ORIGIN = "https://qulaykurs.uz";
-const LANGS = ["uz", "ru", "en"], CURS = ["USD", "EUR", "RUB"];
+const LANGS = ["uz", "uzc", "ru", "en"], CURS = ["USD", "EUR", "RUB"];
+// "uzc" is this site's own name for Uzbek in Cyrillic; pages and search engines are told the standard one.
+const HTML_LANG = { uz: "uz", uzc: "uz-Cyrl", ru: "ru", en: "en" }, LANG_LABEL = { uz: "UZ", uzc: "ЎЗ", ru: "RU", en: "EN" };
+const isUz = (lang) => lang === "uz" || lang === "uzc", isCyrillic = (lang) => lang === "uzc" || lang === "ru";
 // Cache-buster for css/js: changes only when one of those files changes, so _headers can let browsers keep them for good.
 const VERSION = await (async () => {
   const hash = createHash("sha1");
@@ -38,28 +41,30 @@ const VERIFY = [["google-site-verification", process.env.GOOGLE_SITE_VERIFICATIO
 /* ---------- shared with the browser app ---------- */
 
 const shared = vm.createContext({});
-vm.runInContext((await readFile(join(PUBLIC, "shared.js"), "utf8")) + "\n;globalThis.out = { T, logoSlug };", shared);
-const { T, logoSlug } = shared.out;
+vm.runInContext((await readFile(join(PUBLIC, "shared.js"), "utf8")) + "\n;globalThis.out = { T, logoSlug, uzCyrillic, uzCyrillicTexts };", shared);
+const { T, logoSlug, uzCyrillic, uzCyrillicTexts } = shared.out;
 
 /* ---------- addresses of pages ---------- */
 
-const PREFIX = { uz: "", ru: "/ru", en: "/en" };
+const PREFIX = { uz: "", uzc: "/uzc", ru: "/ru", en: "/en" }; // the Cyrillic pages keep the Latin addresses of the Uzbek ones
 const CUR_SLUG = {
   uz: { USD: "", EUR: "yevro-kursi", RUB: "rubl-kursi" },
   ru: { USD: "", EUR: "kurs-evro", RUB: "kurs-rublya" },
   en: { USD: "", EUR: "eur-rate", RUB: "rub-rate" },
 };
-const GOLD_SLUG = { uz: "oltin-narxi", ru: "cena-zolota", en: "gold-price" };
+const GOLD_SLUG = { uz: "oltin-narxi", uzc: "oltin-narxi", ru: "cena-zolota", en: "gold-price" };
+CUR_SLUG.uzc = CUR_SLUG.uz;
 const curUrl = (lang, cur) => `${PREFIX[lang]}/${CUR_SLUG[lang][cur]}`;
 const goldUrl = (lang) => `${PREFIX[lang]}/${GOLD_SLUG[lang]}`;
 const bankUrl = (lang, slug) => `${PREFIX[lang]}/bank/${slug}`;
-const CBU_DIR = { uz: "valyuta", ru: "valyuta", en: "currency" };
-const ALL_SLUG = { uz: "valyutalar", ru: "kursy-valyut", en: "currencies" };
+const CBU_DIR = { uz: "valyuta", uzc: "valyuta", ru: "valyuta", en: "currency" };
+const ALL_SLUG = { uz: "valyutalar", uzc: "valyutalar", ru: "kursy-valyut", en: "currencies" };
 const HIST_SLUG = {
   uz: { USD: "dollar-kursi-tarixi", EUR: "yevro-kursi-tarixi", RUB: "rubl-kursi-tarixi" },
   ru: { USD: "kurs-dollara-istoriya", EUR: "kurs-evro-istoriya", RUB: "kurs-rublya-istoriya" },
   en: { USD: "usd-rate-history", EUR: "eur-rate-history", RUB: "rub-rate-history" },
 };
+HIST_SLUG.uzc = HIST_SLUG.uz;
 // Currency words for the amount pages. uz: one form, also the word in the page address; ru: after 1, after 2–4, after 5
 // and more; ruIn: "в долларах" (only where sums are converted back, see REV_AMOUNTS); en: one, many.
 const UNIT = {
@@ -90,8 +95,8 @@ const REV_AMOUNTS = [100000, 500000, 1000000, 5000000, 10000000, 50000000, 10000
 const allUrl = (lang) => `${PREFIX[lang]}/${ALL_SLUG[lang]}`;
 const cbuUrl = (lang, code) => (CURS.includes(code) ? curUrl(lang, code) : `${PREFIX[lang]}/${CBU_DIR[lang]}/${code.toLowerCase()}`);
 const histUrl = (lang, cur) => `${PREFIX[lang]}/${HIST_SLUG[lang][cur]}`;
-const amountUrl = (lang, cur, n) => `${PREFIX[lang]}/${n}-${lang === "uz" ? `${UNIT[cur].uz}-necha-som` : lang === "ru" ? `${cur.toLowerCase()}-v-sumah` : `${cur.toLowerCase()}-to-uzs`}`;
-const revUrl = (lang, cur, n) => `${PREFIX[lang]}/${n}-${lang === "uz" ? `som-necha-${UNIT[cur].uz}` : lang === "ru" ? `uzs-v-${cur.toLowerCase()}` : `uzs-to-${cur.toLowerCase()}`}`;
+const amountUrl = (lang, cur, n) => `${PREFIX[lang]}/${n}-${isUz(lang) ? `${UNIT[cur].uz}-necha-som` : lang === "ru" ? `${cur.toLowerCase()}-v-sumah` : `${cur.toLowerCase()}-to-uzs`}`;
+const revUrl = (lang, cur, n) => `${PREFIX[lang]}/${n}-${isUz(lang) ? `som-necha-${UNIT[cur].uz}` : lang === "ru" ? `uzs-v-${cur.toLowerCase()}` : `uzs-to-${cur.toLowerCase()}`}`;
 const fileOf = (url) => (url.endsWith("/") ? `${url}index.html` : `${url}.html`).slice(1);
 const slugify = (name) => name.toLowerCase().replace(/[‘’ʻ'`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const bankSlug = (name) => logoSlug(name) || slugify(name);
@@ -114,19 +119,20 @@ const delta = (n, lang) => (Math.abs(n) < 0.005 ? "0" : signed(n, lang));
 const signed = (n, lang) => `${n < 0 ? "−" : "+"}${rate(Math.abs(n), lang)}`;
 const MONTHS = {
   uz: ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"],
+  uzc: ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"],
   ru: ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"],
   en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
 };
-const fmtDate = (y, m, d, lang) => (lang === "en" ? `${MONTHS.en[m - 1]} ${d}, ${y}` : lang === "ru" ? `${d} ${MONTHS.ru[m - 1]} ${y}` : `${y}-yil ${d}-${MONTHS.uz[m - 1]}`);
+const fmtDate = (y, m, d, lang) => (lang === "en" ? `${MONTHS.en[m - 1]} ${d}, ${y}` : lang === "ru" ? `${d} ${MONTHS.ru[m - 1]} ${y}` : lang === "uzc" ? `${y} йил ${d} ${MONTHS.uzc[m - 1]}` : `${y}-yil ${d}-${MONTHS.uz[m - 1]}`);
 // The Central Bank writes its dates as 20.11.2026.
 const cbuDate = (s, lang) => { const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s || ""); return m ? fmtDate(+m[3], +m[2], +m[1], lang) : s || ""; };
 // Search results cut titles at about 60 characters, so long ones go without the site name (it is shown beside the result anyway).
 const fit = (title) => (title.length > 62 ? title.replace(/ \| Qulay Kurs$/, "") : title);
 // Tashkent is UTC+5 all year.
 function when(iso, lang) {
-  const d = new Date(Date.parse(iso) + 5 * 3600e3), day = d.getUTCDate(), mo = MONTHS[lang][d.getUTCMonth()], y = d.getUTCFullYear();
+  const d = new Date(Date.parse(iso) + 5 * 3600e3), day = d.getUTCDate(), y = d.getUTCFullYear();
   const time = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-  return { date: lang === "en" ? `${mo} ${day}, ${y}` : lang === "ru" ? `${day} ${mo} ${y}` : `${y}-yil ${day}-${mo}`, time };
+  return { date: fmtDate(y, d.getUTCMonth() + 1, day, lang), time };
 }
 function ruPlural(n, one, few, many) {
   const a = Math.abs(n) % 100, b = a % 10;
@@ -215,7 +221,7 @@ const X = {
 };
 
 // Texts of the all-currencies, amount and history pages. `u(c, n)` is the currency word in the form the number needs.
-const u = (lang, c, n) => (lang === "uz" ? UNIT[c].uz : lang === "ru" ? ruPlural(n, ...UNIT[c].ru) : UNIT[c].en[n === 1 ? 0 : 1]);
+const u = (lang, c, n) => (lang === "uz" ? UNIT[c].uz : lang === "uzc" ? uzCyrillic(UNIT[c].uz) : lang === "ru" ? ruPlural(n, ...UNIT[c].ru) : UNIT[c].en[n === 1 ? 0 : 1]);
 const Y = {
   uz: {
     allCur: "Barcha valyutalar — Markaziy bank kursi", amounts: "Ko‘p so‘raladigan summalar",
@@ -312,6 +318,10 @@ const Y = {
   },
 };
 
+// Uzbek in Cyrillic: the Uzbek texts, transliterated. Numbers, dates and names put into them are left as they are.
+X.uzc = uzCyrillicTexts(X.uz);
+Y.uzc = uzCyrillicTexts(Y.uz);
+
 /* ---------- data ---------- */
 
 async function get(path) {
@@ -350,7 +360,7 @@ function summary(cur, lang) {
 
 /* ---------- parts of a page ---------- */
 
-const alternates = (urlOf) => LANGS.map((l) => `<link rel="alternate" hreflang="${l}" href="${ORIGIN}${urlOf(l)}">`).join("\n") + `\n<link rel="alternate" hreflang="x-default" href="${ORIGIN}${urlOf("uz")}">`;
+const alternates = (urlOf) => LANGS.map((l) => `<link rel="alternate" hreflang="${HTML_LANG[l]}" href="${ORIGIN}${urlOf(l)}">`).join("\n") + `\n<link rel="alternate" hreflang="x-default" href="${ORIGIN}${urlOf("uz")}">`;
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`;
 const ORG = { "@type": "Organization", "@id": `${ORIGIN}/#org`, name: "Qulay Kurs", url: `${ORIGIN}/`, logo: `${ORIGIN}/icon-512.png`, sameAs: ["https://t.me/qulay_kurs"] };
 const crumbs = (items) => ({ "@type": "BreadcrumbList", itemListElement: items.map(([name, url], i) => ({ "@type": "ListItem", position: i + 1, name, item: ORIGIN + url })) });
@@ -367,12 +377,12 @@ ${alternates(urlOf)}
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${ORIGIN}${url}">
-<meta property="og:image" content="${ORIGIN}/og-${lang}.png">
+<meta property="og:image" content="${ORIGIN}/og-${lang === "uzc" ? "uz" : lang}.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:locale" content="${{ uz: "uz_UZ", ru: "ru_RU", en: "en_US" }[lang]}">
+<meta property="og:locale" content="${{ uz: "uz_UZ", uzc: "uz_UZ", ru: "ru_RU", en: "en_US" }[lang]}">
 <meta name="twitter:card" content="summary_large_image">${VERIFY ? "\n" + VERIFY : ""}
-${ld({ "@context": "https://schema.org", "@graph": [ORG, { "@type": "WebSite", "@id": `${ORIGIN}/#site`, name: "Qulay Kurs", alternateName: ["QulayKurs", "qulaykurs.uz"], url: `${ORIGIN}/`, publisher: { "@id": `${ORIGIN}/#org` }, inLanguage: LANGS }, ...graph] })}`;
+${ld({ "@context": "https://schema.org", "@graph": [ORG, { "@type": "WebSite", "@id": `${ORIGIN}/#site`, name: "Qulay Kurs", alternateName: ["QulayKurs", "qulaykurs.uz"], url: `${ORIGIN}/`, publisher: { "@id": `${ORIGIN}/#org` }, inLanguage: Object.values(HTML_LANG) }, ...graph] })}`;
 }
 
 const badge = (name, extra = "") => {
@@ -396,13 +406,15 @@ function linkBlock(lang, bankNames, skipCur) {
   <h3>${esc(x.allBanks)}</h3><p class="seo-links">${bankNames.map((b) => link(bankUrl(lang, bankSlug(b)), b)).join("")}</p>
   <p class="seo-note">${esc(x.disclaimer)}</p>`;
 }
-const langLinks = (lang, urlOf) => LANGS.map((l) => `<a href="${urlOf(l)}" hreflang="${l}"${l === lang ? ' class="on" aria-current="true"' : ""}>${l.toUpperCase()}</a>`).join("");
+const langLinks = (lang, urlOf) => LANGS.map((l) => `<a href="${urlOf(l)}" hreflang="${HTML_LANG[l]}"${l === lang ? ' class="on" aria-current="true"' : ""}>${LANG_LABEL[l]}</a>`).join("");
 
 /* ---------- currency pages: the app, pre-filled ---------- */
 
 const template = await readFile(join(PUBLIC, "index.html"), "utf8");
 const FONT_LATIN = '<link rel="preload" href="/fonts/onest-latin.woff2" as="font" type="font/woff2" crossorigin>';
 const FONT_CYRILLIC = FONT_LATIN.replace("latin", "cyrillic");
+// Ў is in the basic Cyrillic file; қ, ғ and ҳ are in the extended one.
+const cyrillicFonts = (lang) => FONT_CYRILLIC + (lang === "uzc" ? "\n" + FONT_LATIN.replace("latin", "cyrillic-ext") : "");
 if (!template.includes(FONT_LATIN)) throw new Error("template marker not found: font preload");
 function cut(html, from, to, replacement) {
   const a = html.indexOf(from), b = html.indexOf(to, a + from.length);
@@ -417,7 +429,7 @@ const pageMap = {
 function currencyPage(lang, cur) {
   const x = X[lang], t = T[lang], s = summary(cur, lang), data = rates[cur], url = curUrl(lang, cur), at = when(data.updatedAt, lang);
   const faq = [[x.q1(cur), x.a1(cur, s)], [x.q2(cur), x.a2(cur, s)], [x.q3, x.a3]];
-  const graph = [{ "@type": "FAQPage", inLanguage: lang, dateModified: data.updatedAt, mainEntity: faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }];
+  const graph = [{ "@type": "FAQPage", inLanguage: HTML_LANG[lang], dateModified: data.updatedAt, mainEntity: faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }];
   if (cur !== "USD") graph.push(crumbs([["Qulay Kurs", curUrl(lang, "USD")], [t.title[cur], url]]));
 
   // Same order and markup as renderTable() in app.js for "I sell, 100": the app repaints this on load without a jump.
@@ -431,10 +443,18 @@ function currencyPage(lang, cur) {
     </tr>`;
   }).join("\n");
 
-  let html = template.replace('<html lang="uz">', `<html lang="${lang}">`);
+  let html = template.replace('<html lang="uz">', `<html lang="${HTML_LANG[lang]}">`);
   html = cut(html, "<title>", '<link rel="sitemap" type="application/xml" href="https://qulaykurs.uz/sitemap.xml">', head({ lang, url, urlOf: (l) => curUrl(l, cur), title: x.title(cur), desc: x.desc(cur, s), graph }));
   html = cut(html, '<script type="application/ld+json">', "</script>", "");
   html = html.replace(/(data-i18n="([\w.]+)"[^>]*>)[^<]*</g, (m, open, key) => (typeof t[key] === "string" ? `${open}${esc(t[key])}<` : m));
+  // Texts the app writes on load; without them a page read without JavaScript keeps the template's Uzbek words.
+  const fill = { amountUnit: t.unit[cur](100), resLabel: t.getSell, colGet: t.getSell, nearLabel: t.near, tLabel: t["hist.cbu"], acTo: t["all.som"], total: group(s.bestBuy.buy * 100), ...(cbuAll ? { allCurSub: t.allSub(cbuAll.currencies.length) } : {}) };
+  for (const [id, text] of Object.entries(fill)) {
+    const place = new RegExp(`( id="${id}"[^>]*>)[^<]*<`);
+    if (!place.test(html)) throw new Error(`template marker not found: #${id}`);
+    html = html.replace(place, (m, open) => `${open}${esc(text)}<`);
+  }
+  html = cut(html, 'id="search" type="search" autocomplete="off" placeholder="', '"', `id="search" type="search" autocomplete="off" placeholder="${esc(t.search)}"`);
   html = cut(html, '<h1 id="tblTitle">', "</h1>", `<h1 id="tblTitle">${esc(t.title[cur])}</h1>`);
   html = cut(html, '<p class="muted" id="tblSub">', "</p>", `<p class="muted" id="tblSub">${esc(x.sub(s.count, at.time))}</p>`);
   html = cut(html, '<tbody id="tbody">', "</tbody>", `<tbody id="tbody">\n${rows}\n</tbody>`);
@@ -445,7 +465,7 @@ function currencyPage(lang, cur) {
   ${linkBlock(lang, s.byBuy.map((b) => b.bank), cur)}
   <p class="seo-langs">${langLinks(lang, (l) => curUrl(l, cur))}</p>
 </section>`);
-  if (lang === "ru") html = html.replace(FONT_LATIN, FONT_LATIN + "\n" + FONT_CYRILLIC);
+  if (isCyrillic(lang)) html = html.replace(FONT_LATIN, FONT_LATIN + "\n" + cyrillicFonts(lang));
   html = html.replace(/\?v=\w+/g, `?v=${VERSION}`).replace('<link rel="stylesheet" href="/style.css', '<link rel="stylesheet" href="/pages.css?v=' + VERSION + '">\n<link rel="stylesheet" href="/style.css');
   return html.replace('<script src="/shared.js', `<script>window.QK=${JSON.stringify({ lang, cur, ...pageMap })}</script>\n<script src="/shared.js`);
 }
@@ -455,7 +475,7 @@ function currencyPage(lang, cur) {
 function shell({ lang, url, urlOf, title, desc, graph, body, noindex, calc }) {
   const x = X[lang], home = curUrl(lang, "USD");
   return `<!doctype html>
-<html lang="${lang}">
+<html lang="${HTML_LANG[lang]}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -463,7 +483,7 @@ ${noindex ? `<title>${esc(title)}</title>\n<meta name="robots" content="noindex"
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
-${FONT_LATIN}${lang === "ru" ? "\n" + FONT_CYRILLIC : ""}
+${FONT_LATIN}${isCyrillic(lang) ? "\n" + cyrillicFonts(lang) : ""}
 <script>try{const t=localStorage.getItem("theme");document.documentElement.dataset.theme=t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch{document.documentElement.dataset.theme="light"}</script>
 <link rel="stylesheet" href="/style.css?v=${VERSION}">
 <link rel="stylesheet" href="/pages.css?v=${VERSION}">
@@ -510,7 +530,7 @@ function bankPage(lang, name, slug, allNames) {
 <section class="seo-copy">${linkBlock(lang, allNames.filter((b) => b !== name), null)}</section>`;
   return shell({
     lang, url, urlOf: (l) => bankUrl(l, slug), title: x.bankTitle(name, x.bankShort(u)), desc: x.bankDesc(name, u), body,
-    graph: [crumbs([["Qulay Kurs", home], [name, url]]), { "@type": "WebPage", name: x.bankH1(name), url: ORIGIN + url, inLanguage: lang, dateModified: rates[usd.cur].updatedAt, about: { "@type": "BankOrCreditUnion", name, ...(address ? { address } : {}) } }],
+    graph: [crumbs([["Qulay Kurs", home], [name, url]]), { "@type": "WebPage", name: x.bankH1(name), url: ORIGIN + url, inLanguage: HTML_LANG[lang], dateModified: rates[usd.cur].updatedAt, about: { "@type": "BankOrCreditUnion", name, ...(address ? { address } : {}) } }],
   });
 }
 
@@ -691,7 +711,7 @@ await writeFile(join(DIST, "404.html"), shell({ lang: "uz", title: "404 | Qulay 
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${pages.map(([url, lastmod, urlOf]) => `  <url><loc>${ORIGIN}${url}</loc><lastmod>${lastmod}</lastmod>${LANGS.map((l) => `<xhtml:link rel="alternate" hreflang="${l}" href="${ORIGIN}${urlOf(l)}"/>`).join("")}</url>`).join("\n")}
+${pages.map(([url, lastmod, urlOf]) => `  <url><loc>${ORIGIN}${url}</loc><lastmod>${lastmod}</lastmod>${LANGS.map((l) => `<xhtml:link rel="alternate" hreflang="${HTML_LANG[l]}" href="${ORIGIN}${urlOf(l)}"/>`).join("")}</url>`).join("\n")}
   <url><loc>${ORIGIN}/privacy</loc></url>
 </urlset>
 `;

@@ -153,6 +153,56 @@ const T = {
   }
 };
 
+/* ---------- Uzbek Cyrillic ---------- */
+
+// Uzbek Latin -> Uzbek Cyrillic by the rules of the mobile app (composeApp/…/Translit.kt), so the Uzbek texts exist
+// once. Left as they are: the site's name, @handles, 3-letter currency codes (USD), tokens with a dot, slash or digit
+// inside (cbu.uz, 12:31), and everything between the two KEEP marks (bank names and other data put into a text).
+const KEEP = ["\u0001", "\u0002"];
+const APOS = "‘’ʻʼ'`";
+const UZC_LETTERS = { a: "а", b: "б", c: "с", d: "д", e: "е", f: "ф", g: "г", h: "ҳ", i: "и", j: "ж", k: "к", l: "л", m: "м", n: "н", o: "о", p: "п", q: "қ", r: "р", s: "с", t: "т", u: "у", v: "в", w: "в", x: "х", y: "й", z: "з" };
+const UZC_PAIRS = { sh: "ш", ch: "ч", ya: "я", yu: "ю", ye: "е" };
+const UZC_WORDS = { rubl: "рубль", kalkulyator: "калькулятор" }; // written with ь, which the Latin spelling does not show
+
+function uzCyrillicWord(w) {
+  if (/[.\/@0-9]/.test(w) || /^[A-Z]{3}$/.test(w)) return w;
+  const code = /^([A-Z]{3})([a-z‘’ʻʼ'`]+)$/.exec(w); // a currency code with an ending: USDdan
+  if (code) return code[1] + uzCyrillicWord(code[2]);
+  const cap = (str, upper) => (upper ? str[0].toUpperCase() + str.slice(1) : str);
+  if (UZC_WORDS[w.toLowerCase()]) return cap(UZC_WORDS[w.toLowerCase()], w[0] !== w[0].toLowerCase());
+  let out = "";
+  for (let i = 0; i < w.length; ) {
+    const c = w[i], lc = c.toLowerCase(), next = (w[i + 1] || "").toLowerCase(), upper = c !== lc;
+    const emit = (str, len) => { out += cap(str, upper); i += len; };
+    if (APOS.includes(c)) { out += "ъ"; i++; } // tutuq belgisi: ma’lumot
+    else if ((lc === "o" || lc === "g") && next && APOS.includes(next)) emit(lc === "o" ? "ў" : "ғ", 2);
+    else if (UZC_PAIRS[lc + next]) emit(UZC_PAIRS[lc + next], 2);
+    else if (lc === "y" && next === "o" && !APOS.includes(w[i + 2] || " ")) emit("ё", 2); // yoki, but not yo‘l
+    else if (lc === "e" && (i === 0 || "aeiou".includes(w[i - 1].toLowerCase()))) emit("э", 1);
+    else if (UZC_LETTERS[lc]) emit(UZC_LETTERS[lc], 1);
+    else { out += c; i++; }
+  }
+  return out;
+}
+function uzCyrillic(text) {
+  return String(text).split(/(\u0001[^\u0002]*\u0002|Qulay Kurs|@\w+)/).map((part, i) => (i % 2
+    ? part.replace(/[\u0001\u0002]/g, "")
+    : part.replace(/[A-Za-z](?:[A-Za-z0-9‘’ʻʼ'`]|[.@\/](?=[A-Za-z0-9]))*/g, uzCyrillicWord))).join("");
+}
+// What a text function is called with is data, not text: it goes through unchanged. Currency codes stay bare,
+// because the texts look words up by them.
+const uzcKeep = (v) => (typeof v === "string" ? (v === "" || /^[A-Z]{3}$/.test(v) ? v : KEEP[0] + v + KEEP[1])
+  : v && typeof v === "object" ? new Proxy(v, { get: (target, key) => uzcKeep(target[key]) }) : v);
+// A whole table of texts (strings, functions that build strings, lists, nested tables) in Cyrillic.
+function uzCyrillicTexts(v) {
+  if (typeof v === "string") return uzCyrillic(v);
+  if (typeof v === "function") return (...args) => uzCyrillicTexts(v(...args.map(uzcKeep)));
+  if (Array.isArray(v)) return v.map(uzCyrillicTexts);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([key, x]) => [key, uzCyrillicTexts(x)]));
+  return v;
+}
+T.uzc = uzCyrillicTexts(T.uz);
+
 /* ---------- bank names ---------- */
 
 const bankKey = (n) => n.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");

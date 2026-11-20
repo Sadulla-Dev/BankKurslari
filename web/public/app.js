@@ -26,7 +26,7 @@ function detectLang() {
   const saved = store.get("lang");
   if (saved && T[saved]) return saved;
   for (const l of (navigator.languages || [navigator.language || "uz"]).map((x) => x.toLowerCase())) {
-    if (l.startsWith("uz")) return "uz";
+    if (l.startsWith("uz")) return l.includes("cyrl") ? "uzc" : "uz";
     if (l.startsWith("ru")) return "ru";
     if (l.startsWith("en")) return "en";
   }
@@ -64,6 +64,7 @@ const kmFmt = (km) => dec(km < 10 ? km.toFixed(1) : String(Math.round(km)));
 const tashkentTime = (iso) => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tashkent", hour12: false }).format(new Date(iso));
 const MONTHS = {
   uz: ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"],
+  uzc: ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"],
   ru: ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"],
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 };
@@ -1248,7 +1249,7 @@ function onLocated() {
 
 function applyLang() {
   const t = L();
-  document.documentElement.lang = S.lang;
+  document.documentElement.lang = S.lang === "uzc" ? "uz-Cyrl" : S.lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { const v = t[el.dataset.i18n]; if (typeof v === "string") el.textContent = v; });
   document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === S.lang));
   updateThemeControl();
