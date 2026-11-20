@@ -2,7 +2,7 @@
 //   node scripts/render-brand.mjs
 // Needs `rsvg-convert` (librsvg) and `cwebp` on PATH, and Chrome for the link-preview pictures. Writes brand/*, web/public icons, the iOS app icon,
 // the Play Store icon and the Android launcher bitmaps. The geometry lives only in this file.
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -89,6 +89,23 @@ function png(svg, size, file) {
   mkdirSync(dirname(file), { recursive: true });
   execFileSync("rsvg-convert", ["-w", String(size), "-h", String(size), "-o", file], { input: svg });
 }
+// favicon.ico, for clients that ask for that address whatever the page says (Yandex, old browsers):
+// one PNG inside an ICO container.
+export function ico(svg, size, file) {
+  const tmp = `${file}.tmp.png`;
+  png(svg, size, tmp);
+  const data = readFileSync(tmp), head = Buffer.alloc(22);
+  rmSync(tmp);
+  head.writeUInt16LE(1, 2); // type: icon
+  head.writeUInt16LE(1, 4); // one image
+  head.writeUInt8(size, 6); // width
+  head.writeUInt8(size, 7); // height
+  head.writeUInt16LE(1, 10); // colour planes
+  head.writeUInt16LE(32, 12); // bits per pixel
+  head.writeUInt32LE(data.length, 14); // size of the PNG
+  head.writeUInt32LE(22, 18); // where it starts
+  writeFileSync(file, Buffer.concat([head, data]));
+}
 function webp(svg, size, file) {
   const tmp = file.replace(/\.webp$/, ".tmp.png");
   png(svg, size, tmp);
@@ -138,6 +155,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 
   write(web("logo.svg"), icon());
   write(web("favicon.svg"), icon({ detail: false }));
+  ico(icon({ detail: false }), 48, web("favicon.ico"));
   png(icon({ shape: "square" }), 180, web("apple-touch-icon.png"));
   png(icon({ shape: "square", scale: 0.84 }), 192, web("icon-192.png"));
   png(icon({ shape: "square", scale: 0.84 }), 512, web("icon-512.png"));

@@ -31,6 +31,8 @@ body.page .foot { display: block; }
 body.page .seo-copy { padding-top: 12px; }
 .page-big { font-size: 17px; }
 .page-big b { font-size: 30px; letter-spacing: -.02em; }
+.calc-in { min-width: 5ch; max-width: 60%; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); font: 600 20px/1.2 var(--font); font-feature-settings: "tnum"; }
+.calc-in:focus { outline: none; border-color: var(--accent); }
 .page-h2 { margin: 0; padding: 18px 22px 8px; font-size: 17px; }
 .page-tbl .hi { color: var(--accent); }
 .page-head .badge { font-size: 14px; font-weight: 700; }
@@ -46,4 +48,8 @@ body.page .seo-copy { padding-top: 12px; }
   .page-tbl thead { display: table-header-group; }
   .page-tbl th, .page-tbl td { padding: 10px 12px !important; border-bottom: 1px solid var(--line) !important; font-size: 14px; }
   .page-tbl tr { display: table-row !important; }
+  .page-tbl { display: table; width: 100%; }
+  .page-tbl tbody { display: table-row-group; }
+  /* Bank names and column titles may wrap, so three-column tables fit a phone without scrolling. */
+  .page-tbl td:first-child, .page-tbl th { white-space: normal; }
 }
