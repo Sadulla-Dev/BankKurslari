@@ -6,8 +6,8 @@ workers_dev = true
 # Deploys leave it alone while no routes are listed here; adding it here would also need Zone permissions on the CI token.
 # workers.dev stays on for app builds released before the domain.
 
-# Built by ../src/build.js. The worker runs first for every path, so raw files are reachable only as routed above
-# (plus /_manifest.json and /_state/* that the builder pulls back).
+# Built by ../src/build.js. Every built file is public, including /_manifest.json and /_state/* that the builder
+# pulls back (that was already so before assets were served first).
 [triggers]
 # Starts .github/workflows/telegram-post.yml (see DISPATCH in worker.js). UTC.
 crons = ["55 2 * * *"]
@@ -15,4 +15,6 @@ crons = ["55 2 * * *"]
 [assets]
 directory = "public"
 binding = "ASSETS"
-run_worker_first = ["/api/*", "/health"]
+# Assets are matched first (free, not counted as Worker requests): src/build.js writes the common routes
+# (/api/rates/usd, /api/gold, ...) as files. Only paths without a file reach the Worker: /health,
+# /api/branches[/yandex], /api/gold/history, /api/bank-history/*, and uppercase or unknown paths.

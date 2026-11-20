@@ -136,6 +136,21 @@ if (mode === "full") {
 await put("health.json", { ok: true, currencies: api.SUPPORTED, builtAt: now(), mode });
 const files = (await listFiles(SITE)).filter((f) => f !== "_manifest.json").sort();
 await put("_manifest.json", { builtAt: now(), files });
+
+// Copies at the exact paths the apps request (lowercase, no .json), so Cloudflare serves them as static assets:
+// asset hits are free and unlimited, while every Worker run counts toward the free plan's 100k requests a day.
+// Not in the manifest: they are rebuilt from the .json files every time. _headers gives them the JSON type and CORS.
+const aliases = [["api/atms.json", "api/atms"], ["api/cbu/all.json", "api/cbu/all"], ["api/gold.json", "api/gold"]];
+for (const cur of api.SUPPORTED) {
+  for (const kind of ["rates", "history", "analytics"]) aliases.push([`api/${kind}/${cur}.json`, `api/${kind}/${cur.toLowerCase()}`]);
+}
+for (const [from, to] of aliases) {
+  if (files.includes(from)) await copyFile(join(SITE, from), join(SITE, to));
+}
+await put(
+  "_headers",
+  ["/api/*", "  Content-Type: application/json; charset=utf-8", "  Access-Control-Allow-Origin: *", "  Cache-Control: public, max-age=60", ""].join("\n")
+);
 console.log(`Built ${files.length} files (${mode})`);
 // server.js keeps no timers when imported, but undici keep-alive sockets can hold the loop open.
 process.exit(0);
