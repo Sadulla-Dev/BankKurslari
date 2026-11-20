@@ -45,7 +45,7 @@ const S = {
   sort: "best", query: "",
   rates: {}, history: {}, bankHist: {},
   branches: null, user: null,
-  range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null,
+  range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null, open: new Set(),
   map: null, markers: [], meMarker: null, hl: null
 };
 const L = () => T[S.lang];
@@ -91,22 +91,6 @@ function keysMatch(a, b) {
   const [s, l] = a.length <= b.length ? [a, b] : [b, a];
   return s.length >= 5 && l.includes(s);
 }
-/**
- * [street + number, the rest]: "100029, Toshkent shahri, Mirobod tumani, A.Temur ko'chasi, 53 uy"
- * -> ["A.Temur ko'chasi 53 uy", "Mirobod tumani"]. Postcodes and the bare city name are dropped.
- */
-function addrParts(a) {
-  if (!a) return ["", ""];
-  const parts = a.split(/,\s*/).filter((p) => p && !/^\d{5,6}$/.test(p) && !/^(toshkent|tashkent|ташкент)(\s+(shahri|sh\.|city|г\.))?$/i.test(p));
-  const si = parts.findIndex((p) => /ko.ch|kuch|street|ул\.|улица|prospekt|проспект|shoh/i.test(p));
-  if (si < 0) return [parts.slice(0, 2).join(", "), parts.slice(2).join(", ")];
-  let head = parts[si];
-  const used = new Set([si]);
-  const num = [si + 1, si - 1].find((i) => i >= 0 && i < parts.length && /^\d+[\p{L}/-]?\d*(\s*(uy|dom|д\.))?$/iu.test(parts[i]));
-  if (num != null) { head += " " + parts[num]; used.add(num); }
-  return [head, parts.filter((_, i) => !used.has(i)).join(", ")];
-}
-const cleanAddr = (a) => addrParts(a).filter(Boolean).join(", ");
 
 /* ---------- geo ---------- */
 
@@ -279,12 +263,64 @@ function renderConv() {
   if (!list.length) return;
   const best = list[0];
   animateNumber($("total"), best.rate * S.amount);
-  setText("totalCap", (S.mode === "sell" ? t.perUnit : t.perUnitBuy)(rateFmt(best.rate), unit(S.cur, 1), list.length));
+  // Several banks often share the best rate; naming one without saying so would hide the others.
+  const ties = list.filter((b) => Math.abs(b.rate - best.rate) < 0.005).length;
+  setText("totalCap", (S.mode === "sell" ? t.perUnit : t.perUnitBuy)(rateFmt(best.rate), unit(S.cur, 1), list.length, ties));
   $("bestBadge").outerHTML = badgeHTML(best.bank).replace("class=\"badge", "id=\"bestBadge\" class=\"badge");
   setText("bestName", best.bank);
   const nb = nearestBranch(best, S.user);
   setText("bestSub", nb?.km != null ? t.away(kmFmt(nb.km)) + (nb.address ? " · " + cleanAddr(nb.address) : "") : cleanAddr(nb?.address || best.branch?.address));
   $("bestBank").onclick = () => openSheet(best.bank);
+  renderVerdict(list);
+}
+/** "Within 0,5%": rounded up, so the claim stays true. */
+const withinPct = (p) => dec((Math.max(0.1, Math.ceil(p * 10) / 10)).toFixed(1)) + "%";
+/**
+ * The decision the list alone leaves to the reader: is the best bank worth the trip? The gap between the best and the
+ * worst rate for the user's amount is compared with WORTH (a taxi there and back, named in the text). With a location,
+ * the nearest bank and what it costs against the best one.
+ */
+function renderVerdict(list) {
+  const t = L(), sell = S.mode === "sell";
+  const box = $("verdict");
+  if (!list.length || !S.amount) { box.hidden = true; return; }
+  box.hidden = false;
+  const near = $("vdNear");
+  if (list.length < 2) { setText("vdHead", t.vdOne); setText("vdLine", ""); $("vdPlot").innerHTML = ""; near.hidden = true; return; }
+  const best = list[0].rate, worst = list[list.length - 1].rate;
+  const gap = Math.abs(best - worst) * S.amount;
+  const big = gap >= WORTH;
+  setText("vdHead", (big ? t.vdBig : t.vdSmall)(group(WORTH)));
+  $("vdHead").classList.toggle("big", big);
+  setText("vdLine", t.vdLine(sell, list.length, withinPct((Math.abs(best - worst) / best) * 100), group(S.amount), unit(S.cur, S.amount), group(gap)));
+  $("vdPlot").innerHTML = ratePlot(list);
+  let nb = null;
+  if (S.user && S.branches) {
+    for (const b of list) {
+      const n = nearestBranch(b, S.user);
+      if (n?.km != null && (!nb || n.km < nb.km)) nb = { bank: b, km: n.km };
+    }
+  }
+  near.hidden = !nb;
+  if (nb) {
+    near.textContent = t.vdNear(sell, nb.bank.bank, kmFmt(nb.km), Math.abs(nb.bank.rate - best) * S.amount < 0.5 ? "" : group(Math.abs(nb.bank.rate - best) * S.amount));
+    near.onclick = () => openSheet(nb.bank.bank);
+  }
+}
+/** Every bank's rate on one line, best on the right; banks with the same rate stack into one taller bar. */
+function ratePlot(list) {
+  const sell = S.mode === "sell";
+  const rates = list.map((b) => b.rate);
+  const lo = Math.min(...rates), hi = Math.max(...rates), span = hi - lo || 1;
+  const counts = new Map();
+  for (const r of rates) { const k = r.toFixed(2); counts.set(k, (counts.get(k) || 0) + 1); }
+  const max = Math.max(...counts.values());
+  const bars = [...counts].map(([k, n]) => {
+    const r = Number(k), x = sell ? (r - lo) / span : (hi - r) / span;
+    return `<i class="${Math.abs(r - list[0].rate) < 0.005 ? "b" : ""}" style="--x:${x.toFixed(4)};--h:${(n / max).toFixed(3)}"></i>`;
+  }).join("");
+  const [left, right] = sell ? [lo, hi] : [hi, lo];
+  return `<div class="vp-bars">${bars}</div><div class="vp-ax"><span>${rateFmt(left)}</span><span>${rateFmt(right)}</span></div>`;
 }
 function renderQuick() {
   const sets = { USD: [100, 500, 1000, 5000], EUR: [100, 500, 1000, 5000], RUB: [1000, 10000, 50000, 100000] };
@@ -309,12 +345,12 @@ function renderCbu() {
     const d = S.rates[c];
     if (!d?.cbu) return `<div class="cbu-i skel-box"></div>`;
     const diff = d.cbu.diff || 0;
-    const cls = diff > 0 ? "up-t" : diff < 0 ? "down-t" : "";
-    return `<button type="button" class="cbu-c${c === S.cur ? " on" : ""}" data-cur="${c}">
-      <span class="sym">${sym[c]}</span>
-      <span class="l1"><b>${rateFmt(d.cbu.rate)}</b><em class="${cls}">${diff > 0 ? "▲" : diff < 0 ? "▼" : ""} ${rateFmt(Math.abs(diff))}</em></span>
+    // Whether a rise is good depends on whether you sell or buy, so the change is shown without a verdict colour.
+    return `<div class="cbu-c">
+      <span class="sym" aria-hidden="true">${sym[c]}</span>
+      <span class="l1"><b>${rateFmt(d.cbu.rate)}</b><em>${diff > 0 ? "▲" : diff < 0 ? "▼" : ""} ${rateFmt(Math.abs(diff))}</em></span>
       <span class="l2">${c} · ${t.cbu}</span>
-    </button>`;
+    </div>`;
   }).join("");
 }
 
@@ -340,7 +376,6 @@ const acEsc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": 
 function renderAllBtn() {
   const t = L();
   setText("allCurSub", AC.list ? t.allSub(AC.list.length) : t["hist.cbu"]);
-  setText("allCurIc", AC.list ? `+${Math.max(0, AC.list.length - CURS.length)}` : "+");
 }
 function renderAllConv() {
   const t = L();
@@ -479,6 +514,22 @@ function bindAll() {
 
 /* ---------- bank table ---------- */
 
+/** Banks in rank order, grouped where the rate is the same (bank.uz rates come in steps of 5 so'm, so ties are common). */
+function tiersOf(rows) {
+  const out = [];
+  for (const r of rows) {
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.rate - r.rate) < 0.005) last.banks.push(r);
+    else out.push({ rate: r.rate, key: r.rate.toFixed(2), banks: [r] });
+  }
+  return out;
+}
+const rangeFmt = (vals) => {
+  const v = vals.filter((x) => x > 0);
+  if (!v.length) return "—";
+  const lo = Math.min(...v), hi = Math.max(...v);
+  return lo === hi ? rateFmt(lo) : `${rateFmt(lo)}–${rateFmt(hi)}`;
+};
 function renderTable() {
   const t = L();
   const d = S.rates[S.cur];
@@ -496,6 +547,7 @@ function renderTable() {
   const best = list[0];
   const maxBuy = Math.max(...list.map((b) => b.buy || 0));
   const minSell = Math.min(...list.filter((b) => b.sell > 0).map((b) => b.sell));
+  const maxGap = Math.abs(list[list.length - 1].rate - best.rate) * S.amount || 1;
   let rows = list.map((b) => ({ ...b, nb: nearestBranch(b, S.user) }));
   const q = S.query.trim().toLowerCase();
   if (q) rows = rows.filter((b) => b.bank.toLowerCase().includes(q) || shortName(b.bank).toLowerCase().includes(q));
@@ -508,17 +560,43 @@ function renderTable() {
   }[S.sort];
   rows.sort(by);
   if (!rows.length) { $("tbody").innerHTML = `<tr><td colspan="5" class="empty">${esc(t.noMatch)}</td></tr>`; return; }
-  $("tbody").innerHTML = rows.map((b) => {
+  // The difference from the best, in so'm for the user's amount, with a bar so the list is seen rather than read.
+  // Neutral unless it is bigger than a trip (WORTH): a 500 so'm difference is not a warning.
+  const gapCell = (diff) => diff < 0.5
+    ? `<small class="best">${esc(t.best)}</small>`
+    : `<small class="${diff >= WORTH ? "warn" : ""}"><i class="gap" style="--w:${Math.max(0.08, diff / maxGap).toFixed(3)}"></i>${esc((S.mode === "sell" ? t.less : t.more)(group(diff)))}</small>`;
+  const kmCell = (km) => (S.user ? `<td class="num c-km">${km != null ? t.km(kmFmt(km)) : "—"}</td>` : "");
+  const bankRow = (b, cls = "") => {
     const diff = Math.abs(b.rate - best.rate) * S.amount;
     const isBest = diff < 0.5;
     const sub = b.nb?.km != null ? t.away(kmFmt(b.nb.km)) : cleanAddr(b.nb?.address || b.branch?.address);
-    return `<tr data-bank="${esc(b.bank)}" class="${isBest ? "top1" : ""}">
-      <td class="c-bank"><span class="bn">${badgeHTML(b.bank, isBest ? "accent" : "")}<span><b>${esc(b.bank)}</b><small>${esc(sub)}</small></span></span></td>
+    return `<tr data-bank="${esc(b.bank)}" class="${[isBest ? "top1" : "", cls].join(" ").trim()}">
+      <td class="c-bank"><span class="bn">${badgeHTML(b.bank, isBest ? "accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(sub)}</small></span></span></td>
       <td class="num c-buy ${b.buy === maxBuy ? "hi" : ""}">${b.buy ? rateFmt(b.buy) : "—"}</td>
       <td class="num c-sell ${b.sell === minSell ? "hi" : ""}">${b.sell ? rateFmt(b.sell) : "—"}</td>
-      <td class="num c-get get"><b>${group(b.rate * S.amount)}</b><small class="${isBest ? "best" : ""}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(group(diff))}</small></td>
-      ${S.user ? `<td class="num c-km">${b.nb?.km != null ? t.km(kmFmt(b.nb.km)) : "—"}</td>` : ""}
+      <td class="num c-get get"><b>${group(b.rate * S.amount)}</b>${gapCell(diff)}</td>
+      <td class="num c-m get"><b>${rateFmt(b.rate)}</b>${gapCell(diff)}</td>
+      ${kmCell(b.nb?.km)}
     </tr>`;
+  };
+  // Ranked by the answer and not searched: one row per rate, so 29 banks read as the handful of offers they are.
+  // The best rate always shows its banks; any other group opens on tap.
+  if (S.sort !== "best" || q) { $("tbody").innerHTML = rows.map((b) => bankRow(b)).join(""); return; }
+  $("tbody").innerHTML = tiersOf(rows).map((tier, i) => {
+    if (i === 0 || tier.banks.length === 1) return tier.banks.map((b) => bankRow(b)).join("");
+    const open = S.open.has(tier.key);
+    const diff = Math.abs(tier.rate - best.rate) * S.amount;
+    const names = tier.banks.slice(0, 3).map((b) => shortName(b.bank)).join(", ") + (tier.banks.length > 3 ? "…" : "");
+    const kms = tier.banks.map((b) => b.nb?.km).filter((k) => k != null);
+    const head = `<tr class="tier${open ? " open" : ""}" data-tier="${tier.key}">
+      <td class="c-bank"><span class="bn"><span class="stack">${tier.banks.slice(0, 2).map((b) => badgeHTML(b.bank, "sm")).join("")}</span><span><button type="button" class="bn-name" aria-expanded="${open}"><b>${esc(t.tier(tier.banks.length))}</b><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><small>${esc(names)}</small></span></span></td>
+      <td class="num c-buy">${rangeFmt(tier.banks.map((b) => b.buy))}</td>
+      <td class="num c-sell">${rangeFmt(tier.banks.map((b) => b.sell))}</td>
+      <td class="num c-get get"><b>${group(tier.rate * S.amount)}</b>${gapCell(diff)}</td>
+      <td class="num c-m get"><b>${rateFmt(tier.rate)}</b>${gapCell(diff)}</td>
+      ${kmCell(kms.length ? Math.min(...kms) : null)}
+    </tr>`;
+    return head + (open ? tier.banks.map((b) => bankRow(b, "sub")).join("") : "");
   }).join("");
 }
 
@@ -562,14 +640,14 @@ function renderSheet(bank, list) {
     const diff = Math.abs(bank.rate - best.rate) * S.amount;
     const bestNb = nearestBranch(best, S.user);
     const further = nb?.km != null && bestNb?.km != null && nb.km - bestNb.km > 0.3 ? t.further(kmFmt(nb.km - bestNb.km)) : "";
-    cmp.className = "sh-cmp warn";
+    cmp.className = "sh-cmp" + (diff >= WORTH ? " warn" : "");
     cmp.textContent = (S.mode === "sell" ? t.cmpLess : t.cmpMore)(group(diff), shortName(best.bank)) + further;
   }
   setText("shBuy", bank.buy ? rateFmt(bank.buy) : "—");
   setText("shSell", bank.sell ? rateFmt(bank.sell) : "—");
   const [dBuy, dSell] = todayDelta(bank.bank);
-  setDelta($("shBuyD"), dBuy);
-  setDelta($("shSellD"), dSell);
+  setDelta($("shBuyD"), dBuy, true);
+  setDelta($("shSellD"), dSell, false);
 
   const box = $("shBranches");
   if (!S.branches) box.innerHTML = `<div class="skel"></div>`;
@@ -617,12 +695,13 @@ function todayDelta(bankName) {
   const now = pick(keys[keys.length - 1]), prev = pick(keys[keys.length - 2]);
   return now && prev ? [now[0] - prev[0], now[1] - prev[1]] : [null, null];
 }
-function setDelta(el, d) {
+/** A rise in what the bank pays is good for you; a rise in what it charges is not. Only the good change is coloured. */
+function setDelta(el, d, upIsGood) {
   const t = L();
   if (d == null) { el.textContent = ""; el.className = ""; return; }
   if (Math.abs(d) < 0.005) { el.textContent = t.noChange; el.className = "flat"; return; }
   el.textContent = `${d > 0 ? "+" : "−"}${rateFmt(Math.abs(d))} ${t.today}`;
-  el.className = d > 0 ? "" : "down";
+  el.className = (d > 0) === upIsGood ? "good" : "";
 }
 
 /* ---------- map (MapLibre + OpenFreeMap) ---------- */
@@ -923,7 +1002,7 @@ function renderMap() {
     return `<button type="button" class="si${bank.bank === S.hl ? " on" : ""}" data-bank="${esc(bank.bank)}" data-lat="${nb?.lat ?? ""}" data-lng="${nb?.lng ?? ""}">
       ${badgeHTML(bank.bank, isBest ? "accent" : "")}
       <span><b>${esc(bank.bank)}</b><small>${esc(sub)}</small></span>
-      <span class="r"><b>${rateFmt(bank.rate)}</b><small class="${isBest ? "best" : "warn"}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(rateFmt(diff))}</small></span>
+      <span class="r"><b>${rateFmt(bank.rate)}</b><small class="${isBest ? "best" : ""}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(rateFmt(diff))}</small></span>
     </button>`;
   }).join("");
 
@@ -973,7 +1052,8 @@ function trendCaption(slice, idx) {
   }
   const d = end.rate - first.rate;
   const ri = histRange();
-  return `${signed(d)} · ${pctOf(d, first.rate)} · ${ri < t.periods.length ? t.periods[ri] : t.since(first.date.slice(0, 4))}`;
+  const when = ri < t.periodsIn.length ? t.periodsIn[ri] : t.sinceIn(first.date.slice(0, 4));
+  return t.moved(Math.abs(d) < 0.005 ? null : d > 0, rateFmt(Math.abs(d)), pctOf(d, first.rate), when);
 }
 function shortDate(ms, spanDays) {
   const dt = new Date(ms);
@@ -1022,9 +1102,13 @@ function drawChart(slice) {
   const times = slice.map((p) => dayMs(p.date));
   const hiI = rates.indexOf(Math.max(...rates)), loI = rates.indexOf(Math.min(...rates));
   const hi = rates[hiI], lo = rates[loI];
-  const pad = (hi - lo) * 0.08 || hi * 0.002 || 1;
-  const ticks = niceTicks(lo - pad, hi + pad, narrow ? 4 : 6);
-  const yLo = Math.min(lo - pad, ticks[0]), yHi = Math.max(hi + pad, ticks[ticks.length - 1]);
+  // The axis never spans less than 4% of the rate: a 0,3% month must not fill the chart like a crash
+  // (a truncated axis makes any change look bigger, even to readers who are told; Correll et al., CHI 2020).
+  const minSpan = hi * 0.04;
+  const [sLo, sHi] = hi - lo >= minSpan ? [lo, hi] : [(hi + lo) / 2 - minSpan / 2, (hi + lo) / 2 + minSpan / 2];
+  const pad = (sHi - sLo) * 0.08;
+  const ticks = niceTicks(sLo - pad, sHi + pad, narrow ? 4 : 6);
+  const yLo = Math.min(sLo - pad, ticks[0]), yHi = Math.max(sHi + pad, ticks[ticks.length - 1]);
   const t0 = times[0], t1 = times[times.length - 1];
   const x = (ms) => padL + ((ms - t0) / (t1 - t0 || 1)) * (W - padL - padR);
   const y = (v) => top + (1 - (v - yLo) / (yHi - yLo)) * (bottom - top);
@@ -1070,7 +1154,6 @@ function drawChart(slice) {
     ${hiI !== loI ? extLabel(hiI, true) + extLabel(loI, false) : ""}
     <line id="scrubL" class="scrub" x1="0" x2="0" y1="${top - 10}" y2="${bottom}" opacity="0"/>
     <circle id="scrubC" class="scrub-dot" r="6" opacity="0"/>
-    <circle class="end-halo" cx="${xs[xs.length - 1]}" cy="${ys[ys.length - 1]}" r="10" id="endHalo"/>
     <circle class="end-dot" cx="${xs[xs.length - 1]}" cy="${ys[ys.length - 1]}" r="5" id="endDot"/>
   </svg><div class="tip" id="chartTip" hidden></div>`;
   const ln = el.querySelector(".ln");
@@ -1084,11 +1167,11 @@ function drawChart(slice) {
   const tRate = $("tRate");
   animateNumber(tRate, end.rate, rateFmt);
   setText("tCap", trendCaption(slice, null));
-  $("tCap").className = "caption " + trend;
+  $("tCap").className = "caption";
   renderHistStats(slice, hiI, loI, avg);
 
   const sl = el.querySelector("#scrubL"), sc = el.querySelector("#scrubC"), tip = $("chartTip");
-  const endEls = [el.querySelector("#endDot"), el.querySelector("#endHalo")];
+  const endEls = [el.querySelector("#endDot")];
   let cur = null;
   /** Nearest point by time (points are spaced unevenly: daily recently, weekly/monthly further back). */
   const at = (cx) => {
@@ -1109,7 +1192,7 @@ function drawChart(slice) {
     setText("tCap", trendCaption(slice, i));
     const prev = i > 0 ? slice[i].rate - slice[i - 1].rate : null;
     tip.innerHTML = `<small>${esc(fullDate(slice[i].date))}</small><b>${rateFmt(slice[i].rate)} <span>${esc(t.som)}</span></b>` +
-      (prev != null ? `<em class="${prev > 0.004 ? "up" : prev < -0.004 ? "down" : ""}">${signed(prev)} ${esc(t.prevPt)}</em>` : "");
+      (prev != null ? `<em>${signed(prev)} ${esc(t.prevPt)}</em>` : "");
     tip.hidden = false;
     const r = el.getBoundingClientRect(), sx = r.width / W;
     const tw = tip.offsetWidth, th = tip.offsetHeight;
@@ -1153,13 +1236,14 @@ function renderHistStats(slice, hiI, loI, avg) {
     cell(t.stHigh, rateFmt(slice[hiI].rate), fullDate(slice[hiI].date)) +
     cell(t.stLow, rateFmt(slice[loI].rate), fullDate(slice[loI].date)) +
     cell(t.stAvg, rateFmt(avg), histRange() < t.periods.length ? t.periods[histRange()] : t.since(first.date.slice(0, 4))) +
-    cell(t.stChg, signed(change), pctOf(change, first.rate), Math.abs(change) < 0.005 ? "" : change > 0 ? "up-t" : "down-t");
+    cell(t.stChg, signed(change), pctOf(change, first.rate));
 }
 function renderSpread() {
   const t = L();
   setText("spBuyL", S.histGold ? t.goldSellL : t["spread.buy"]);
   setText("spSellL", S.histGold ? t.goldBuyL : t["spread.sell"]);
   setText("spNote", S.histGold ? t.goldSideNote : t["spread.note"]);
+  $("spNote").hidden = !$("spNote").textContent;
   if (S.histGold) {
     const g10 = S.gold?.bars?.find((b) => b.grams === 10);
     setText("spBuy", g10 ? group(g10.sell / 10) : "—");
@@ -1217,14 +1301,15 @@ function renderGold() {
   card.hidden = false;
   const [dd, mm, yy] = (g.date || "").split(".");
   setText("goldSub", t.goldSub(dd && mm && yy ? fullDate(`${yy}-${mm}-${dd}`) : g.date || "", g.time || ""));
+  // The loss on a round trip is the same few percent for every bar, so it is said once, for the common 10 g bar.
+  const ref = g.bars.find((b) => b.grams === 10 && b.sell && b.buyback) || g.bars.find((b) => b.sell && b.buyback);
+  setText("goldLead", ref ? t.goldLoss(ref.grams, group(ref.sell - ref.buyback), dec((((ref.sell - ref.buyback) / ref.sell) * 100).toFixed(1))) : "");
   $("goldBody").innerHTML = g.bars.map((b) => {
-    const loss = b.sell ? ((b.sell - b.buyback) / b.sell) * 100 : 0;
     return `<tr>
       <td><span class="gold-bar"><span class="ingot-slot">${ingot(b.grams)}</span><b>${esc(t.grams(b.grams))}</b></span></td>
       <td class="num"><b>${group(b.sell)}</b></td>
       <td class="num">${b.buyback ? group(b.buyback) : "—"}</td>
       <td class="num muted">${group(b.sell / b.grams)}</td>
-      <td class="num"><span class="gold-loss">−${dec(loss.toFixed(1))}%</span></td>
     </tr>`;
   }).join("");
 }
@@ -1252,6 +1337,7 @@ function applyLang() {
   document.documentElement.lang = S.lang === "uzc" ? "uz-Cyrl" : S.lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { const v = t[el.dataset.i18n]; if (typeof v === "string") el.textContent = v; });
   document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === S.lang));
+  $("langSel").value = S.lang;
   updateThemeControl();
   syncTitle();
   renderAll();
@@ -1322,15 +1408,17 @@ function bind() {
       syncMapTheme();
     }
   });
-  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => {
-    store.set("lang", b.dataset.lang);
-    if (QK) { if (b.dataset.lang !== S.lang) location.href = QK.urls[b.dataset.lang][S.cur] + location.hash; return; }
-    S.lang = b.dataset.lang;
+  const switchLang = (lang) => {
+    store.set("lang", lang);
+    if (QK) { if (lang !== S.lang) location.href = QK.urls[lang][S.cur] + location.hash; return; }
+    S.lang = lang;
     applyLang();
-  }));
+  };
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => switchLang(b.dataset.lang)));
+  $("langSel").addEventListener("change", (e) => switchLang(e.target.value));
   document.addEventListener("click", (e) => {
     if (e.target.closest("[data-gold]")) { S.histGold = true; return renderHistory(); }
-    const cur = e.target.closest(".curSeg button, .cbu-c");
+    const cur = e.target.closest(".curSeg button");
     if (cur) {
       const wasGold = S.histGold;
       S.histGold = false;
@@ -1357,7 +1445,18 @@ function bind() {
     const s = e.target.closest("button")?.dataset.sort;
     if (s) { S.sort = s; renderTable(); }
   });
-  $("tbody").addEventListener("click", (e) => { const r = e.target.closest("tr[data-bank]"); if (r) openSheet(r.dataset.bank); });
+  $("tbody").addEventListener("click", (e) => {
+    const tier = e.target.closest("tr.tier");
+    if (tier) {
+      const k = tier.dataset.tier;
+      if (S.open.has(k)) S.open.delete(k); else S.open.add(k);
+      renderTable();
+      document.querySelector(`tr.tier[data-tier="${k}"] .bn-name`)?.focus({ preventScroll: true });
+      return;
+    }
+    const r = e.target.closest("tr[data-bank]");
+    if (r) openSheet(r.dataset.bank);
+  });
   $("nearBtn").addEventListener("click", async () => {
     if (S.user) { S.sort = S.sort === "km" ? "best" : "km"; renderTable(); return; }
     const btn = $("nearBtn");

@@ -3,6 +3,12 @@
 .seo-links { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 10px !important; max-width: none !important; }
 .seo-links a { padding: 5px 12px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow-sm); color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 500; }
 .seo-links a:hover { color: var(--accent); }
+/* Common amounts: each link with its answer next to it, in two columns on wide screens. */
+.seo-answers { list-style: none; margin: 10px 0 0; padding: 0; max-width: none !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); column-gap: 32px; }
+.seo-answers li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.seo-answers a { flex: 1; min-width: 0; display: flex; align-items: center; min-height: 44px; color: var(--ink); text-decoration: none; }
+.seo-answers a:hover { color: var(--accent); text-decoration: underline; }
+.seo-answers span { flex: none; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .seo-note { margin-top: 18px !important; font-size: 12px; color: var(--ink-3); }
 .seo-langs { display: flex; gap: 12px; margin-top: 10px !important; font-size: 13px; }
 .seo-langs a { color: var(--ink-2); }
