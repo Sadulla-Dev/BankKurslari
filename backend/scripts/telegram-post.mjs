@@ -157,7 +157,7 @@ function html({ banks, cbu, when }) {
       <svg viewBox="0 0 32 32" width="52" height="52"><rect width="32" height="32" rx="9" fill="#fff"/><path d="M7.5 21.5l5.5-5.5 4 4 6.5-7" stroke="#2F7A68" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="23.8" cy="12.6" r="3" fill="#F2C14E"/></svg>
       <div><h1>Dollar kursi: banklar reytingi</h1><p class="sub">Qayerda sotish va qayerda olish foydali — 1 $ uchun, so‘mda</p></div>
     </div>
-    <div class="when"><b>${when.dd}.${when.mm}.${when.year} · ${when.time}</b><span>Toshkent vaqti</span></div>
+    <div class="when"><b>${when.dd}.${when.mm}.${when.year}</b></div>
   </header>
   <div class="cbu">Markaziy bank kursi: <b>1 $ = ${money(cbu.rate)}</b><span class="d">(${diff < 0 ? "−" : "+"}${money(Math.abs(diff))})</span></div>
   <div class="grid">
@@ -188,7 +188,7 @@ function caption({ banks, cbu, when }) {
   const names = (list) => list.map((b) => b.name).join(", ");
   const diff = cbu.diff || 0;
   return [
-    `💵 <b>Banklarda dollar kursi</b> — ${when.day}-${MONTHS[when.month - 1]}, ${when.time}`,
+    `💵 <b>Banklarda dollar kursi</b> — ${when.day}-${MONTHS[when.month - 1]}`,
     "",
     `🏦 Markaziy bank: <b>${money(cbu.rate)}</b> so‘m (${diff < 0 ? "−" : "+"}${money(Math.abs(diff))})`,
     `📈 Dollar sotsangiz, eng yaxshisi: <b>${group(maxBuy)}</b> — ${esc(names(banks.filter((b) => b.buy === maxBuy)))}`,
