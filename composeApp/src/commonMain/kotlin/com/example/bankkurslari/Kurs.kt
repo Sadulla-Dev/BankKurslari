@@ -58,6 +58,7 @@ import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material.icons.outlined.LocationOff
@@ -399,6 +400,32 @@ private fun Modifier.rise(e: Animatable<Float, *>, index: Int): Modifier = graph
 
 /* ---------- screen ---------- */
 
+/** One quiet card pointing to Hamyon: what the user's own savings are worth today. */
+@Composable
+private fun WalletNudge(onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().clip(VsShape.Card).background(VsEmeraldSoft).clickable(role = Role.Button, onClick = onOpen)
+            .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(Icons.Outlined.AccountBalanceWallet, null, tint = com.example.bankkurslari.ui.theme.VsEmeraldDeep, modifier = Modifier.size(24.dp))
+        Column(Modifier.weight(1f)) {
+            Text(tr("Jamgʻarmangiz bugun qancha turadi?", "Сколько стоят ваши сбережения?", "What are your savings worth today?"), style = VsType.BodyMedium, color = VsInk)
+            Text(
+                tr("Hamyonga qoʻshing: har kuni qiymati, oʻzgarishi va maqsadingiz", "Добавьте в кошелёк: стоимость, изменение и цель каждый день", "Add them to the wallet: value, change and your goal every day"),
+                style = VsType.Meta, color = VsInkSoft
+            )
+        }
+        val closeLabel = tr("Yopish", "Закрыть", "Close")
+        Box(
+            Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onDismiss)
+                .semantics { contentDescription = closeLabel },
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Outlined.Close, null, tint = VsInkSoft, modifier = Modifier.size(16.dp)) }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun KursScreen(
@@ -421,8 +448,11 @@ fun KursScreen(
     onOpenSettings: () -> Unit,
     onRefresh: () -> Unit,
     onRequestLocation: () -> Unit = {},
-    onShowOnMap: () -> Unit = {}
+    onShowOnMap: () -> Unit = {},
+    onOpenWallet: () -> Unit = {}
 ) {
+    // Hamyon nudge: shown until the wallet has something in it or the user closes it once.
+    var walletNudge by remember { mutableStateOf(WalletStore.load().isEmpty() && appStore().getString("wallet_nudge_off") == null) }
     val route = LocalRoute.current
     val ru = kursIsRu()
     val sell = direction == ConvertMode.SELL_USD
@@ -676,6 +706,15 @@ fun KursScreen(
                                 action = if (userLocation == null) tr("Yoqish", "Включить", "Turn on") else null,
                                 onAction = { locChipDismissed = true; onRequestLocation() },
                                 onDismiss = { locChipDismissed = true },
+                                modifier = Modifier.animateItem().rise(entrance, 2)
+                            )
+                        }
+                    }
+                    if (walletNudge) {
+                        item(key = "wallet-nudge") {
+                            WalletNudge(
+                                onOpen = onOpenWallet,
+                                onDismiss = { walletNudge = false; appStore().putString("wallet_nudge_off", "1") },
                                 modifier = Modifier.animateItem().rise(entrance, 2)
                             )
                         }

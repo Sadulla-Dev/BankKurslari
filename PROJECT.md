@@ -94,10 +94,12 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - **Jami qiymat** so‘mda: bugun eng ko‘p to‘laydigan bankning naqd kursi bo‘yicha (oltin: MB qaytarib sotib olish narxi, 10 g quyma).
 - **Kecha bilan farq** (MB kursi o‘zgarishi bo‘yicha) va **dollardagi qiymat**.
 - Har qatorda: miqdor, bank va kurs, so‘mdagi qiymat, kunlik o‘zgarish. Bosish — o‘zgartirish yoki o‘chirish.
+- Hamyon bo‘sh bo‘lsa, Kurs ekranida unga taklif kartasi (yopish mumkin).
 - **Valyutani valyutaga almashtirish:** masalan USD → EUR. Eng foydali yo‘l (bir bankda sotish, boshqasida olish), ikkalasi bitta bankda bo‘lsa natija, MB kursi bo‘yicha qiymat va banklar farqi (%).
 - **Maqsad:** masalan “Mashina — 20 000 $”: progress bar, yig‘ilgan summa va yana qancha kerakligi (USD, EUR yoki so‘mda).
 - **Jamg‘arma dinamikasi:** hozirgi jamg‘arma 30 kun / 1 yil davomida MB kursi bo‘yicha qanday o‘zgargani, grafik bilan.
 - Kod: `Wallet.kt` (hisob-kitob, saqlash), `Hamyon.kt` (ekran); web: `web/public/wallet.js` (`#/hamyon`), hisob-kitob bir xil.
+- Web oflayn ishlaydi (`web/public/sw.js`): sahifa va oxirgi kurslar keshda, internet bo‘lmasa shular ko‘rsatiladi.
 
 ### 1.7 Sozlamalar
 
@@ -115,6 +117,8 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - **Uy ekrani vidjeti:** tanlangan valyuta bo‘yicha eng yaxshi sotish/sotib olish kursi va banklar, MB kursi.
 - **Hamyon vidjeti:** jamg‘arma qiymati va kechagidan farqi; bosilsa Hamyon ochiladi.
 - **Ilova yorliqlari** (ikonkani bosib turish): Hamyon, Xarita, Tarix — to‘g‘ridan-to‘g‘ri shu tabga.
+- **Haftalik xulosa:** yakshanba soat 10:00 dan keyin bitta bildirishnoma — dollar haftada qancha o‘zgardi, hamyon haftalik farqi, maqsadga necha foiz. Bosilsa Hamyon ochiladi.
+- Hamyon vidjeti 2 qator balandlikda maqsad progressini ham ko‘rsatadi.
 - **Fon yangilanishi** (WorkManager, ~30 daqiqada): vidjetlarni yangilaydi, ogohlantirish shartlarini tekshiradi.
 - **Kunlik xulosa:** MB yangi kursni e’lon qilganda bitta bildirishnoma — kurs va o‘zgarish, eng yaxshi sotish/olish banklari, hamyon qiymati va kunlik farqi.
 

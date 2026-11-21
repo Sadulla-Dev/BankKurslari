@@ -16,6 +16,7 @@ const WT = {
     goalName: "Nima uchun? Masalan: Mashina", goalDone: "Maqsadga yetdingiz! 🎉", goalLeft: (v, u) => `Yana ${v} ${u} kerak`, goalDel: "Maqsadni o‘chirish",
     trendT: "Jamg‘arma dinamikasi", r30: "30 kun", r365: "1 yil", today: "bugun", histLoading: "Tarix yuklanmoqda…",
     trendNote: "Hozirgi jamg‘armangiz MB kursi bo‘yicha: valyuta kursi o‘zgarishi qiymatga qanday ta’sir qilgani.",
+    nudgeT: "Jamg‘armangiz bugun qancha turadi?", nudgeP: "Hamyonga qo‘shing: har kuni qiymati, o‘zgarishi va maqsadingiz", close: "Yopish",
     title: "Hamyon", sub: "Jamg‘armangiz bugun qancha turadi",
     emptyT: "Jamg‘armangizni qo‘shing",
     emptyP: "Dollar, yevro, rubl, oltin yoki so‘mda qancha pulingiz borligini yozing. Sayt har kuni u bugun banklarda qancha turishini va kechagidan qancha o‘zgarganini ko‘rsatadi.",
@@ -39,6 +40,7 @@ const WT = {
     goalName: "На что? Например: Машина", goalDone: "Цель достигнута! 🎉", goalLeft: (v, u) => `Осталось ${v} ${u}`, goalDel: "Удалить цель",
     trendT: "Динамика сбережений", r30: "30 дн", r365: "1 год", today: "сегодня", histLoading: "История загружается…",
     trendNote: "Ваши текущие сбережения по курсу ЦБ: как изменение курса повлияло на их стоимость.",
+    nudgeT: "Сколько стоят ваши сбережения?", nudgeP: "Добавьте в кошелёк: стоимость, изменение и цель каждый день", close: "Закрыть",
     title: "Кошелёк", sub: "Сколько стоят ваши сбережения сегодня",
     emptyT: "Добавьте свои сбережения",
     emptyP: "Укажите, сколько у вас долларов, евро, рублей, золота или сумов. Сайт каждый день покажет, сколько это стоит в банках сегодня и как изменилось со вчера.",
@@ -62,6 +64,7 @@ const WT = {
     goalName: "What for? E.g. Car", goalDone: "Goal reached! 🎉", goalLeft: (v, u) => `${v} ${u} to go`, goalDel: "Remove goal",
     trendT: "Savings over time", r30: "30 d", r365: "1 y", today: "today", histLoading: "Loading history…",
     trendNote: "Your current savings at CBU rates: how rate moves changed their value.",
+    nudgeT: "What are your savings worth today?", nudgeP: "Add them to the wallet: value, change and your goal every day", close: "Close",
     title: "Wallet", sub: "What your savings are worth today",
     emptyT: "Add your savings",
     emptyP: "Enter how much you keep in dollars, euros, rubles, gold or so'm. Every day the site shows what it is worth at banks and how it changed since yesterday.",
@@ -396,6 +399,7 @@ document.addEventListener("click", (e) => {
     if (!(amount > 0)) { $("wAmount")?.focus(); return; }
     const code = W.editing || W.sheetCode;
     WS.save(WS.upsert(WS.load(), { code, amount }, !!W.editing));
+    wNudge();
     W.adding = false; W.editing = null;
     return renderWallet();
   }
@@ -424,6 +428,21 @@ document.addEventListener("keydown", (e) => {
 });
 function wSaveX() { store.set("xchg_from", W.from); store.set("xchg_to", W.to); store.set("xchg_amount", W.amount); }
 
+/** Quiet card under the converter pointing to #/hamyon, until the wallet has something or the visitor closes it. */
+function wNudge() {
+  document.getElementById("wNudge")?.remove();
+  if (WS.load().length || store.get("wallet_nudge_off")) return;
+  const conv = document.querySelector(".conv");
+  if (!conv) return;
+  const t = WL();
+  conv.insertAdjacentHTML("beforeend", `<div class="w-nudge" id="wNudge"><a href="#/hamyon"><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="5.5" width="15" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 5.5l8.5-2.5.8 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="12" y="9" width="5.5" height="4" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span><b>${esc(t.nudgeT)}</b><small>${esc(t.nudgeP)}</small></span></a><button type="button" class="icon-btn" data-wnudge-off aria-label="${esc(t.close)}"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>`);
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-wnudge-off]")) return;
+  store.set("wallet_nudge_off", "1");
+  wNudge();
+});
+
 let wLoaded = null, wHistLoaded = null;
 function showWallet() {
   renderWallet();
@@ -432,3 +451,4 @@ function showWallet() {
 }
 // app.js routed before this file loaded: catch up.
 if (S.view === "wallet") showWallet();
+wNudge();

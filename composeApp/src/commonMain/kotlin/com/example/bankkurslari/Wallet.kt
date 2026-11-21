@@ -7,6 +7,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlin.math.abs
+import kotlinx.datetime.minus
 import kotlin.math.roundToLong
 
 /*
@@ -326,4 +327,50 @@ suspend fun fetchWalletHistories(): Map<WalletCode, List<HistoryPoint>> = corout
 private fun parseWalletGold(body: String): List<HistoryPoint> = body.split(';').mapNotNull { p ->
     val (d, v) = p.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
     HistoryPoint(d, v.toDoubleOrNull() ?: return@mapNotNull null)
+}
+
+/* ---------- weekly summary (Android notification) ---------- */
+
+/** Lines of the Sunday summary; null when there is nothing worth saying (no history yet). */
+suspend fun weeklySummaryLines(today: String): List<String>? {
+    val unit = trSaved("soʻm", "сум", "UZS")
+    val since = kotlinx.datetime.LocalDate.parse(today).minus(7, kotlinx.datetime.DateTimeUnit.DAY).toString()
+    val quotes = cachedQuotes()
+    val histories = cachedWalletHistories()
+    val lines = mutableListOf<String>()
+    val usdHist = histories[WalletCode.USD].orEmpty().sortedBy { it.date }
+    val usdNow = quotes[WalletCode.USD]?.cbu
+    val usdThen = usdHist.lastOrNull { it.date <= since }?.rate
+    if (usdNow != null && usdThen != null) {
+        val d = usdNow - usdThen
+        val ds = (if (d >= 0) "+" else "-") + kotlin.math.abs(d).fixed(0)
+        lines += trSaved("Dollar: ${usdNow.formatRate()} $unit (hafta: $ds)", "Доллар: ${usdNow.formatRate()} $unit (за неделю: $ds)", "Dollar: ${usdNow.formatRate()} $unit (week: $ds)")
+    }
+    val list = WalletStore.load()
+    if (list.isNotEmpty()) {
+        val trend = walletTrend(list, histories, quotes, since, today)
+        val total = walletSummary(list, quotes).total
+        if (trend.size >= 2) {
+            val d = (trend.last().rate - trend.first().rate).roundToLong()
+            val ds = (if (d > 0) "+" else "") + d.formatUzsL()
+            lines += trSaved(
+                "Hamyon: ${total.roundToLong().formatUzsL()} $unit (hafta: $ds)",
+                "Кошелёк: ${total.roundToLong().formatUzsL()} $unit (за неделю: $ds)",
+                "Wallet: ${total.roundToLong().formatUzsL()} $unit (week: $ds)"
+            )
+        }
+        GoalStore.load()?.let { g ->
+            goalProgress(g, total, quotes)?.let { p ->
+                val u = if (g.code == WalletCode.UZS) unit else g.code.code
+                val name = g.name.ifBlank { trSaved("Maqsad", "Цель", "Goal") }
+                val left = (p.target - p.saved).coerceAtLeast(0.0)
+                lines += trSaved(
+                    "$name: ${(p.share * 100).roundToLong()}% (yana ${fmtAmount(left, 0)} $u)",
+                    "$name: ${(p.share * 100).roundToLong()}% (осталось ${fmtAmount(left, 0)} $u)",
+                    "$name: ${(p.share * 100).roundToLong()}% (${fmtAmount(left, 0)} $u to go)"
+                )
+            }
+        }
+    }
+    return lines.takeIf { it.isNotEmpty() }
 }

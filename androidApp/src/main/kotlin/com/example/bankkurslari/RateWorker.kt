@@ -63,6 +63,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             }
             evaluateAlerts(ctx, currency, payload.banks)
         }
+        maybeWeeklySummary(ctx)
         // Wallet lines in GBP, KZT or gold need their own rates for the wallet widget.
         if (WalletStore.load().any { it.code !in setOf(WalletCode.USD, WalletCode.EUR, WalletCode.RUB, WalletCode.UZS) }) {
             runCatching { fetchQuotes() }
@@ -157,11 +158,48 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             }
         }
 
+        /**
+         * Sunday from 10:00, once: the week in three lines (dollar, wallet, goal). The periodic worker runs every
+         * ~30 minutes, so the first run after 10:00 on Sunday sends it; "weekly_sent" keeps it to one per Sunday.
+         */
+        private suspend fun maybeWeeklySummary(context: Context) {
+            val cal = java.util.Calendar.getInstance()
+            if (cal.get(java.util.Calendar.DAY_OF_WEEK) != java.util.Calendar.SUNDAY || cal.get(java.util.Calendar.HOUR_OF_DAY) < 10) return
+            val today = todayIso()
+            val store = appStore()
+            if (store.getString("weekly_sent") == today) return
+            if (!canNotify(context)) return
+            val lines = runCatching { weeklySummaryLines(today) }.getOrNull() ?: return
+            ensureChannel(context)
+            val open = PendingIntent.getActivity(
+                context, 2,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(MainActivity.EXTRA_TAB, if (WalletStore.load().isNotEmpty()) HomeTab.WALLET.name else HomeTab.TREND.name),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val n = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notes_mono)
+                .setContentTitle(trSaved("Haftalik xulosa", "Итоги недели", "Your week"))
+                .setContentText(lines.first())
+                .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build()
+            try {
+                NotificationManagerCompat.from(context).notify("weekly".hashCode(), n)
+                store.putString("weekly_sent", today) // only once it is really posted
+            } catch (_: SecurityException) {
+            }
+        }
+
         /** Enqueue a one-off refresh (used on app start and by the widget). */
         fun enqueueNow(context: Context) {
             val request = OneTimeWorkRequestBuilder<RateWorker>().build()
             WorkManager.getInstance(context)
-                .enqueueUniqueWork(ONE_TIME_NAME, ExistingWorkPolicy.REPLACE, request)
+                // KEEP: app start, the currency switch and every widget's onUpdate all ask for a refresh; REPLACE
+                // cancelled the one already running each time, so with several widgets placed it rarely finished.
+                // The worker fetches every currency anyway, so the running refresh covers the new request.
+                .enqueueUniqueWork(ONE_TIME_NAME, ExistingWorkPolicy.KEEP, request)
         }
 
         /** Schedule a recurring background check (minimum WorkManager period is 15 min). */

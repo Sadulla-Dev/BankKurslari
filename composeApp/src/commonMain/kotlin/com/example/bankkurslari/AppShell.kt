@@ -277,6 +277,7 @@ fun CurrencyTrackerApp(
                             tickers = tickersView,
                             onOpenSettings = { showSettings = true },
                             onShowOnMap = { tab = HomeTab.MAP },
+                            onOpenWallet = { tab = HomeTab.WALLET },
                             onRefresh = { refresh() },
                             onRequestLocation = { locationLauncher() }
                         )

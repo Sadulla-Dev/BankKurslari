@@ -12,6 +12,7 @@ import androidx.glance.appwidget.action.actionStartActivity
 import android.content.Intent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.LinearProgressIndicator
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
@@ -33,7 +34,11 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToLong
 
 /** What the wallet widget shows; null total = nothing in the wallet yet. */
-private data class WalletWidgetModel(val total: Long?, val dayChange: Long, val usd: Long?, val usdRate: Double?, val usdDiff: Double?)
+private data class WalletWidgetModel(
+    val total: Long?, val dayChange: Long, val usd: Long?, val usdRate: Double?, val usdDiff: Double?,
+    /** Goal name and share reached (0..1), when a goal is set. */
+    val goalName: String? = null, val goalShare: Float? = null
+)
 
 /**
  * "Hamyon" widget: the wallet's worth in so'm at today's best bank rates and the change since yesterday,
@@ -52,7 +57,12 @@ class WalletWidget : GlanceAppWidget() {
                 WalletWidgetModel(null, 0, null, usd?.cbu, usd?.cbuDiff)
             } else {
                 val s = walletSummary(list, quotes)
-                WalletWidgetModel(s.total.roundToLong(), s.dayChange.roundToLong(), s.totalUsd?.roundToLong(), usd?.cbu, usd?.cbuDiff)
+                val goal = GoalStore.load()
+                val p = goal?.let { goalProgress(it, s.total, quotes) }
+                WalletWidgetModel(
+                    s.total.roundToLong(), s.dayChange.roundToLong(), s.totalUsd?.roundToLong(), usd?.cbu, usd?.cbuDiff,
+                    goal?.name?.ifBlank { trSaved("Maqsad", "Цель", "Goal") }, p?.share?.toFloat()
+                )
             }
         }
         provideContent { WalletContent(model) }
@@ -89,7 +99,18 @@ private fun WalletContent(m: WalletWidgetModel) {
                 maxLines = 1
             )
         }
-        if (!small && m.usdRate != null) {
+        if (!small && m.goalShare != null) {
+            Spacer(GlanceModifier.height(8.dp))
+            Text(
+                "${m.goalName} · ${(m.goalShare * 100).toInt()}%",
+                style = TextStyle(color = WidgetColors.ink, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1
+            )
+            Spacer(GlanceModifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = m.goalShare, modifier = GlanceModifier.fillMaxWidth().height(6.dp),
+                color = WidgetColors.emerald, backgroundColor = WidgetColors.tile
+            )
+        } else if (!small && m.usdRate != null) {
             Spacer(GlanceModifier.height(8.dp))
             Row(GlanceModifier.fillMaxWidth()) {
                 val diff = m.usdDiff ?: 0.0

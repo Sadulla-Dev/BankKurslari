@@ -566,7 +566,7 @@ private val ThousandsTransformation = VisualTransformation { input ->
 fun epochDay(iso: String): Long =
     runCatching { LocalDate.parse(iso.take(10)).toEpochDays() }.getOrDefault(0L)
 
-internal fun todayIso(): String = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
+fun todayIso(): String = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
 
 /** History points + today's official rate as the last point; empty when the points do not belong to [cur]. */
 private fun buildSeries(points: List<HistoryPoint>, cur: Double, todayIso: String): List<HistoryPoint> {
