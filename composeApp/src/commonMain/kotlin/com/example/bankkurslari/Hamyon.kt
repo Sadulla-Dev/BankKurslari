@@ -98,14 +98,11 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
     var failed by remember { mutableStateOf(false) }
     var stale by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Holding?>(null) }
-    var histories by remember { mutableStateOf<Map<WalletCode, List<HistoryPoint>>>(emptyMap()) }
     var goal by remember { mutableStateOf(GoalStore.load()) }
     var goalSheet by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        histories = cachedWalletHistories()
-        launch { histories = histories + fetchWalletHistories() }
         quotes = cachedQuotes()
         val fresh = fetchQuotes()
         quotes = quotes + fresh
@@ -139,7 +136,6 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
             WalletHero(summary, lang)
             GoalCard(goal, summary.total.takeIf { summary.rows.all { r -> r.som != null } }, quotes, lang) { goalSheet = true }
             HoldingsPanel(summary, lang, onEdit = { editing = it }, onAdd = { adding = true })
-            TrendCard(holdings, histories, quotes, lang)
         }
         if (stale) {
             val at = quotes[WalletCode.USD]?.updatedAt?.formatUpdatedAt().orEmpty()
@@ -670,76 +666,3 @@ private fun GoalSheet(goal: WalletGoal?, lang: Lang, onDismiss: () -> Unit, onSa
         }
     }
 }
-
-/* ---------- trend ---------- */
-
-@Composable
-private fun TrendCard(holdings: List<Holding>, histories: Map<WalletCode, List<HistoryPoint>>, quotes: Map<WalletCode, Quote>, lang: Lang) {
-    var range by remember { mutableStateOf(appStore().getString("wallet_range")?.toIntOrNull() ?: 0) }
-    val days = if (range == 0) 30 else 365
-    val today = todayIso()
-    val since = remember(today, days) { LocalDate.parse(today).minus(days, DateTimeUnit.DAY).toString() }
-    // Off the main thread: a year of daily points for every held currency.
-    val pts by androidx.compose.runtime.produceState(emptyList<HistoryPoint>(), holdings, histories, quotes, since, today) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { walletTrend(holdings, histories, quotes, since, today) }
-    }
-    val unit = somUnit()
-    VsCardBox {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(pick(lang, "Jamgʻarma dinamikasi", "Динамика сбережений", "Savings over time"), style = VsType.Title.copy(fontSize = 18.sp), color = VsInk, modifier = Modifier.weight(1f))
-            SegmentedHug(
-                listOf(pick(lang, "30 kun", "30 дн", "30 d"), pick(lang, "1 yil", "1 год", "1 y")), range,
-                onSelect = { range = it; appStore().putString("wallet_range", it.toString()) }, height = 34.dp
-            )
-        }
-        if (pts.size < 2) {
-            Text(pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…"), style = VsType.Meta, color = VsInkSoft)
-            return@VsCardBox
-        }
-        val first = pts.first().rate
-        val last = pts.last().rate
-        val change = last - first
-        val pct = if (first > 0) change / first * 100 else 0.0
-        val up = change >= 0
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                (if (change.roundToLong() > 0) "+" else "") + change.roundToLong().formatUzsL() + " $unit",
-                style = VsType.Value.copy(fontSize = 22.sp), color = if (up) VsEmeraldDeep else VsRoseText
-            )
-            Spacer(Modifier.width(8.dp))
-            Text((if (pct > 0) "+" else "") + pct.fixed(1) + "%", style = VsType.Meta.copy(fontWeight = FontWeight.SemiBold), color = if (up) VsEmeraldDeep else VsRoseText, modifier = Modifier.padding(bottom = 3.dp))
-        }
-        val line = if (up) VsEmerald else VsRoseText
-        Canvas(Modifier.fillMaxWidth().height(110.dp)) {
-            val min = pts.minOf { it.rate }
-            val max = pts.maxOf { it.rate }
-            val span = (max - min).takeIf { it > 0 } ?: 1.0
-            val w = size.width
-            val h = size.height
-            val pad = 6.dp.toPx()
-            fun x(i: Int) = w * i / (pts.size - 1).toFloat()
-            fun y(v: Double) = (pad + (h - 2 * pad) * (1 - (v - min) / span)).toFloat()
-            val path = Path().apply { pts.forEachIndexed { i, p -> if (i == 0) moveTo(x(i), y(p.rate)) else lineTo(x(i), y(p.rate)) } }
-            val fill = Path().apply { addPath(path); lineTo(w, h); lineTo(0f, h); close() }
-            drawPath(fill, Brush.verticalGradient(listOf(line.copy(alpha = 0.18f), line.copy(alpha = 0f))))
-            drawPath(path, line, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawCircle(line, 4.dp.toPx(), androidx.compose.ui.geometry.Offset(w, y(last)))
-        }
-        Row {
-            Text(fmtDay(pts.first().date), style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f))
-            Text(pick(lang, "bugun", "сегодня", "today"), style = VsType.Meta, color = VsInkSoft)
-        }
-        Text(
-            pick(
-                lang,
-                "Hozirgi jamgʻarmangiz MB kursi boʻyicha: valyuta kursi oʻzgarishi qiymatga qanday taʼsir qilgani.",
-                "Ваши текущие сбережения по курсу ЦБ: как изменение курса повлияло на их стоимость.",
-                "Your current savings at CBU rates: how rate moves changed their value."
-            ),
-            style = VsType.Meta, color = VsInkSoft
-        )
-    }
-}
-
-/** "2026-10-22" -> "22.10.2026". */
-private fun fmtDay(iso: String): String = iso.split('-').takeIf { it.size == 3 }?.let { "${it[2]}.${it[1]}.${it[0]}" } ?: iso

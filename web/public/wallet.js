@@ -14,8 +14,6 @@ const WT = {
   uz: {
     goalSet: "Maqsad qo‘ying", goalHint: "Masalan, mashina uchun 20 000 $: qancha yig‘ilganini ko‘rib borasiz", goal: "Maqsad",
     goalName: "Nima uchun? Masalan: Mashina", goalDone: "Maqsadga yetdingiz! 🎉", goalLeft: (v, u) => `Yana ${v} ${u} kerak`, goalDel: "Maqsadni o‘chirish",
-    trendT: "Jamg‘arma dinamikasi", r30: "30 kun", r365: "1 yil", today: "bugun", histLoading: "Tarix yuklanmoqda…",
-    trendNote: "Hozirgi jamg‘armangiz MB kursi bo‘yicha: valyuta kursi o‘zgarishi qiymatga qanday ta’sir qilgani.",
     nudgeT: "Jamg‘armangiz bugun qancha turadi?", nudgeP: "Hamyonga qo‘shing: har kuni qiymati, o‘zgarishi va maqsadingiz", close: "Yopish",
     title: "Hamyon", sub: "Jamg‘armangiz bugun qancha turadi",
     emptyT: "Jamg‘armangizni qo‘shing",
@@ -38,8 +36,6 @@ const WT = {
   ru: {
     goalSet: "Поставьте цель", goalHint: "Например, 20 000 $ на машину: видно, сколько уже собрано", goal: "Цель",
     goalName: "На что? Например: Машина", goalDone: "Цель достигнута! 🎉", goalLeft: (v, u) => `Осталось ${v} ${u}`, goalDel: "Удалить цель",
-    trendT: "Динамика сбережений", r30: "30 дн", r365: "1 год", today: "сегодня", histLoading: "История загружается…",
-    trendNote: "Ваши текущие сбережения по курсу ЦБ: как изменение курса повлияло на их стоимость.",
     nudgeT: "Сколько стоят ваши сбережения?", nudgeP: "Добавьте в кошелёк: стоимость, изменение и цель каждый день", close: "Закрыть",
     title: "Кошелёк", sub: "Сколько стоят ваши сбережения сегодня",
     emptyT: "Добавьте свои сбережения",
@@ -62,8 +58,6 @@ const WT = {
   en: {
     goalSet: "Set a goal", goalHint: "E.g. 20 000 $ for a car: see how much is already there", goal: "Goal",
     goalName: "What for? E.g. Car", goalDone: "Goal reached! 🎉", goalLeft: (v, u) => `${v} ${u} to go`, goalDel: "Remove goal",
-    trendT: "Savings over time", r30: "30 d", r365: "1 y", today: "today", histLoading: "Loading history…",
-    trendNote: "Your current savings at CBU rates: how rate moves changed their value.",
     nudgeT: "What are your savings worth today?", nudgeP: "Add them to the wallet: value, change and your goal every day", close: "Close",
     title: "Wallet", sub: "What your savings are worth today",
     emptyT: "Add your savings",
@@ -138,39 +132,6 @@ function wGoldQuote(g) {
 }
 const bestBuy = (q) => q.banks.filter((b) => b.buy > 0).reduce((m, b) => (!m || b.buy > m.buy ? b : m), null);
 const bestSell = (q) => q.banks.filter((b) => b.sell > 0).reduce((m, b) => (!m || b.sell < m.sell ? b : m), null);
-
-const W_HIST = {};
-async function wLoadHist() {
-  const jobs = ["USD", "EUR", "RUB"].map((c) => loadHistory(c).then((p) => { W_HIST[c] = p; }).catch(() => {}));
-  jobs.push(loadGoldHist().then((p) => { W_HIST.XAU = p.map((x) => ({ date: x.date, rate: x.rate })); }).catch(() => {}));
-  await Promise.all(jobs);
-}
-
-// Same as walletTrend() in Wallet.kt.
-function wTrend(list, since, today) {
-  if (!list.length) return [];
-  const series = Object.fromEntries(list.map((h) => [h.code, (W_HIST[h.code] || []).slice().sort((a, b) => (a.date < b.date ? -1 : 1))]));
-  const dates = [...new Set(Object.values(series).flatMap((s) => s.map((p) => p.date)))].filter((d) => d >= since && d < today).sort();
-  if (!dates.length) return [];
-  const rateOn = (code, d) => {
-    if (code === "UZS") return 1;
-    const s = series[code];
-    if (!s.length) return W.quotes[code]?.cbu ?? null;
-    let r = s[0].rate;
-    for (const p of s) { if (p.date <= d) r = p.rate; else break; }
-    return r;
-  };
-  const pts = [];
-  for (const d of dates) {
-    let sum = 0, ok = true;
-    for (const h of list) { const r = rateOn(h.code, d); if (r == null) { ok = false; break; } sum += r * h.amount; }
-    if (ok) pts.push({ date: d, v: sum });
-  }
-  let now = 0;
-  for (const h of list) { const r = h.code === "UZS" ? 1 : W.quotes[h.code]?.cbu; if (r == null) return []; now += r * h.amount; }
-  pts.push({ date: today, v: now });
-  return pts;
-}
 
 async function wLoad() {
   const jobs = ["USD", "EUR", "RUB", "GBP", "KZT"].map((c) => wRates(c).then((r) => { W.quotes[c] = wQuote(c, r); }).catch(() => {}));
@@ -264,8 +225,7 @@ function renderWallet() {
           <span class="w-val"><b>${r.som != null ? group(r.som) : "—"}</b>${h.code !== "UZS" && h.code !== "XAU" && d ? `<small class="${d < 0 ? "neg" : "pos"}">${wSigned(d)}</small>` : ""}</span>
         </button>`;
       }).join("")}
-      <button type="button" class="w-row w-more" data-wadd><span class="w-sym plus">+</span><span class="w-mid"><b>${esc(t.addMore)}</b></span></button></div>
-      ${renderTrend(list)}`;
+      <button type="button" class="w-row w-more" data-wadd><span class="w-sym plus">+</span><span class="w-mid"><b>${esc(t.addMore)}</b></span></button></div>`;
   }
   html += renderExchange();
   html += `<p class="muted small w-note">${esc(t.note)}</p>`;
@@ -286,28 +246,6 @@ function renderGoal(totalSom) {
     <small class="muted">${group(saved)} / ${group(g.amount)} ${esc(u)}</small>
     <span class="w-goal-left${left <= 0 ? " done" : ""}">${esc(left <= 0 ? t.goalDone : t.goalLeft(group(left), u))}</span>
   </button>`;
-}
-
-function renderTrend(list) {
-  const t = WL(), days = store.get("wallet_range") === "1" ? 365 : 30;
-  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tashkent" });
-  const since = new Date(Date.parse(today) - days * 864e5).toISOString().slice(0, 10);
-  const pts = wTrend(list, since, today);
-  let html = `<div class="card w-card w-trend"><div class="w-trend-top"><h2>${esc(t.trendT)}</h2>
-    <div class="seg seg-sm"><button type="button" data-wrange="0" class="${days === 30 ? "on" : ""}">${esc(t.r30)}</button><button type="button" data-wrange="1" class="${days === 365 ? "on" : ""}">${esc(t.r365)}</button></div></div>`;
-  if (pts.length < 2) return html + `<p class="muted small">${esc(t.histLoading)}</p></div>`;
-  const first = pts[0].v, last = pts[pts.length - 1].v, ch = last - first, pct = first > 0 ? ch / first * 100 : 0, up = ch >= 0;
-  const min = Math.min(...pts.map((p) => p.v)), max = Math.max(...pts.map((p) => p.v)), span = max - min || 1;
-  const W_ = 600, H = 120, pad = 6;
-  const xy = pts.map((p, i) => [(W_ * i / (pts.length - 1)).toFixed(1), (pad + (H - 2 * pad) * (1 - (p.v - min) / span)).toFixed(1)]);
-  const line = "M" + xy.map((q) => q.join(",")).join("L");
-  const [d0y, d0m, d0d] = pts[0].date.split("-");
-  html += `<p class="w-trend-ch ${up ? "pos" : "neg"}"><b>${Math.round(ch) > 0 ? "+" : ""}${group(ch)} ${esc(t.som)}</b><small>${pct > 0 ? "+" : ""}${pct.toFixed(1)}%</small></p>
-    <svg class="w-spark ${up ? "pos" : "neg"}" viewBox="0 0 ${W_} ${H}" preserveAspectRatio="none" aria-hidden="true">
-      <path class="f" d="${line}L${W_},${H}L0,${H}Z"/><path class="l" d="${line}" vector-effect="non-scaling-stroke"/></svg>
-    <p class="w-trend-x muted small"><span>${d0d}.${d0m}.${d0y}</span><span>${esc(t.today)}</span></p>
-    <p class="muted small">${esc(t.trendNote)}</p></div>`;
-  return html;
 }
 
 function renderGoalSheet(el) {
@@ -379,7 +317,7 @@ function renderWalletSheet() {
 function closeWalletSheet() { W.adding = false; W.editing = null; W.goalOpen = false; renderWalletSheet(); }
 
 document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-wadd],[data-wedit],[data-xfrom],[data-xto],[data-wswap],[data-wcode],[data-wsave],[data-wdel],[data-wclose],[data-wgoal],[data-wgcode],[data-wgsave],[data-wgdel],[data-wrange],#walletScrim");
+  const b = e.target.closest("[data-wadd],[data-wedit],[data-xfrom],[data-xto],[data-wswap],[data-wcode],[data-wsave],[data-wdel],[data-wclose],[data-wgoal],[data-wgcode],[data-wgsave],[data-wgdel],#walletScrim");
   if (!b) return;
   if (b.hasAttribute("data-wgoal")) { W.goalOpen = true; W.goalCode = null; return renderWalletSheet(); }
   if (b.dataset.wgcode) { const n = $("wGoalName")?.value, v = $("wAmount")?.value; W.goalCode = b.dataset.wgcode; renderWalletSheet(); $("wGoalName").value = n || ""; $("wAmount").value = v || ""; return; }
@@ -390,7 +328,6 @@ document.addEventListener("click", (e) => {
     W.goalOpen = false; return renderWallet();
   }
   if (b.hasAttribute("data-wgdel")) { GS.save(null); W.goalOpen = false; return renderWallet(); }
-  if (b.dataset.wrange) { store.set("wallet_range", b.dataset.wrange); return renderWallet(); }
   if (b.id === "walletScrim" || b.hasAttribute("data-wclose")) return closeWalletSheet();
   if (b.hasAttribute("data-wadd")) { W.adding = true; W.editing = null; const have = new Set(WS.load().map((h) => h.code)); W.sheetCode = W_ALL.find((c) => !have.has(c)) || "USD"; return renderWalletSheet(); }
   if (b.dataset.wedit) { W.editing = b.dataset.wedit; return renderWalletSheet(); }
@@ -444,11 +381,10 @@ document.addEventListener("click", (e) => {
   wNudge();
 });
 
-let wLoaded = null, wHistLoaded = null;
+let wLoaded = null;
 function showWallet() {
   renderWallet();
   (wLoaded ||= wLoad()).then(renderWallet);
-  (wHistLoaded ||= wLoadHist()).then(renderWallet);
 }
 // app.js routed before this file loaded: catch up.
 if (S.view === "wallet") showWallet();
