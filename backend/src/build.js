@@ -179,7 +179,8 @@ await step("bank sites check", async () => {
     await writeFile(checkPath, JSON.stringify(check));
     console.log(`bank sites check: ${banks.length}/${BANK_SITE_COUNT} read, ${Object.keys(problems).length} problem(s)`);
   }
-  for (const [bank, text] of Object.entries(check.problems || {})) alerts.add(`site:${bank}`, `Zaxira manba, ${bank}: ${text}`);
+  // Told once when it starts and once when it is fixed: a bank that blocks our servers stays blocked for a long time.
+  for (const [bank, text] of Object.entries(check.problems || {})) alerts.add(`site:${bank}`, `Zaxira manba, ${bank}: ${text}`, { remind: false });
 });
 // Which banks stopped publishing a USD rate. A bank counts as known for 7 days after it was last seen, so one that
 // stays missing keeps its alert (with a reminder) instead of looking "fixed" on the next run.
@@ -233,6 +234,11 @@ if (mode === "full") {
     await put("api/branches.json", { updatedAt: now(), count: branches.length, branches });
   });
   await step("Yandex branches", async () => {
+    // No YANDEX_PLACES_KEY, no imported dataset: nothing to publish, and that is not an error.
+    if (!process.env.YANDEX_PLACES_KEY && !(await readFile(join(STATE, "yandex-branches.json"), "utf8").catch(() => null))) {
+      console.log("skip Yandex branches (no dataset)");
+      return;
+    }
     try {
       await put("api/branches/yandex.json", await api.getYandexBranchDataset());
     } catch (error) {

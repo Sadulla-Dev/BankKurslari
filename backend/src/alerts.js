@@ -18,8 +18,8 @@ export function createAlerts() {
   const issues = new Map(); // key -> text
   return {
     /** Records a problem. Same key on every run = same problem (used to tell new, ongoing and resolved apart). */
-    add(key, text) {
-      issues.set(key, text);
+    add(key, text, { remind = true } = {}) {
+      issues.set(key, { text, remind });
       console.error(`ALERT ${key}: ${text}`);
     },
     /** Drops a problem recorded earlier in this run (e.g. a currency the fallback source has filled after all). */
@@ -67,12 +67,12 @@ export async function flushAlerts(alerts, statePath, { now = Date.now(), runUrl 
     const opened = [];
     const ongoing = [];
     const closed = [];
-    for (const [key, text] of alerts.issues) {
+    for (const [key, { text, remind }] of alerts.issues) {
       const was = prev[key];
       if (!was) {
         opened.push(text);
         next[key] = { text, since: now, sentAt: now };
-      } else if (now - was.sentAt >= REMIND_MS) {
+      } else if (remind && now - was.sentAt >= REMIND_MS) {
         ongoing.push(`${text} (${Math.round((now - was.since) / 3600000)} soatdan beri)`);
         next[key] = { text, since: was.since, sentAt: now };
       } else {
