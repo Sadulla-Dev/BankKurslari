@@ -407,9 +407,11 @@ function linkBlock(lang, bankNames, skipCur) {
   const amounts = AMOUNTS[of].map((n) => ans(amountUrl(lang, of, n), y.amtLink(n, of), inSom(perUnit(of) * n)));
   for (const [c, n] of Object.entries(FEATURED)) if (c !== of && perUnit(c)) amounts.push(ans(amountUrl(lang, c, n), y.amtLink(n, c), inSom(perUnit(c) * n)));
   const back = CURS.includes(of) ? REV_AMOUNTS.map((n) => ans(revUrl(lang, of, n), y.revLink(n, of), inCur(n / perUnit(of), of))) : [];
-  return `<h3>${esc(y.amounts)}</h3><ul class="seo-answers">${amounts.join("")}</ul>${back.length ? `<ul class="seo-answers">${back.join("")}</ul>` : ""}
-  <h3>${esc(x.other)}</h3><p class="seo-links">${curs.join("")}</p>
-  <h3>${esc(x.allBanks)}</h3><p class="seo-links">${bankNames.map((b) => link(bankUrl(lang, bankSlug(b)), b)).join("")}</p>
+  // Closed by default (the page was getting long); the heading opens it. The links stay in the HTML for search engines.
+  const fold = (title, body) => `<details class="seo-fold"><summary><h3>${esc(title)}</h3></summary>${body}</details>`;
+  return `${fold(y.amounts, `<ul class="seo-answers">${amounts.join("")}</ul>${back.length ? `<ul class="seo-answers">${back.join("")}</ul>` : ""}`)}
+  ${fold(x.other, `<p class="seo-links">${curs.join("")}</p>`)}
+  ${fold(x.allBanks, `<p class="seo-links">${bankNames.map((b) => link(bankUrl(lang, bankSlug(b)), b)).join("")}</p>`)}
   <p class="seo-note">${esc(x.disclaimer)}</p>`;
 }
 const langLinks = (lang, urlOf) => LANGS.map((l) => `<a href="${urlOf(l)}" hreflang="${HTML_LANG[l]}"${l === lang ? ' class="on" aria-current="true"' : ""}>${LANG_LABEL[l]}</a>`).join("");
