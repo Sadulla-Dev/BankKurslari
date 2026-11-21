@@ -5,10 +5,6 @@
 const API = "https://api.qulaykurs.uz";
 const TASHKENT = [41.3111, 69.2797]; // [lat, lng]
 const CURS = ["USD", "EUR", "RUB"];
-// Other currencies banks trade in cash (backend EXTRA_RATES; bank.uz, 21.11.2026: GBP 25 banks, CHF 23, JPY 22, KZT 7, CNY 2).
-// Kurs and Xarita show them through "Boshqa"; the one picked takes the slot after RUB. History stays USD/EUR/RUB.
-const EXTRA_CURS = ["GBP", "CHF", "JPY", "KZT", "CNY"];
-const mainCur = () => (CURS.includes(store.get("cur")) ? store.get("cur") : "USD");
 const MAX_MAP_CANDS = 5000; // hard cap on candidates before the project+cluster pass (linear, via a screen-space grid)
 const MAP_STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 const ROUTES = { "": "rates", "xarita": "map", "tarix": "history", "hamyon": "wallet" };
@@ -45,7 +41,6 @@ const S = {
   view: "rates",
   mode: store.get("mode") === "buy" ? "buy" : "sell",
   cur: QK ? QK.cur : CURS.includes(store.get("cur")) ? store.get("cur") : "USD",
-  curExtra: EXTRA_CURS.includes(store.get("curExtra")) ? store.get("curExtra") : null,
   amount: Number(store.get("amount")) || 100,
   sort: "best", query: "",
   rates: {}, history: {}, bankHist: {},
@@ -64,7 +59,7 @@ function group(n) {
   return (n < 0 ? "−" : "") + s;
 }
 const dec = (s) => (S.lang === "en" ? s : s.replace(".", ","));
-const rateFmt = (v) => (v >= 1000 || Number.isInteger(v) ? group(v) : dec(v.toFixed(2).replace(/0$/, "")));
+const rateFmt = (v) => (v >= 1000 || Number.isInteger(v) ? group(v) : dec(v.toFixed(2)));
 const kmFmt = (km) => dec(km < 10 ? km.toFixed(1) : String(Math.round(km)));
 const tashkentTime = (iso) => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tashkent", hour12: false }).format(new Date(iso));
 const MONTHS = {
@@ -240,61 +235,14 @@ function route() {
 
 /* ---------- shared controls ---------- */
 
-/** "USD EUR RUB [picked extra] Boshqa▾" in the Kurs and Xarita currency switches (not in Tarix: CBU history only). */
-function renderCurSegs() {
-  const t = L(), x = S.curExtra;
-  document.querySelectorAll(".curSeg:not(#histSeg)").forEach((seg) => {
-    seg.querySelectorAll("[data-cur-x], [data-cur-more]").forEach((e) => e.remove());
-    seg.insertAdjacentHTML("beforeend", (x ? `<button type="button" data-cur="${x}" data-cur-x>${x}</button>` : "")
-      + `<button type="button" class="cur-more" data-cur-more aria-haspopup="menu" aria-expanded="false">${esc(t["cur.more"])}<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5L6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`);
-  });
-}
-/** Menu under "Boshqa": only currencies some bank trades (from the rate files), most banks first. */
-function openCurMenu(btn) {
-  closeCurMenu();
-  const t = L();
-  const menu = document.createElement("div");
-  menu.className = "cur-menu card";
-  menu.id = "curMenu";
-  menu.setAttribute("role", "menu");
-  const paint = () => {
-    const known = EXTRA_CURS.filter((c) => S.rates[c]);
-    const items = known.filter((c) => S.rates[c].banks?.length).sort((a, b) => S.rates[b].banks.length - S.rates[a].banks.length);
-    const pending = known.length < EXTRA_CURS.length && !menu.dataset.done;
-    menu.innerHTML = `<p class="cur-menu-h">${esc(t["cur.moreT"])}</p>` + items.map((c) => `<button type="button" role="menuitem" data-cur-pick="${c}" class="${c === S.cur ? "on" : ""}">
-        <b>${c}</b><span>${esc(t.curName[c])}</span><small>${esc(t.curBanks(S.rates[c].banks.length))}</small></button>`).join("")
-      + (pending ? `<div class="cur-menu-skel skel-box"></div>` : items.length ? "" : `<p class="muted small">${esc(t.error)}</p>`);
-  };
-  paint();
-  document.body.appendChild(menu);
-  const r = btn.getBoundingClientRect();
-  const w = Math.min(300, innerWidth - 24);
-  menu.style.width = w + "px";
-  menu.style.left = Math.max(12, Math.min(r.right - w, innerWidth - w - 12)) + scrollX + "px";
-  menu.style.top = r.bottom + 6 + scrollY + "px";
-  btn.setAttribute("aria-expanded", "true");
-  Promise.allSettled(EXTRA_CURS.map((c) => loadRates(c))).then(() => { menu.dataset.done = "1"; if (menu.isConnected) paint(); });
-}
-function closeCurMenu() {
-  $("curMenu")?.remove();
-  document.querySelectorAll("[data-cur-more]").forEach((b) => b.setAttribute("aria-expanded", "false"));
-}
-function pickExtraCur(code) {
-  closeCurMenu();
-  S.curExtra = code; // replaces the previously picked one in the slot after RUB
-  store.set("curExtra", code);
-  renderCurSegs();
-  setCur(code);
-}
-
 function syncControls() {
   document.querySelectorAll(".curSeg button").forEach((b) => b.classList.toggle("on", b.closest("#histSeg") && S.histGold ? b.hasAttribute("data-gold") : b.dataset.cur === S.cur));
   document.querySelectorAll("#modeSeg button, #mapModeSeg button").forEach((b) => b.classList.toggle("on", b.dataset.mode === S.mode));
 }
 async function setCur(cur) {
-  if (!cur || (cur === S.cur && S.rates[cur])) return;
+  if (cur === S.cur && S.rates[cur]) return;
   S.cur = cur;
-  if (CURS.includes(cur)) store.set("cur", cur); // an extra currency is a look-up: the next visit opens the main one
+  store.set("cur", cur);
   syncTitle();
   renderQuick();
   renderAll();
@@ -340,9 +288,8 @@ function renderConv() {
   $("bestBank").onclick = () => openSheet(best.bank);
 }
 function renderQuick() {
-  const big = [10000, 50000, 100000, 500000];
-  const sets = { USD: [100, 500, 1000, 5000], EUR: [100, 500, 1000, 5000], RUB: [1000, 10000, 50000, 100000], JPY: big, KZT: big, CNY: [500, 1000, 5000, 10000] };
-  $("quick").innerHTML = (sets[S.cur] || sets.USD).map((v) => `<button type="button" data-v="${v}">${group(v)}</button>`).join("");
+  const sets = { USD: [100, 500, 1000, 5000], EUR: [100, 500, 1000, 5000], RUB: [1000, 10000, 50000, 100000] };
+  $("quick").innerHTML = sets[S.cur].map((v) => `<button type="button" data-v="${v}">${group(v)}</button>`).join("");
 }
 function fitAmount() { const el = $("amount"); el.style.width = Math.max(2, el.value.length + 0.6) + "ch"; }
 function setAmount(v, fromInput) {
@@ -1010,8 +957,6 @@ const RANGE_DAYS = [7, 30, 90, 365, 1825, null];
 const DAY = 864e5;
 const dayMs = (ymd) => Date.parse(ymd + "T00:00:00Z");
 async function renderHistory() {
-  // CBU history exists for USD/EUR/RUB only: coming from an extra currency, Tarix shows the saved main one.
-  if (!CURS.includes(S.cur)) return setCur(mainCur());
   const cur = S.cur, gold = S.histGold;
   const t = L();
   syncControls();
@@ -1321,7 +1266,6 @@ function applyLang() {
   document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === S.lang));
   updateThemeControl();
   syncTitle();
-  renderCurSegs();
   renderAll();
   renderAllBtn();
   if (S.view === "wallet" && typeof renderWallet === "function") renderWallet();
@@ -1332,7 +1276,7 @@ function applyLang() {
 
 // The address and tab title follow the currency, so a shared or reloaded link shows what the user was looking at.
 function syncTitle() {
-  if (!QK || !CURS.includes(S.cur)) { document.title = `Qulay Kurs — ${L().title[S.cur].toLowerCase()}`; return; }
+  if (!QK) { document.title = `Qulay Kurs — ${L().title[S.cur].toLowerCase()}`; return; }
   document.title = QK.titles[S.lang][S.cur];
   const url = QK.urls[S.lang][S.cur];
   if (location.pathname !== url) history.replaceState(null, "", url + location.hash);
@@ -1394,16 +1338,11 @@ function bind() {
   });
   document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => {
     store.set("lang", b.dataset.lang);
-    if (QK) { if (b.dataset.lang !== S.lang) location.href = QK.urls[b.dataset.lang][CURS.includes(S.cur) ? S.cur : mainCur()] + location.hash; return; }
+    if (QK) { if (b.dataset.lang !== S.lang) location.href = QK.urls[b.dataset.lang][S.cur] + location.hash; return; }
     S.lang = b.dataset.lang;
     applyLang();
   }));
   document.addEventListener("click", (e) => {
-    const more = e.target.closest("[data-cur-more]");
-    if (more) return $("curMenu") ? closeCurMenu() : openCurMenu(more);
-    const pick = e.target.closest("[data-cur-pick]");
-    if (pick) return pickExtraCur(pick.dataset.curPick);
-    if ($("curMenu") && !e.target.closest("#curMenu")) closeCurMenu();
     if (e.target.closest("[data-gold]")) { S.histGold = true; return renderHistory(); }
     const cur = e.target.closest(".curSeg button, .cbu-c");
     if (cur) {
@@ -1451,8 +1390,7 @@ function bind() {
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
   $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); });
   $("shClose").addEventListener("click", closeSheet);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); closeCurMenu(); } });
-  addEventListener("resize", closeCurMenu);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); } });
   bindAll();
   $("locateBtn").addEventListener("click", async () => {
     const btn = $("locateBtn");

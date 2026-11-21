@@ -29,7 +29,6 @@ Ilova to‘rtta tabdan iborat: **Kurs**, **Xarita**, **Tarix**, **Hamyon**, hamd
   - Faqat kursi qurilmada bor va kamida bitta bank almashtiradigan valyuta ko‘rsatiladi.
   - Bu valyutalar Kurs va Xaritada ishlaydi; Tarix, vidjetlar va ogohlantirishlar faqat USD/EUR/RUB uchun, tanlov saqlanmaydi.
   - Oxirgi band — “Markaziy bank kurslari”: barcha 74 valyuta (ma’lumot uchun).
-  - Web’da (Kurs va Xarita): `USD · EUR · RUB · [tanlangan] · Boshqa ▾`. “Boshqa” menyusi shu valyutalarni banklar soni bilan ko‘rsatadi; tanlangani RUB’dan keyingi joyga tushadi, keyingi tanlov uning o‘rnini oladi (eslab qolinadi: `curExtra`).
   - Bank kurslari kasr bo‘lishi mumkin (KZT: 26,1 / 26,9), shuning uchun kurslar `Double`.
 - **Yo‘nalish:** “Men sotaman” / “Men olaman”, foydalanuvchi tilida.
 - **Summa kiritish:** katta raqam, minglik ajratish bilan; tezkor tugmalar 100 / 500 / 1 000 / 5 000 (RUB, JPY, KZT uchun 10 000 / 50 000 / …; CNY 500 / 1 000 / …). Oxirgi summa eslab qolinadi.
