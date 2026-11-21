@@ -235,3 +235,95 @@ fun fmtUnitRate(v: Double): String = if (v >= 1000) v.roundToLong().formatUzsL()
 
 /** Parses "1 234,5" or "1234.5". */
 fun parseAmount(text: String): Double? = text.replace(" ", "").replace(',', '.').toDoubleOrNull()
+
+/* ---------- goal ---------- */
+
+/** A savings target, e.g. 20 000 USD "Mashina". Stored as "USD|20000|Mashina". */
+data class WalletGoal(val code: WalletCode, val amount: Double, val name: String)
+
+object GoalStore {
+    private const val KEY = "wallet_goal_v1"
+    fun load(): WalletGoal? {
+        val p = appStore().getString(KEY)?.split('|')?.takeIf { it.size >= 2 } ?: return null
+        val code = WalletCode.of(p[0]) ?: return null
+        val amount = p[1].toDoubleOrNull()?.takeIf { it > 0 } ?: return null
+        return WalletGoal(code, amount, p.drop(2).joinToString("|").trim())
+    }
+    fun save(g: WalletGoal?) = appStore().putString(KEY, g?.let { "${it.code.code}|${it.amount}|${it.name.replace('|', ' ').take(40)}" })
+}
+
+/** Codes a goal can be set in: what people save towards. */
+val GOAL_CODES = listOf(WalletCode.USD, WalletCode.EUR, WalletCode.UZS)
+
+data class GoalProgress(val saved: Double, val target: Double, val share: Double)
+
+/** Wallet total (so'm at bank rates) expressed in the goal's currency at the CBU rate. */
+fun goalProgress(goal: WalletGoal, totalSom: Double, quotes: Map<WalletCode, Quote>): GoalProgress? {
+    val rate = if (goal.code == WalletCode.UZS) 1.0 else quotes[goal.code]?.cbu?.takeIf { it > 0 } ?: return null
+    val saved = totalSom / rate
+    return GoalProgress(saved, goal.amount, (saved / goal.amount).coerceIn(0.0, 1.0))
+}
+
+/* ---------- trend ---------- */
+
+/**
+ * The wallet's value in so'm at CBU rates over the last [days] days: one point per date any held currency has a
+ * rate for, each currency at its latest rate on or before that date. Currencies without a history (GBP, KZT) count
+ * at today's rate, so they add to the level but not to the change. The last point is today at today's CBU rates.
+ */
+fun walletTrend(
+    list: List<Holding>,
+    histories: Map<WalletCode, List<HistoryPoint>>,
+    quotes: Map<WalletCode, Quote>,
+    since: String,
+    today: String
+): List<HistoryPoint> {
+    if (list.isEmpty()) return emptyList()
+    val series = list.associate { h -> h.code to histories[h.code].orEmpty().sortedBy { it.date } }
+    val dates = series.values.flatMap { s -> s.map { it.date } }.filter { it >= since && it < today }.toSortedSet()
+    if (dates.isEmpty()) return emptyList()
+    fun rateOn(code: WalletCode, date: String): Double? {
+        if (code == WalletCode.UZS) return 1.0
+        val s = series[code].orEmpty()
+        if (s.isEmpty()) return quotes[code]?.cbu
+        return (s.lastOrNull { it.date <= date } ?: s.first()).rate
+    }
+    val points = dates.mapNotNull { d ->
+        var sum = 0.0
+        for (h in list) sum += (rateOn(h.code, d) ?: return@mapNotNull null) * h.amount
+        HistoryPoint(d, sum)
+    }.toMutableList()
+    val now = list.sumOf { h -> (if (h.code == WalletCode.UZS) 1.0 else quotes[h.code]?.cbu ?: return emptyList()) * h.amount }
+    points += HistoryPoint(today, now)
+    return points
+}
+
+/** Histories for the trend: CBU rates for USD/EUR/RUB (cache first), gold per gram from the CBU bar prices. */
+suspend fun cachedWalletHistories(): Map<WalletCode, List<HistoryPoint>> {
+    val out = mutableMapOf<WalletCode, List<HistoryPoint>>()
+    listOf(Currency.USD to WalletCode.USD, Currency.EUR to WalletCode.EUR, Currency.RUB to WalletCode.RUB).forEach { (c, w) ->
+        runCatching { cachedHistory(c) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { out[w] = it }
+    }
+    RateService.loadCache("gold_history_wallet")?.let { body ->
+        runCatching { parseWalletGold(body) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { out[WalletCode.XAU] = it }
+    }
+    return out
+}
+
+suspend fun fetchWalletHistories(): Map<WalletCode, List<HistoryPoint>> = coroutineScope {
+    val cur = listOf(Currency.USD to WalletCode.USD, Currency.EUR to WalletCode.EUR, Currency.RUB to WalletCode.RUB).map { (c, w) ->
+        async { runCatching { fetchHistory(c) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { w to it } }
+    }
+    val gold = async {
+        runCatching { fetchGoldHistory() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { pts ->
+            RateService.saveCache("gold_history_wallet", pts.joinToString(";") { "${it.first}=${it.second}" })
+            WalletCode.XAU to pts.map { HistoryPoint(it.first, it.second) }
+        }
+    }
+    (cur.awaitAll() + gold.await()).filterNotNull().toMap()
+}
+
+private fun parseWalletGold(body: String): List<HistoryPoint> = body.split(';').mapNotNull { p ->
+    val (d, v) = p.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
+    HistoryPoint(d, v.toDoubleOrNull() ?: return@mapNotNull null)
+}

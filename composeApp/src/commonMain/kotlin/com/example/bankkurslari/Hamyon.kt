@@ -74,6 +74,16 @@ import com.example.bankkurslari.ui.theme.VsInkSoft
 import com.example.bankkurslari.ui.theme.VsRoseText
 import com.example.bankkurslari.ui.theme.VsType
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
@@ -88,9 +98,14 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
     var failed by remember { mutableStateOf(false) }
     var stale by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Holding?>(null) }
+    var histories by remember { mutableStateOf<Map<WalletCode, List<HistoryPoint>>>(emptyMap()) }
+    var goal by remember { mutableStateOf(GoalStore.load()) }
+    var goalSheet by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        histories = cachedWalletHistories()
+        launch { histories = histories + fetchWalletHistories() }
         quotes = cachedQuotes()
         val fresh = fetchQuotes()
         quotes = quotes + fresh
@@ -122,7 +137,9 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
             EmptyWallet(lang) { adding = true }
         } else {
             WalletHero(summary, lang)
+            GoalCard(goal, summary.total, quotes, lang) { goalSheet = true }
             HoldingsPanel(summary, lang, onEdit = { editing = it }, onAdd = { adding = true })
+            TrendCard(holdings, histories, quotes, lang)
         }
         if (stale) {
             val at = quotes[WalletCode.USD]?.updatedAt?.formatUpdatedAt().orEmpty()
@@ -149,6 +166,10 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
             ),
             style = VsType.Meta, color = VsInkSoft
         )
+    }
+
+    if (goalSheet) {
+        GoalSheet(goal, lang, onDismiss = { goalSheet = false }, onSave = { g -> goal = g; GoalStore.save(g); goalSheet = false })
     }
 
     val sheetFor = editing
@@ -546,3 +567,174 @@ private fun HoldingSheet(
         }
     }
 }
+
+/* ---------- goal ---------- */
+
+@Composable
+private fun GoalCard(goal: WalletGoal?, totalSom: Double, quotes: Map<WalletCode, Quote>, lang: Lang, onEdit: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    if (goal == null) {
+        Row(
+            Modifier.fillMaxWidth().vsDashedBorder().clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onEdit)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("🎯", fontSize = 22.sp)
+            Column(Modifier.weight(1f)) {
+                Text(pick(lang, "Maqsad qoʻying", "Поставьте цель", "Set a goal"), style = VsType.BodyMedium, color = VsInk)
+                Text(
+                    pick(lang, "Masalan, mashina uchun 20 000 $: qancha yigʻilganini koʻrib borasiz", "Например, 20 000 $ на машину: видно, сколько уже собрано", "E.g. 20 000 $ for a car: see how much is already there"),
+                    style = VsType.Meta, color = VsInkSoft
+                )
+            }
+        }
+        return
+    }
+    val p = goalProgress(goal, totalSom, quotes)
+    val unit = if (goal.code == WalletCode.UZS) somUnit() else goal.code.code
+    VsCardBox(Modifier.clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onEdit)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                goal.name.ifBlank { pick(lang, "Maqsad", "Цель", "Goal") },
+                style = VsType.Title.copy(fontSize = 18.sp), color = VsInk, modifier = Modifier.weight(1f), maxLines = 1
+            )
+            Text(p?.let { "${(it.share * 100).roundToLong()}%" } ?: "—", style = VsType.Value, color = VsEmeraldDeep)
+        }
+        // Progress bar.
+        Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(VsGround)) {
+            Box(Modifier.fillMaxWidth((p?.share ?: 0.0).toFloat()).height(10.dp).clip(CircleShape).background(VsEmerald))
+        }
+        if (p != null) {
+            Text(
+                "${fmtAmount(p.saved, 0)} / ${fmtAmount(p.target, 0)} $unit",
+                style = VsType.Meta, color = VsInkSoft
+            )
+            val left = p.target - p.saved
+            Text(
+                if (left <= 0) pick(lang, "Maqsadga yetdingiz! 🎉", "Цель достигнута! 🎉", "Goal reached! 🎉")
+                else pick(lang, "Yana ${fmtAmount(left, 0)} $unit kerak", "Осталось ${fmtAmount(left, 0)} $unit", "${fmtAmount(left, 0)} $unit to go"),
+                style = VsType.BodyMedium, color = if (left <= 0) VsEmeraldDeep else VsInk
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GoalSheet(goal: WalletGoal?, lang: Lang, onDismiss: () -> Unit, onSave: (WalletGoal?) -> Unit) {
+    var code by remember { mutableStateOf(goal?.code ?: WalletCode.USD) }
+    var text by remember { mutableStateOf(goal?.amount?.let { fmtAmount(it, 0).replace(" ", "") } ?: "") }
+    var name by remember { mutableStateOf(goal?.name ?: "") }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = VsCard, shape = VsShape.Tray, tonalElevation = 0.dp,
+        scrimColor = VsInk.copy(alpha = 0.42f), dragHandle = { VsSheetHandle() }
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(pick(lang, "Maqsad", "Цель", "Goal"), style = VsType.Title, color = VsInk)
+            // Name: one line, optional.
+            val nsrc = remember { MutableInteractionSource() }
+            val focused by nsrc.collectIsFocusedAsState()
+            BasicTextField(
+                value = name, onValueChange = { name = it.take(40) }, singleLine = true,
+                textStyle = VsType.Body.copy(color = VsInk, fontSize = 17.sp), cursorBrush = SolidColor(VsEmerald),
+                interactionSource = nsrc,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(VsGround)
+                    .border(1.dp, if (focused) VsEmerald else Color.Transparent, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+                decorationBox = { inner ->
+                    if (name.isEmpty()) Text(pick(lang, "Nima uchun? Masalan: Mashina", "На что? Например: Машина", "What for? E.g. Car"), style = VsType.Body.copy(fontSize = 17.sp), color = VsInkSoft)
+                    inner()
+                }
+            )
+            CodeChips(GOAL_CODES, code) { code = it }
+            AmountInput(text, code, lang) { text = it }
+            VsPrimaryButton(
+                pick(lang, "Saqlash", "Сохранить", "Save"),
+                onClick = { parseAmount(text)?.takeIf { it > 0 }?.let { onSave(WalletGoal(code, it, name.trim())) } },
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            )
+            if (goal != null) {
+                val src = remember { MutableInteractionSource() }
+                Text(
+                    pick(lang, "Maqsadni oʻchirish", "Удалить цель", "Remove goal"),
+                    style = VsType.BodyMedium, color = VsRoseText, textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().clickable(interactionSource = src, indication = null, role = Role.Button) { onSave(null) }.padding(vertical = 12.dp)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+    }
+}
+
+/* ---------- trend ---------- */
+
+@Composable
+private fun TrendCard(holdings: List<Holding>, histories: Map<WalletCode, List<HistoryPoint>>, quotes: Map<WalletCode, Quote>, lang: Lang) {
+    var range by remember { mutableStateOf(appStore().getString("wallet_range")?.toIntOrNull() ?: 0) }
+    val days = if (range == 0) 30 else 365
+    val today = todayIso()
+    val since = remember(today, days) { LocalDate.parse(today).minus(days, DateTimeUnit.DAY).toString() }
+    val pts = remember(holdings, histories, quotes, since, today) { walletTrend(holdings, histories, quotes, since, today) }
+    val unit = somUnit()
+    VsCardBox {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(pick(lang, "Jamgʻarma dinamikasi", "Динамика сбережений", "Savings over time"), style = VsType.Title.copy(fontSize = 18.sp), color = VsInk, modifier = Modifier.weight(1f))
+            SegmentedHug(
+                listOf(pick(lang, "30 kun", "30 дн", "30 d"), pick(lang, "1 yil", "1 год", "1 y")), range,
+                onSelect = { range = it; appStore().putString("wallet_range", it.toString()) }, height = 34.dp
+            )
+        }
+        if (pts.size < 2) {
+            Text(pick(lang, "Tarix yuklanmoqda…", "История загружается…", "Loading history…"), style = VsType.Meta, color = VsInkSoft)
+            return@VsCardBox
+        }
+        val first = pts.first().rate
+        val last = pts.last().rate
+        val change = last - first
+        val pct = if (first > 0) change / first * 100 else 0.0
+        val up = change >= 0
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                (if (change.roundToLong() > 0) "+" else "") + change.roundToLong().formatUzsL() + " $unit",
+                style = VsType.Value.copy(fontSize = 22.sp), color = if (up) VsEmeraldDeep else VsRoseText
+            )
+            Spacer(Modifier.width(8.dp))
+            Text((if (pct > 0) "+" else "") + pct.fixed(1) + "%", style = VsType.Meta.copy(fontWeight = FontWeight.SemiBold), color = if (up) VsEmeraldDeep else VsRoseText, modifier = Modifier.padding(bottom = 3.dp))
+        }
+        val line = if (up) VsEmerald else VsRoseText
+        Canvas(Modifier.fillMaxWidth().height(110.dp)) {
+            val min = pts.minOf { it.rate }
+            val max = pts.maxOf { it.rate }
+            val span = (max - min).takeIf { it > 0 } ?: 1.0
+            val w = size.width
+            val h = size.height
+            val pad = 6.dp.toPx()
+            fun x(i: Int) = w * i / (pts.size - 1).toFloat()
+            fun y(v: Double) = (pad + (h - 2 * pad) * (1 - (v - min) / span)).toFloat()
+            val path = Path().apply { pts.forEachIndexed { i, p -> if (i == 0) moveTo(x(i), y(p.rate)) else lineTo(x(i), y(p.rate)) } }
+            val fill = Path().apply { addPath(path); lineTo(w, h); lineTo(0f, h); close() }
+            drawPath(fill, Brush.verticalGradient(listOf(line.copy(alpha = 0.18f), line.copy(alpha = 0f))))
+            drawPath(path, line, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawCircle(line, 4.dp.toPx(), androidx.compose.ui.geometry.Offset(w, y(last)))
+        }
+        Row {
+            Text(fmtDay(pts.first().date), style = VsType.Meta, color = VsInkSoft, modifier = Modifier.weight(1f))
+            Text(pick(lang, "bugun", "сегодня", "today"), style = VsType.Meta, color = VsInkSoft)
+        }
+        Text(
+            pick(
+                lang,
+                "Hozirgi jamgʻarmangiz MB kursi boʻyicha: valyuta kursi oʻzgarishi qiymatga qanday taʼsir qilgani.",
+                "Ваши текущие сбережения по курсу ЦБ: как изменение курса повлияло на их стоимость.",
+                "Your current savings at CBU rates: how rate moves changed their value."
+            ),
+            style = VsType.Meta, color = VsInkSoft
+        )
+    }
+}
+
+/** "2026-10-22" -> "22.10.2026". */
+private fun fmtDay(iso: String): String = iso.split('-').takeIf { it.size == 3 }?.let { "${it[2]}.${it[1]}.${it[0]}" } ?: iso

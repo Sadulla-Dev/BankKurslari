@@ -68,6 +68,14 @@ object PlatformHooks {
     var onAlertsChanged: () -> Unit = {}
 }
 
+/** A tab the host asks to open (app shortcut, widget tap, notification); the shell switches to it and clears it. */
+object NavRequests {
+    private val state = androidx.compose.runtime.mutableStateOf<HomeTab?>(null)
+    var tab: HomeTab?
+        get() = state.value
+        set(v) { state.value = v }
+}
+
 /** Diagnostics to the device console (Logcat / Xcode console), tag "QK". */
 expect fun debugLog(msg: String)
 

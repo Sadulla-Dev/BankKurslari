@@ -1,5 +1,6 @@
 package com.example.bankkurslari
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
@@ -15,6 +16,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initPlatform(this)
+        openRequestedTab(intent)
         enableEdgeToEdge()
 
         // Background rate monitoring: widget refresh + change notifications.
@@ -36,6 +38,21 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             })
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openRequestedTab(intent)
+    }
+
+    /** App shortcuts, the wallet widget and the daily summary pass the tab to open as extra "tab" (HomeTab name). */
+    private fun openRequestedTab(intent: Intent?) {
+        val name = intent?.getStringExtra(EXTRA_TAB) ?: return
+        HomeTab.entries.firstOrNull { it.name == name }?.let { NavRequests.tab = it }
+    }
+
+    companion object {
+        const val EXTRA_TAB = "tab"
     }
 
     private fun maybeRequestNotificationPermission() {

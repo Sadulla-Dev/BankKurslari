@@ -95,6 +95,8 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - **Kecha bilan farq** (MB kursi o‘zgarishi bo‘yicha) va **dollardagi qiymat**.
 - Har qatorda: miqdor, bank va kurs, so‘mdagi qiymat, kunlik o‘zgarish. Bosish — o‘zgartirish yoki o‘chirish.
 - **Valyutani valyutaga almashtirish:** masalan USD → EUR. Eng foydali yo‘l (bir bankda sotish, boshqasida olish), ikkalasi bitta bankda bo‘lsa natija, MB kursi bo‘yicha qiymat va banklar farqi (%).
+- **Maqsad:** masalan “Mashina — 20 000 $”: progress bar, yig‘ilgan summa va yana qancha kerakligi (USD, EUR yoki so‘mda).
+- **Jamg‘arma dinamikasi:** hozirgi jamg‘arma 30 kun / 1 yil davomida MB kursi bo‘yicha qanday o‘zgargani, grafik bilan.
 - Kod: `Wallet.kt` (hisob-kitob, saqlash), `Hamyon.kt` (ekran); web: `web/public/wallet.js` (`#/hamyon`), hisob-kitob bir xil.
 
 ### 1.7 Sozlamalar
@@ -111,7 +113,8 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 ### 1.8 Android’ga xos
 
 - **Uy ekrani vidjeti:** tanlangan valyuta bo‘yicha eng yaxshi sotish/sotib olish kursi va banklar, MB kursi.
-- **Hamyon vidjeti:** jamg‘arma qiymati va kechagidan farqi.
+- **Hamyon vidjeti:** jamg‘arma qiymati va kechagidan farqi; bosilsa Hamyon ochiladi.
+- **Ilova yorliqlari** (ikonkani bosib turish): Hamyon, Xarita, Tarix — to‘g‘ridan-to‘g‘ri shu tabga.
 - **Fon yangilanishi** (WorkManager, ~30 daqiqada): vidjetlarni yangilaydi, ogohlantirish shartlarini tekshiradi.
 - **Kunlik xulosa:** MB yangi kursni e’lon qilganda bitta bildirishnoma — kurs va o‘zgarish, eng yaxshi sotish/olish banklari, hamyon qiymati va kunlik farqi.
 

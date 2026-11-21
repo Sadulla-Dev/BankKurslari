@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon: jump straight to a tab. MainActivity reads the "tab" extra (HomeTab name). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="wallet"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_wallet"
+        android:shortcutShortLabel="@string/shortcut_wallet"
+        android:shortcutLongLabel="@string/shortcut_wallet_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.qulaykurs.app"
+            android:targetClass="com.example.bankkurslari.MainActivity">
+            <extra android:name="tab" android:value="WALLET" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="map"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_map"
+        android:shortcutShortLabel="@string/shortcut_map"
+        android:shortcutLongLabel="@string/shortcut_map_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.qulaykurs.app"
+            android:targetClass="com.example.bankkurslari.MainActivity">
+            <extra android:name="tab" android:value="MAP" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="history"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_history"
+        android:shortcutShortLabel="@string/shortcut_history"
+        android:shortcutLongLabel="@string/shortcut_history_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="uz.qulaykurs.app"
+            android:targetClass="com.example.bankkurslari.MainActivity">
+            <extra android:name="tab" android:value="TREND" />
+        </intent>
+    </shortcut>
+</shortcuts>

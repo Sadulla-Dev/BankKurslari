@@ -7,7 +7,9 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalSize
-import androidx.glance.action.actionStartActivity
+import androidx.glance.LocalContext
+import androidx.glance.appwidget.action.actionStartActivity
+import android.content.Intent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
@@ -64,7 +66,8 @@ private fun WalletContent(m: WalletWidgetModel) {
     val size = LocalSize.current
     val small = size.height < 120.dp
     val root = GlanceModifier.fillMaxSize().appWidgetBackground().cornerRadius(22.dp).background(WidgetColors.card)
-        .clickable(actionStartActivity<MainActivity>()).padding(horizontal = 16.dp, vertical = 12.dp)
+        .clickable(actionStartActivity(Intent(LocalContext.current, MainActivity::class.java).putExtra(MainActivity.EXTRA_TAB, HomeTab.WALLET.name)))
+        .padding(horizontal = 16.dp, vertical = 12.dp)
     val unit = trSaved("soʻm", "сум", "UZS")
     Column(root, verticalAlignment = Alignment.CenterVertically) {
         Text(trSaved("Hamyon", "Кошелёк", "Wallet"), style = TextStyle(color = WidgetColors.soft, fontSize = 12.sp, fontWeight = FontWeight.Medium))

@@ -652,3 +652,29 @@ body.v-map .foot { display: none; }
   .w-chips { gap: 5px; }
   .w-chips button { font-size: 14px; padding: 0; }
 }
+.w-goal-empty { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 18px; border: 1.5px dashed var(--line); border-radius: var(--r); background: none; color: var(--ink); font: inherit; }
+.w-goal-empty:hover { border-color: var(--accent); }
+.w-goal-empty > span:first-child { font-size: 24px; }
+.w-goal-empty b { display: block; font-weight: 600; }
+.w-goal-empty small { color: var(--ink-2); font-size: 13px; }
+.w-goal { width: 100%; text-align: left; border: 0; color: var(--ink); font: inherit; cursor: pointer; }
+.w-goal-top { display: flex; justify-content: space-between; align-items: baseline; }
+.w-goal-top b { font-size: 18px; font-weight: 700; }
+.w-goal-top em { font-style: normal; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.w-bar { display: block; height: 10px; border-radius: 99px; background: var(--fill); overflow: hidden; }
+.w-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.w-goal-left { font-weight: 500; }
+.w-goal-left.done { color: var(--accent); }
+.w-trend-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.w-trend-top h2 { font-size: 18px; }
+.w-trend-ch { display: flex; align-items: baseline; gap: 8px; }
+.w-trend-ch b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.w-trend-ch small { font-size: 13px; font-weight: 600; }
+.w-spark { width: 100%; height: 120px; display: block; }
+.w-spark .l { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.w-spark.pos .l { stroke: var(--accent); } .w-spark.neg .l { stroke: var(--down); }
+.w-spark .f { opacity: .14; } .w-spark.pos .f { fill: var(--accent); } .w-spark.neg .f { fill: var(--down); }
+.w-trend-x { display: flex; justify-content: space-between; }
+.w-name { width: 100%; height: 48px; border-radius: 14px; border: 1px solid transparent; background: var(--fill); padding: 0 14px; font: inherit; font-size: 16px; color: var(--ink); outline: 0; }
+.w-name:focus { border-color: var(--accent); }
+.w-sheet .w-chips:has([data-wgcode]) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
