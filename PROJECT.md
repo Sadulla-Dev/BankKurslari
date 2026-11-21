@@ -43,6 +43,7 @@ Ilova to‘rtta tabdan iborat: **Kurs**, **Xarita**, **Tarix**, **Hamyon**, hamd
   - Qatorni bosish: bank oynasi (pastga qarang).
 - **MB kursi** ro‘yxat oxirida ma’lumot sifatida.
 - **Holatlar:** yuklanish skeleti, oflayn rejim (oxirgi saqlangan kurslar va vaqti), eskirgan ma’lumot ogohlantirishi, joylashuv yo‘qligida masofasiz ishlash.
+- **Valyutani valyutaga almashtirish** (summa kartasi ostidagi qator, pastdan oyna bo‘lib ochiladi): masalan USD → EUR. Banklar to‘g‘ridan-to‘g‘ri almashtirmaydi, so‘m orqali: eng foydali yo‘l (bir bankda sotish, boshqasida olish), ikkalasi bitta bankda bo‘lsa natija, MB kursi bo‘yicha qiymat va banklar farqi (%). Kod: `Hamyon.kt` → `ExchangeSheet`; web: `wallet.js` → `wXEntry()`.
 - **Pastga tortib yangilash** (pull to refresh).
 
 ### 1.2 Bank oynasi (bottom sheet)
@@ -100,7 +101,6 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - **Kecha bilan farq** (MB kursi o‘zgarishi bo‘yicha) va **dollardagi qiymat**.
 - Har qatorda: miqdor, bank va kurs, so‘mdagi qiymat, kunlik o‘zgarish. Bosish — o‘zgartirish yoki o‘chirish.
 - Hamyon bo‘sh bo‘lsa, Kurs ekranida unga taklif kartasi (yopish mumkin).
-- **Valyutani valyutaga almashtirish:** masalan USD → EUR. Eng foydali yo‘l (bir bankda sotish, boshqasida olish), ikkalasi bitta bankda bo‘lsa natija, MB kursi bo‘yicha qiymat va banklar farqi (%).
 - **Maqsad:** masalan “Mashina — 20 000 $”: progress bar, yig‘ilgan summa va yana qancha kerakligi (USD, EUR yoki so‘mda).
 - Kod: `Wallet.kt` (hisob-kitob, saqlash), `Hamyon.kt` (ekran); web: `web/public/wallet.js` (`#/hamyon`), hisob-kitob bir xil.
 - Web oflayn ishlaydi (`web/public/sw.js`): sahifa va oxirgi kurslar keshda, internet bo‘lmasa shular ko‘rsatiladi.

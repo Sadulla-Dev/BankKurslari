@@ -438,7 +438,7 @@ async function openAll() {
   try { await loadCbuAll(); } catch { toast(L().error); }
   renderAllBtn();
   if (S.view === "wallet" && typeof renderWallet === "function") renderWallet();
-  if (typeof wNudge === "function") wNudge();
+  if (typeof wXEntry === "function") wXEntry();
   if (S.allOpen) renderAllSheet();
 }
 function closeAll() {
@@ -1269,7 +1269,7 @@ function applyLang() {
   renderAll();
   renderAllBtn();
   if (S.view === "wallet" && typeof renderWallet === "function") renderWallet();
-  if (typeof wNudge === "function") wNudge();
+  if (typeof wXEntry === "function") wXEntry();
   if (S.allOpen) renderAllSheet();
   if (S.sheetBank) { const list = ranked(S.rates[S.cur]); const b = list.find((x) => x.bank === S.sheetBank); if (b) renderSheet(b, list); }
 }

@@ -23,7 +23,7 @@ const WT = {
     cash: "Naqd so‘m", cbuBuys: "MB qaytarib oladi", grams: "g oltin", gramsUnit: "gramm", gold: "Oltin", loading: "Kurs yuklanmoqda…",
     edit: "O‘zgartirish", save: "Saqlash", remove: "O‘chirish", cancel: "Bekor qilish", addT: "Jamg‘arma qo‘shish",
     merge: "Bu valyuta bor: summa unga qo‘shiladi.",
-    xT: "Valyutani valyutaga almashtirish",
+    xT: "Valyutani valyutaga almashtirish", xEntry: "Masalan, dollarni yevroga: eng foydali yo‘l",
     xP: "Masalan, safarga yevro kerak, sizda dollar bor. Banklar to‘g‘ridan-to‘g‘ri almashtirmaydi: avval so‘mga sotasiz, keyin kerakli valyutani olasiz. Eng foydali yo‘lni hisoblaymiz.",
     have: "Menda bor", need: "Menga kerak", swap: "Almashtirish", get: "Qo‘lingizga tegadi", enter: "Summani kiriting",
     step1: (b, a, c, r, s) => `${b}: ${a} ${c} sotasiz, kurs ${r} → ${s} so‘m`,
@@ -45,7 +45,7 @@ const WT = {
     cash: "Наличные сумы", cbuBuys: "ЦБ выкупает", grams: "г золота", gramsUnit: "грамм", gold: "Золото", loading: "Курс загружается…",
     edit: "Изменить", save: "Сохранить", remove: "Удалить", cancel: "Отмена", addT: "Добавить сбережения",
     merge: "Эта валюта уже есть: сумма прибавится.",
-    xT: "Обмен валюты на валюту",
+    xT: "Обмен валюты на валюту", xEntry: "Например, доллары на евро: самый выгодный путь",
     xP: "Например, для поездки нужны евро, а у вас доллары. Банки меняют через сумы: сначала продаёте, потом покупаете. Считаем самый выгодный путь.",
     have: "У меня есть", need: "Мне нужно", swap: "Поменять местами", get: "Вы получите", enter: "Введите сумму",
     step1: (b, a, c, r, s) => `${b}: продаёте ${a} ${c}, курс ${r} → ${s} сум`,
@@ -67,7 +67,7 @@ const WT = {
     cash: "Cash so'm", cbuBuys: "CBU buys back", grams: "g gold", gramsUnit: "grams", gold: "Gold", loading: "Loading rate…",
     edit: "Edit", save: "Save", remove: "Remove", cancel: "Cancel", addT: "Add savings",
     merge: "Already in the wallet: the amount is added to it.",
-    xT: "Currency to currency",
+    xT: "Currency to currency", xEntry: "E.g. dollars to euros: the cheapest route",
     xP: "Say you need euros for a trip and hold dollars. Banks go through so'm: sell first, then buy. We find the cheapest route.",
     have: "I have", need: "I need", swap: "Swap", get: "You get", enter: "Enter an amount",
     step1: (b, a, c, r, s) => `${b}: sell ${a} ${c} at ${r} → ${s} so'm`,
@@ -192,6 +192,8 @@ const wParse = (s) => { const n = Number(String(s).replace(/\s/g, "").replace(",
 const wCodeLabel = (c) => (c === "XAU" ? WL().gold : c);
 const wUnit = (c) => (c === "UZS" ? WL().som : c === "XAU" ? WL().gramsUnit : c);
 
+let wLoaded = null;
+
 /* ---------- render ---------- */
 
 function wChips(codes, on, attr) {
@@ -227,7 +229,6 @@ function renderWallet() {
       }).join("")}
       <button type="button" class="w-row w-more" data-wadd><span class="w-sym plus">+</span><span class="w-mid"><b>${esc(t.addMore)}</b></span></button></div>`;
   }
-  html += renderExchange();
   html += `<p class="muted small w-note">${esc(t.note)}</p>`;
   root.innerHTML = html;
   renderWalletSheet();
@@ -261,7 +262,7 @@ function renderGoalSheet(el) {
 
 function renderExchange() {
   const t = WL(), amount = wParse(W.amount) || 0, x = wExchange(W.from, W.to, amount);
-  let out = `<div class="card w-card w-x"><h2>${esc(t.xT)}</h2><p class="muted">${esc(t.xP)}</p>
+  let out = `<div class="w-x"><h2>${esc(t.xT)}</h2><p class="muted">${esc(t.xP)}</p>
     <p class="w-lab">${esc(t.have)}</p>${wChips(W_XCHG, W.from, "xfrom")}
     <label class="amount-row w-amt"><input id="wxAmount" inputmode="decimal" autocomplete="off" value="${esc(W.amount)}" aria-label="${esc(t.have)}"><span class="unit">${esc(wUnit(W.from))}</span></label>
     <div class="w-lab w-swaprow"><span>${esc(t.need)}</span><button type="button" class="icon-btn" data-wswap aria-label="${esc(t.swap)}" title="${esc(t.swap)}"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M6 3v12M3 6l3-3 3 3M12 15V3M9 12l3 3 3-3" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
@@ -283,14 +284,20 @@ function renderExchange() {
 
 function renderWalletSheet() {
   let el = $("walletSheet");
-  const open = W.adding || W.editing || W.goalOpen;
+  const open = W.adding || W.editing || W.goalOpen || W.xOpen;
   if (!open) {
-    if (el) { el.classList.remove("on"); $("walletScrim").classList.remove("on"); setTimeout(() => { if (!W.adding && !W.editing && !W.goalOpen) { el.hidden = true; $("walletScrim").hidden = true; } }, 250); }
+    if (el) { el.classList.remove("on"); $("walletScrim").classList.remove("on"); setTimeout(() => { if (!W.adding && !W.editing && !W.goalOpen && !W.xOpen) { el.hidden = true; $("walletScrim").hidden = true; } }, 250); }
     return;
   }
   if (!el) {
     document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="walletScrim" hidden></div><div class="sheet w-sheet" id="walletSheet" role="dialog" aria-modal="true" hidden></div>`);
     el = $("walletSheet");
+  }
+  if (W.xOpen) {
+    el.innerHTML = `<div class="sheet-grip"></div>${renderExchange()}`;
+    el.hidden = false; $("walletScrim").hidden = false;
+    requestAnimationFrame(() => { el.classList.add("on"); $("walletScrim").classList.add("on"); });
+    return;
   }
   if (W.goalOpen) {
     renderGoalSheet(el);
@@ -314,7 +321,7 @@ function renderWalletSheet() {
   setTimeout(() => $("wAmount")?.focus(), 50);
 }
 
-function closeWalletSheet() { W.adding = false; W.editing = null; W.goalOpen = false; renderWalletSheet(); }
+function closeWalletSheet() { W.adding = false; W.editing = null; W.goalOpen = false; W.xOpen = false; renderWalletSheet(); }
 
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-wadd],[data-wedit],[data-xfrom],[data-xto],[data-wswap],[data-wcode],[data-wsave],[data-wdel],[data-wclose],[data-wgoal],[data-wgcode],[data-wgsave],[data-wgdel],#walletScrim");
@@ -346,7 +353,7 @@ document.addEventListener("click", (e) => {
   if (b.dataset.xto) { if (b.dataset.xto === W.from) W.from = W.to; W.to = b.dataset.xto; }
   if (b.hasAttribute("data-wswap")) [W.from, W.to] = [W.to, W.from];
   wSaveX();
-  renderWallet();
+  if (W.xOpen) renderWalletSheet(); else renderWallet();
 });
 document.addEventListener("input", (e) => {
   if (e.target.id !== "wxAmount") return;
@@ -361,10 +368,26 @@ document.addEventListener("input", (e) => {
   try { inp.setSelectionRange(pos, pos); } catch { /* type=text only */ }
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (W.adding || W.editing || W.goalOpen)) closeWalletSheet();
+  if (e.key === "Escape" && (W.adding || W.editing || W.goalOpen || W.xOpen)) closeWalletSheet();
   if (e.key === "Enter" && (e.target.id === "wAmount" || e.target.id === "wGoalName")) document.querySelector("[data-wsave],[data-wgsave]")?.click();
 });
 function wSaveX() { store.set("xchg_from", W.from); store.set("xchg_to", W.to); store.set("xchg_amount", W.amount); }
+
+/** Entry under the converter to the currency-to-currency calculator (opens as a sheet, rates load on demand). */
+function wXEntry() {
+  document.getElementById("wXEntry")?.remove();
+  const conv = document.querySelector(".conv");
+  if (!conv) return;
+  const t = WL();
+  conv.insertAdjacentHTML("beforeend", `<button type="button" class="w-xentry" id="wXEntry" data-wxopen><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7h13M12.5 3.5L16 7l-3.5 3.5M17 13H4M7.5 9.5L4 13l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>${esc(t.xT)}</b><small>${esc(t.xEntry)}</small></span><svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`);
+  wNudge(); // keep the wallet nudge after the entry
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-wxopen]")) return;
+  W.xOpen = true;
+  renderWalletSheet();
+  (wLoaded ||= wLoad()).then(() => { if (W.xOpen) renderWalletSheet(); });
+});
 
 /** Quiet card under the converter pointing to #/hamyon, until the wallet has something or the visitor closes it. */
 function wNudge() {
@@ -381,11 +404,10 @@ document.addEventListener("click", (e) => {
   wNudge();
 });
 
-let wLoaded = null;
 function showWallet() {
   renderWallet();
   (wLoaded ||= wLoad()).then(renderWallet);
 }
 // app.js routed before this file loaded: catch up.
 if (S.view === "wallet") showWallet();
-wNudge();
+wXEntry();

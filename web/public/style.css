@@ -636,7 +636,17 @@ body.v-map .foot { display: none; }
 .w-note { padding: 0 4px; }
 .w-sheet { display: grid; gap: 12px; }
 .w-sheet h3 { font-size: 20px; font-weight: 700; }
-.w-x .w-chips { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.w-x { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.w-x h2 { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.w-sheet .w-x .w-chips, .w-x .w-chips { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+/* Entry under the converter on the rates page: opens the currency-to-currency sheet. */
+.w-xentry { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 16px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.w-xentry > svg:first-child { flex: none; color: var(--accent); }
+.w-xentry span { flex: 1; min-width: 0; }
+.w-xentry b { display: block; font-weight: 600; font-size: 15px; }
+.w-xentry small { color: var(--ink-2); font-size: 13px; }
+.w-xentry .chev { flex: none; color: var(--ink-2); }
+.w-xentry:hover { border-color: var(--accent); }
 .w-sheet .w-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .w-edit-code { display: flex; align-items: center; gap: 10px; }
 .w-save { width: 100%; margin-top: 4px; }

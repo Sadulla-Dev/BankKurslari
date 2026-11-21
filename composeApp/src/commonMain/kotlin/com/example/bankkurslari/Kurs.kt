@@ -54,6 +54,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Check
@@ -433,6 +434,27 @@ private fun WalletNudge(onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Mod
     }
 }
 
+/** Entry to the currency-to-currency calculator (ExchangeSheet). */
+@Composable
+private fun ExchangeEntry(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().vsCard(VsShape.Card).clip(VsShape.Card).clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(Icons.Outlined.SwapHoriz, null, tint = VsEmerald, modifier = Modifier.size(24.dp))
+        Column(Modifier.weight(1f)) {
+            Text(tr("Valyutani valyutaga almashtirish", "Обмен валюты на валюту", "Currency to currency"), style = VsType.BodyMedium, color = VsInk)
+            Text(
+                tr("Masalan, dollarni yevroga: eng foydali yoʻl", "Например, доллары на евро: самый выгодный путь", "E.g. dollars to euros: the cheapest route"),
+                style = VsType.Meta, color = VsInkSoft
+            )
+        }
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun KursScreen(
@@ -477,6 +499,7 @@ fun KursScreen(
     var expanded by rememberSaveable { mutableStateOf(false) }
     var sheetBank by remember { mutableStateOf<String?>(null) }
     var showAll by remember { mutableStateOf(false) }
+    var showXchg by remember { mutableStateOf(false) }
     // Bank count per extra currency (GBP, CHF, JPY, KZT, CNY): only currencies some bank really trades are offered,
     // and only once their rates are on the device (cache or network), so picking one never lands on an empty screen.
     var extraBanks by remember { mutableStateOf<Map<Currency, Int>>(emptyMap()) }
@@ -751,6 +774,10 @@ fun KursScreen(
                             }
                         }
                     }
+                    // Currency to currency (e.g. USD -> EUR through so'm): a quiet entry that opens the calculator sheet.
+                    item(key = "xchg") {
+                        ExchangeEntry(onClick = { showXchg = true }, modifier = Modifier.animateItem().rise(entrance, 2))
+                    }
                     // Location prompt: one quiet card, never blocking. Disappears once a position is known.
                     if (!locChipDismissed && locMsg != null) {
                         item(key = "loc") {
@@ -887,6 +914,7 @@ fun KursScreen(
     }
 
     if (showAll) AllCurrenciesSheet(onDismiss = { showAll = false })
+    if (showXchg) ExchangeSheet(lang, onDismiss = { showXchg = false })
 
     val sheetItem = sheetBank?.let { name -> ranked.firstOrNull { it.rate.bank == name } }
     if (sheetItem != null) {

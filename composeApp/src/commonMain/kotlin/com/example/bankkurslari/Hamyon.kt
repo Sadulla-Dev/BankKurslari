@@ -151,8 +151,6 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
             )
         }
 
-        ExchangeCard(quotes, lang)
-
         Text(
             pick(
                 lang,
@@ -315,14 +313,53 @@ private fun HoldingRow(r: HoldingValue, lang: Lang, onClick: () -> Unit) {
 
 /* ---------- exchange ---------- */
 
+/**
+ * Currency to currency through so'm (e.g. USD -> EUR): opened from Kurs as a sheet.
+ * Loads the quotes itself (cache first, then network), like the Hamyon screen.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExchangeCard(quotes: Map<WalletCode, Quote>, lang: Lang) {
+fun ExchangeSheet(lang: Lang, onDismiss: () -> Unit) {
+    var quotes by remember { mutableStateOf<Map<WalletCode, Quote>>(emptyMap()) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        quotes = cachedQuotes()
+        val fresh = fetchQuotes()
+        quotes = quotes + fresh
+        failed = quotes.isEmpty()
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = VsCard,
+        shape = VsShape.Tray,
+        tonalElevation = 0.dp,
+        scrimColor = VsInk.copy(alpha = 0.42f),
+        dragHandle = { VsSheetHandle() }
+    ) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).imePadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ExchangeContent(quotes, lang)
+            if (failed) Text(
+                pick(lang, "Kurslarni yuklab boʻlmadi. Internetni tekshiring.", "Не удалось загрузить курсы. Проверьте интернет.", "Could not load rates. Check your connection."),
+                style = VsType.Meta, color = VsRoseText
+            )
+            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+    }
+}
+
+@Composable
+private fun ExchangeContent(quotes: Map<WalletCode, Quote>, lang: Lang) {
     var from by remember { mutableStateOf(WalletCode.of(WalletStore.exchangeFrom())?.takeIf { it in WalletCode.exchangeable } ?: WalletCode.USD) }
     var to by remember { mutableStateOf(WalletCode.of(WalletStore.exchangeTo())?.takeIf { it in WalletCode.exchangeable } ?: WalletCode.EUR) }
     var amountText by remember { mutableStateOf(WalletStore.exchangeAmount()) }
     fun persist() = WalletStore.saveExchange(from.code, to.code, amountText)
 
-    VsCardBox {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(pick(lang, "Valyutani valyutaga almashtirish", "Обмен валюты на валюту", "Currency to currency"), style = VsType.Title, color = VsInk)
         Text(
             pick(
