@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createAlerts, flushAlerts } from "./alerts.js";
+import { fetchBankSites, SITE_CURRENCIES, BANK_SITE_COUNT } from "./bankSites.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.SITE_DIR || join(ROOT, "worker", "public");
@@ -94,11 +95,13 @@ async function readPrevious(path) {
   try { return JSON.parse(await readFile(join(SITE, path), "utf8")); } catch { return null; }
 }
 
+const bankUzFailed = new Set(); // currencies bank.uz did not give usable rates for in this run
 for (const cur of [...api.SUPPORTED, ...api.EXTRA_RATES]) {
   await step(`rates ${cur}`, async () => {
     const path = `api/rates/${cur}.json`;
     const prev = await readPrevious(path); // pulled from the live site by pullPrevious()
     const before = prev?.banks?.length || 0;
+    bankUzFailed.add(cur); // until it succeeds below
     const next = await api.getRatesPayload(cur, { force: true });
     // bank.uz down, blocking us or changing its markup comes back as few or no banks. Writing that would replace the
     // last good rates with an empty list ("no bank rates" in the apps); keep the previous file instead. Its old
@@ -107,8 +110,77 @@ for (const cur of [...api.SUPPORTED, ...api.EXTRA_RATES]) {
       throw new Error(`only ${next.banks.length} banks (was ${before}), keeping the previous file`);
     }
     await put(path, next);
+    bankUzFailed.delete(cur);
   });
 }
+
+/* ---------- fallback: the banks' own websites (src/bankSites.js, BANK_RATE_SOURCES.md) ---------- */
+
+// When bank.uz gives no usable dollar rates, read the 29 banks' sites instead, but only at these Tashkent hours (light
+// on the banks). In between, the last fallback files stay. A late or skipped run catches up on the next one.
+const SITE_HOURS = [1, 8, 13, 20];
+function lastSiteSlot(nowMs = Date.now()) {
+  const local = new Date(nowMs + 5 * 3600 * 1000);
+  for (let daysBack = 0; daysBack < 2; daysBack++) {
+    for (const h of [...SITE_HOURS].reverse()) {
+      const slot = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - daysBack, h) - 5 * 3600 * 1000;
+      if (slot <= nowMs) return slot;
+    }
+  }
+  return 0;
+}
+async function cbuRates() {
+  const map = await api.getCbuCurrent();
+  return { map, perUnit: Object.fromEntries(Object.entries(map).map(([c, v]) => [c, v.rate])) };
+}
+if (bankUzFailed.has("USD")) {
+  await step("rates from bank sites", async () => {
+    const prevUsd = await readPrevious("api/rates/USD.json");
+    if (prevUsd?.source === "bank-sites" && Date.parse(prevUsd.updatedAt) >= lastSiteSlot()) {
+      console.log(`keep bank-site rates from ${prevUsd.updatedAt} (read at ${SITE_HOURS.join(":00, ")}:00 Tashkent)`);
+      for (const cur of bankUzFailed) if ((await readPrevious(`api/rates/${cur}.json`))?.source === "bank-sites") alerts.remove(`step:rates ${cur}`);
+      alerts.add("fallback", `bank.uz ishlamayapti: kurslar banklarning o'z saytlaridan olinmoqda (kuniga 4 marta)`);
+      return;
+    }
+    const { map, perUnit } = await cbuRates();
+    const { banks, errors } = await fetchBankSites({ cbu: perUnit });
+    for (const cur of SITE_CURRENCIES) {
+      if (!bankUzFailed.has(cur)) continue; // bank.uz still fine for this one
+      const rows = banks.filter((b) => b.rates[cur]).map((b) => ({ bank: b.bank, buy: b.rates[cur].buy, sell: b.rates[cur].sell, sourceUrl: b.sourceUrl }));
+      if (rows.length < (cur === "USD" ? 10 : 1)) continue; // too few to trust: keep the previous file
+      await put(`api/rates/${cur}.json`, api.buildRatesPayload(cur, map, rows, "bank websites", "bank-sites"));
+      alerts.remove(`step:rates ${cur}`); // filled from the bank sites: the "fallback" alert below says so once
+    }
+    alerts.add("fallback", `bank.uz ishlamayapti: kurslar ${banks.length}/${BANK_SITE_COUNT} bank saytidan olindi (kuniga 4 marta)`
+      + (errors.length ? `. O'qilmadi: ${errors.map((e) => `${e.bank} (${e.error})`).join(", ")}` : ""));
+  });
+}
+
+// Once a day while bank.uz works, read the bank sites anyway and compare: a site that changed is found before the day
+// it is needed. Its problems stay listed (and alerted) until the next check.
+await step("bank sites check", async () => {
+  const checkPath = join(STATE, "sites-check.json");
+  let check = {};
+  try { check = JSON.parse(await readFile(checkPath, "utf8")); } catch { /* first run */ }
+  if (!bankUzFailed.has("USD") && !(Date.now() - (check.at || 0) < 24 * 3600 * 1000)) {
+    const usd = await readPrevious("api/rates/USD.json");
+    const ref = new Map((usd?.banks || []).map((b) => [b.bank, b]));
+    const { perUnit } = await cbuRates();
+    const { banks, errors } = await fetchBankSites({ cbu: perUnit });
+    const problems = {};
+    for (const e of errors) problems[e.bank] = `sayti o'qilmadi (${e.error})`;
+    for (const b of banks) {
+      const r = ref.get(b.bank), mine = b.rates.USD;
+      if (!r) continue; // bank.uz has no rate for it to compare with
+      const off = (x, y) => x != null && y != null && Math.abs(x - y) > 0.5;
+      if (off(mine.buy, r.buy) || off(mine.sell, r.sell)) problems[b.bank] = `saytdagi USD ${mine.buy}/${mine.sell}, bank.uz'da ${r.buy}/${r.sell}`;
+    }
+    check = { at: Date.now(), ok: banks.length - Object.keys(problems).filter((k) => banks.some((b) => b.bank === k)).length, problems };
+    await writeFile(checkPath, JSON.stringify(check));
+    console.log(`bank sites check: ${banks.length}/${BANK_SITE_COUNT} read, ${Object.keys(problems).length} problem(s)`);
+  }
+  for (const [bank, text] of Object.entries(check.problems || {})) alerts.add(`site:${bank}`, `Zaxira manba, ${bank}: ${text}`);
+});
 // Which banks stopped publishing a USD rate. A bank counts as known for 7 days after it was last seen, so one that
 // stays missing keeps its alert (with a reminder) instead of looking "fixed" on the next run.
 await step("bank watch", async () => {
@@ -128,7 +200,8 @@ await step("bank watch", async () => {
   await writeFile(seenPath, JSON.stringify(seen));
   // The rates file is kept when bank.uz fails, so a growing age means bank.uz has not given usable data for hours.
   const ageH = usd?.updatedAt ? (nowMs - Date.parse(usd.updatedAt)) / 3600000 : Infinity;
-  if (ageH > 3) alerts.add("stale:USD", `Kurslar ${Number.isFinite(ageH) ? Math.round(ageH) + " soat" : "uzoq vaqt"}dan beri yangilanmadi (bank.uz javob bermayapti yoki bloklagan bo'lishi mumkin)`);
+  // Bank-site rates are refreshed every 5-7 hours by design, so they are "late" only after 8.
+  if (ageH > (usd?.source === "bank-sites" ? 8 : 3)) alerts.add("stale:USD", `Kurslar ${Number.isFinite(ageH) ? Math.round(ageH) + " soat" : "uzoq vaqt"}dan beri yangilanmadi (bank.uz javob bermayapti yoki bloklagan bo'lishi mumkin)`);
 });
 await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()));
 await step("gold", async () => put("api/gold.json", await api.getGold({ force: true })));

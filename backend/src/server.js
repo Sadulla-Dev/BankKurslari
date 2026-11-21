@@ -307,10 +307,24 @@ async function getRatesPayload(cur, { force = false } = {}) {
     })
   ]);
 
+  const payload = buildRatesPayload(cur, cbuMap, commercialResult, BANK_UZ_PAGE);
+  ratesCache.set(cur, { cachedAt: Date.now(), payload });
+  await recordBankHistory(cur, payload.banks).catch((e) => console.error(`Bank history (${cur}):`, e.message));
+  return payload;
+}
+
+/**
+ * The rates file for one currency from bank rows ({ bank, buy, sell, sourceUrl }), whatever their source: bank.uz, or
+ * the banks' own websites when bank.uz is down (src/bankSites.js, source = "bank-sites").
+ */
+function buildRatesPayload(cur, cbuMap, rows, commercialSource, source = "bank.uz") {
   // Drop scraping artifacts: bank.uz occasionally returns a rate with a missing
   // digit (e.g. 1155 instead of 11550). Reject values far from the official rate.
   const cbuRate = cbuMap[cur]?.rate;
-  const commercialRates = sanitizeRates(commercialResult, cbuRate);
+  const commercialRates = sanitizeRates(
+    rows.map((r) => ({ ...r, spread: r.buy != null && r.sell != null ? r.sell - r.buy : null, branch: r.branch ?? BANK_BRANCHES[normalizeBankName(r.bank)] ?? null })),
+    cbuRate
+  ).sort((left, right) => (right.buy ?? -Infinity) - (left.buy ?? -Infinity) || (left.sell ?? Infinity) - (right.sell ?? Infinity));
 
   const bestBuy = commercialRates
     .filter((rate) => Number.isFinite(rate.buy))
@@ -319,19 +333,16 @@ async function getRatesPayload(cur, { force = false } = {}) {
     .filter((rate) => Number.isFinite(rate.sell))
     .sort((left, right) => left.sell - right.sell)[0] ?? null;
 
-  const payload = {
+  return {
     currency: cur,
     updatedAt: new Date().toISOString(),
-    sources: { cbu: CBU_ALL_URL, commercialBanks: BANK_UZ_PAGE },
+    source,
+    sources: { cbu: CBU_ALL_URL, commercialBanks: commercialSource },
     cbu: cbuMap[cur] ?? null,
     bestBuy,
     bestSell,
     banks: commercialRates
   };
-
-  ratesCache.set(cur, { cachedAt: Date.now(), payload });
-  await recordBankHistory(cur, commercialRates).catch((e) => console.error(`Bank history (${cur}):`, e.message));
-  return payload;
 }
 
 /* ---------- bank rate history (collected by this server; starts empty) ---------- */
@@ -1083,4 +1094,4 @@ function normalizeBankName(value) {
   return cleanText(value).toLowerCase().replace(/['‘’`]/g, "").replace(/\s+/g, " ");
 }
 
-export { getRatesPayload, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED, EXTRA_RATES };
+export { getRatesPayload, buildRatesPayload, getCbuCurrent, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED, EXTRA_RATES };

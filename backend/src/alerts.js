@@ -22,6 +22,10 @@ export function createAlerts() {
       issues.set(key, text);
       console.error(`ALERT ${key}: ${text}`);
     },
+    /** Drops a problem recorded earlier in this run (e.g. a currency the fallback source has filled after all). */
+    remove(key) {
+      issues.delete(key);
+    },
     issues
   };
 }

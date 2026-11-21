@@ -72,9 +72,13 @@ Universal, Hayot va boshqa ba’zi banklar valyutani ISO raqamli kod bilan berad
 - **Kurs birligi har xil.** BRB, SQB va Hamkorbank tiyinda beradi (100 ga bo‘lish kerak). Tenge KZT’ni kasr bilan beradi. Bir nechta bank ISO raqamli koddan foydalanadi.
 - **Eskirgan sana.** Agrobank (`updated` maydoni), Hamkorbank va Ipoteka sahifalarida sana bor. Zaxira yig‘uvchi bu sanani o‘qib, bir necha kundan eski kursni olmasligi kerak.
 
-## Zaxira yig‘uvchini qurish tartibi (taklif)
+## Zaxira yig‘uvchi (qurilgan, `src/bankSites.js`)
 
-1. **A-guruhdan boshlash** (11 ta JSON). Har bank uchun kichik funksiya bo‘ladi, javob umumiy `{bank, buy, sell}` ko‘rinishiga keltiriladi.
-2. **Keyin B-guruh** (18 ta HTML) cheerio bilan. Har bank uchun selektor va namuna sahifa saqlanadi, sahifa o‘zgarsa test darhol buzilib, ogohlantiradi.
-3. **Ishga tushish qoidasi:** bank.uz natijasi yaroqsiz bo‘lganda (banklar soni avvalgisining yarmidan kam, `build.js`dagi himoya) yoki soatlik `step` xato berganda, zaxira kuniga 4 marta o‘qiladi.
-4. **Har bir kursga manba yoziladi** (`source: "bank.uz"` yoki bankning domeni), va 2 kundan eski kurs olinmaydi.
+- **Qachon ishlaydi:** bank.uz USD kursini bermasa — ishlamasa, bloklasa yoki banklar soni avvalgisining yarmidan kamayib ketsa. Shunda build (`src/build.js`) 29 ta bank saytini o‘qiydi, faqat Toshkent vaqti bilan 1:00, 8:00, 13:00, 20:00 da. Oradagi soatlarda oxirgi fayl qoladi. bank.uz tiklanishi bilan kurslar yana bank.uz’dan olinadi.
+- **Kunlik tekshiruv:** bank.uz ishlab turganda ham sutkada bir marta 29 ta sayt o‘qiladi va USD kursi bank.uz bilan solishtiriladi. O‘qilmagan yoki farq qilgan bank haqida egasiga Telegram’da xabar boradi (`src/alerts.js`), shuning uchun buzilgan manba zaxira kerak bo‘lishidan oldin topiladi.
+- **Tezligi:** 29 bank, 6 tadan parallel, taxminan 5 soniya.
+- **Natija (22.11.2026):** 28/29 bank o‘qildi, USD hammasida bank.uz bilan aniq mos keldi; jami 126 ta valyuta qiymati mos, farq yo‘q. RUB/JPY kabi ikkinchi darajali valyutalar ba’zi HTML sahifalarda topilmaydi.
+- **Kapitalbank:** Cloudflare 403 qaytaradi (sinovlar ko‘p bo‘lgan kompyuterdan; GitHub serverida tekshirish kerak).
+- **Maxsus holatlar kodda:** Infinbank (kalkulyatordagi `data-rates`), Ipak Yo‘li (Nuxt ma’lumotidagi “Kassada” jadvali), Davr (faqat USD), Turon/Poytaxt (lazyload bo‘lagi), so‘rovlar `node:https` orqali (Asakabank sarlavhasi, Turon IPv6, bitta qayta urinish).
+- **Sinash:** `node --import <bank.uz’ni o‘chiruvchi skript> src/build.js rates` — bank.uz so‘rovlarini xato qildirib, zaxira rejimini tekshirish mumkin.
+

@@ -183,7 +183,8 @@ Bankkurslari/
 ### Backend
 
 Node.js + Express, port 8080. Ma’lumot manbalari: **bank.uz** (tijorat banklari kurslari), **cbu.uz** (MB kursi va arxivi), OpenStreetMap / Yandex (filiallar, bankomatlar).
-USD, EUR, RUB, GBP, KZT kurslari bank.uz’ning umumiy taqqoslash sahifasidan; CHF, JPY, CNY uchun bunday sahifa yo‘q, ular har bir bankning o‘z sahifasidan (`/uz/currency/bank/<bank>`, ~30 sahifa, 4 tadan parallel) yig‘iladi (`server.js`: `PER_BANK_RATES`). Hammasi har soatda yangilanadi. Zaxira manbalar (banklarning o‘z saytlari, bank.uz ishlamasa kuniga 4 marta): `backend/BANK_RATE_SOURCES.md`.
+USD, EUR, RUB, GBP, KZT kurslari bank.uz’ning umumiy taqqoslash sahifasidan; CHF, JPY, CNY uchun bunday sahifa yo‘q, ular har bir bankning o‘z sahifasidan (`/uz/currency/bank/<bank>`, ~30 sahifa, 4 tadan parallel) yig‘iladi (`server.js`: `PER_BANK_RATES`). Hammasi har soatda yangilanadi. Zaxira: bank.uz USD bermasa, kurslar 29 ta bankning o‘z saytidan olinadi (`backend/src/bankSites.js`, kuniga 4 marta: 1, 8, 13, 20 da); bank.uz ishlaganda ham sutkada bir marta solishtiriladi. Manbalar: `backend/BANK_RATE_SOURCES.md`.
+Muammolar (bank kurs bermay qoldi, bank.uz ishlamayapti, kurslar eskirdi, workflow yiqildi) faqat egasiga Telegram’da shaxsiy xabar bo‘lib keladi: `backend/src/alerts.js`; kerakli secret’lar: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`.
 Himoya: bank.uz ishlamasa, bloklasa yoki sahifasini o‘zgartirsa, banklar soni avvalgisining yarmidan kam chiqadi — bunday javob yozilmaydi, oxirgi yaxshi kurslar qoladi (eski vaqti bilan, ilova uni “eskirgan” deb ko‘rsatadi).
 
 | Endpoint | Tavsif |
