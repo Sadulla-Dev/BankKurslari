@@ -1083,4 +1083,4 @@ function normalizeBankName(value) {
   return cleanText(value).toLowerCase().replace(/['‘’`]/g, "").replace(/\s+/g, " ");
 }
 
-export { getRatesPayload, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED, EXTRA_RATES };
+export { getRatesPayload, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED, EXTRA_RATES, PER_BANK_RATES };
