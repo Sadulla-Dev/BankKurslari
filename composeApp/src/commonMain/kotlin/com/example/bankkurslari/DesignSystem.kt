@@ -30,7 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,7 +46,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.bankkurslari.ui.theme.VsBg
+import com.example.bankkurslari.ui.theme.LocalVsPalette
+import com.example.bankkurslari.ui.theme.VsPalette
 import com.example.bankkurslari.ui.theme.VsCard
 import com.example.bankkurslari.ui.theme.VsEmerald
 import com.example.bankkurslari.ui.theme.VsGround
@@ -93,7 +100,7 @@ import org.jetbrains.compose.resources.painterResource
  */
 
 /** Text/icon colour on a filled accent surface: white on the light teal, dark ink on the dark-theme mint. */
-val VsOnAccent: Color @Composable get() = if (VsEmerald.luminance() > 0.45f) Color(0xFF15130E) else Color.White
+val VsOnAccent: Color @Composable get() = if (VsEmerald.luminance() > 0.45f) Color(0xFF111215) else Color.White
 
 object VsShape {
     val Card = RoundedCornerShape(24.dp)
@@ -108,14 +115,46 @@ object VsShape {
 /** Resting card: hairline + 1px shadow. */
 @Composable
 fun Modifier.vsCard(shape: Shape = VsShape.Card): Modifier =
-    this.shadow(1.dp, shape, clip = false, ambientColor = Color(0x141B1710), spotColor = Color(0x141B1710))
+    this.shadow(1.dp, shape, clip = false, ambientColor = Color(0x141C1D22), spotColor = Color(0x141C1D22))
         .clip(shape).background(VsCard).border(BorderStroke(1.dp, VsHair), shape)
 
 /** Floating things (map capsules, pins, peek card): soft long shadow. */
 @Composable
 fun Modifier.vsFloating(shape: Shape): Modifier =
-    this.shadow(16.dp, shape, clip = false, ambientColor = Color(0x381B1710), spotColor = Color(0x381B1710))
+    this.shadow(16.dp, shape, clip = false, ambientColor = Color(0x381C1D22), spotColor = Color(0x381C1D22))
         .clip(shape).background(VsCard).border(BorderStroke(1.dp, VsHair), shape)
+
+/** Mist wash: ground fill plus a faint sky -> lilac -> peach band across the top [height], fading into ground.
+ *  Drawn in screen-root coordinates, so use it only on a tab's root container. */
+@Composable
+fun Modifier.vsWash(height: Dp = VsWashHeight): Modifier {
+    val p = LocalVsPalette.current
+    return this.drawBehind { drawVsWash(p, height.toPx()) }
+}
+
+/** Status-bar scrim that matches [vsWash]: the same wash, solid down to [solidFraction] then fading to transparent. */
+@Composable
+fun Modifier.vsWashScrim(solidFraction: Float, height: Dp = VsWashHeight): Modifier {
+    val p = LocalVsPalette.current
+    return this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawBehind {
+        drawVsWash(p, height.toPx())
+        drawRect(Brush.verticalGradient(0f to Color.Black, solidFraction to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
+    }
+}
+
+val VsWashHeight = 280.dp
+
+private fun DrawScope.drawVsWash(p: VsPalette, washPx: Float) {
+    drawRect(p.ground)
+    val h = minOf(washPx, size.height)
+    if (h <= 0f) return
+    val band = Size(size.width, h)
+    drawRect(Brush.horizontalGradient(listOf(p.washTop, p.washMid, p.washEnd)), size = band)
+    drawRect(
+        Brush.verticalGradient(0f to p.ground.copy(alpha = 0f), 0.45f to p.ground.copy(alpha = 0.55f), 1f to p.ground, endY = washPx),
+        size = band
+    )
+}
 
 @Composable
 fun VsCardBox(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -253,7 +292,7 @@ fun VsStat(label: String, value: String, modifier: Modifier = Modifier, delta: S
 @Composable
 fun VsTraySurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.shadow(20.dp, VsShape.Tray, clip = false, ambientColor = Color(0x591B1710), spotColor = Color(0x591B1710))
+        modifier.shadow(20.dp, VsShape.Tray, clip = false, ambientColor = Color(0x591C1D22), spotColor = Color(0x591C1D22))
             .clip(VsShape.Tray).background(VsCard).padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {

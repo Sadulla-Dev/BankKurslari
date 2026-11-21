@@ -43,8 +43,8 @@ const VERIFY = [["google-site-verification", process.env.GOOGLE_SITE_VERIFICATIO
 /* ---------- shared with the browser app ---------- */
 
 const shared = vm.createContext({});
-vm.runInContext((await readFile(join(PUBLIC, "shared.js"), "utf8")) + "\n;globalThis.out = { T, logoSlug, uzCyrillic, uzCyrillicTexts };", shared);
-const { T, logoSlug, uzCyrillic, uzCyrillicTexts } = shared.out;
+vm.runInContext((await readFile(join(PUBLIC, "shared.js"), "utf8")) + "\n;globalThis.out = { T, WORTH, logoSlug, shortName, cleanAddr, uzCyrillic, uzCyrillicTexts };", shared);
+const { T, WORTH, logoSlug, shortName, cleanAddr, uzCyrillic, uzCyrillicTexts } = shared.out;
 
 /* ---------- addresses of pages ---------- */
 
@@ -159,7 +159,7 @@ const X = {
     other: "Boshqa valyutalar", allBanks: "Banklar bo‘yicha kurslar", gold: "Oltin quymalar narxi", home: "Kurslar", map: "Xarita", history: "Tarix", wallet: "Hamyon",
     bankTitle: (b, s) => `${b}: dollar kursi bugun — ${s} | Qulay Kurs`, bankH1: (b) => `${b}: valyuta kurslari bugun`,
     bankDesc: (b, u) => `${b} bugun dollarni ${u.buy} so‘mdan sotib oladi va ${u.sell} so‘mdan sotadi. Yevro va rubl kurslari, boshqa banklar bilan solishtirish — Qulay Kursda.`,
-    bankShort: (u) => `oladi ${u.buy}, sotadi ${u.sell}`, colCur: "Valyuta", colBuy: "Bank sotib oladi", colSell: "Bank sotadi", colCbu: "Markaziy bank",
+    bankShort: (u) => `oladi ${u.buy}, sotadi ${u.sell}`, colCur: "Valyuta", colBuy: "Sotsangiz", colSell: "Olsangiz", colCbu: "Markaziy bank",
     updated: (d, t) => `${d}, ${t} holatiga`, rankBuy: (c, r, n) => `${X.uz.Cur[c]} sotib olish kursi bo‘yicha ${n} ta bank ichida ${r}-o‘rinda.`,
     bankSell: (c, b, total, gap, best) => `${X.uz.amount(c)} sotsangiz, ${b} ${total} so‘m beradi` + (gap ? ` — eng yaxshi kursdan (${best}) ${gap} so‘m kam.` : ` — bu bugungi eng yaxshi kurs.`),
     address: "Bosh ofis manzili", compare: "Barcha banklar bilan solishtirish", otherBanks: "Boshqa banklar",
@@ -167,7 +167,7 @@ const X = {
     goldTitle: "Oltin (tilla) quymalar narxi bugun — Markaziy bank | Qulay Kurs", goldH1: "Markaziy bank oltin quymalari narxi",
     goldDesc: (g) => `Bugun 1 gramm oltin (tilla, 10 g quyma) — ${g.perGram} so‘m. 5, 10, 20, 50 va 100 grammlik quymalarning sotilish va qaytarib olinish narxlari.`,
     goldLead: (g) => `Markaziy bank 10 grammlik oltin quymani ${g.sell10} so‘mga sotadi va qadog‘i buzilmagan holda ${g.back10} so‘mga qaytarib oladi. Quymani olib, darhol qaytarib topshirsangiz, narxning ${g.loss}% qismini yo‘qotasiz.`,
-    goldCols: ["Quyma", "Sotib olish narxi", "Qaytarib topshirish", "1 gramm", "Farq"], gram: (n) => `${n} g`,
+    goldCols: ["Quyma", "Sotib olish narxi", "Qaytarib topshirish", "1 gramm"], gram: (n) => `${n} g`,
     notFound: "Sahifa topilmadi", notFoundText: "Bunday sahifa yo‘q. Bugungi kurslar bosh sahifada.", toHome: "Bosh sahifaga",
   },
   ru: {
@@ -184,7 +184,7 @@ const X = {
     other: "Другие валюты", allBanks: "Курсы по банкам", gold: "Цены на золотые слитки", home: "Курсы", map: "Карта", history: "История", wallet: "Кошелёк",
     bankTitle: (b, s) => `${b}: курс доллара сегодня — ${s} | Qulay Kurs`, bankH1: (b) => `${b}: курсы валют сегодня`,
     bankDesc: (b, u) => `${b} сегодня покупает доллар по ${u.buy} сум и продаёт по ${u.sell} сум. Курсы евро и рубля, сравнение с другими банками Узбекистана — в Qulay Kurs.`,
-    bankShort: (u) => `покупка ${u.buy}, продажа ${u.sell}`, colCur: "Валюта", colBuy: "Банк покупает", colSell: "Банк продаёт", colCbu: "Курс ЦБ",
+    bankShort: (u) => `покупка ${u.buy}, продажа ${u.sell}`, colCur: "Валюта", colBuy: "Продать", colSell: "Купить", colCbu: "Курс ЦБ",
     updated: (d, t) => `на ${d}, ${t}`, rankBuy: (c, r, n) => `По курсу покупки ${X.ru.cur[c]} — ${r}-е место среди ${n} банков.`,
     bankSell: (c, b, total, gap, best) => `Если продать ${X.ru.amount(c)}, ${b} даст ${total} сум` + (gap ? ` — на ${gap} сум меньше, чем по лучшему курсу (${best}).` : ` — это лучший курс на сегодня.`),
     address: "Адрес головного офиса", compare: "Сравнить со всеми банками", otherBanks: "Другие банки",
@@ -192,7 +192,7 @@ const X = {
     goldTitle: "Цены на золотые слитки сегодня — Центральный банк Узбекистана | Qulay Kurs", goldH1: "Цены на золотые слитки Центрального банка",
     goldDesc: (g) => `Сегодня 1 грамм золота (слиток 10 г) — ${g.perGram} сум. Цены продажи и обратного выкупа слитков 5, 10, 20, 50 и 100 граммов.`,
     goldLead: (g) => `Центральный банк продаёт слиток 10 граммов за ${g.sell10} сум и выкупает его в неповреждённой упаковке за ${g.back10} сум. Если купить слиток и сразу сдать обратно, потеряете ${g.loss}% цены.`,
-    goldCols: ["Слиток", "Цена покупки", "Обратный выкуп", "1 грамм", "Разница"], gram: (n) => `${n} г`,
+    goldCols: ["Слиток", "Цена покупки", "Обратный выкуп", "1 грамм"], gram: (n) => `${n} г`,
     notFound: "Страница не найдена", notFoundText: "Такой страницы нет. Курсы на сегодня — на главной.", toHome: "На главную",
   },
   en: {
@@ -209,7 +209,7 @@ const X = {
     other: "Other currencies", allBanks: "Rates by bank", gold: "Gold bar prices", home: "Rates", map: "Map", history: "History", wallet: "Wallet",
     bankTitle: (b, s) => `${b}: USD rate today — ${s} | Qulay Kurs`, bankH1: (b) => `${b}: exchange rates today`,
     bankDesc: (b, u) => `${b} buys the US dollar at ${u.buy} so‘m and sells it at ${u.sell} so‘m today. Euro and ruble rates and a comparison with other banks in Uzbekistan on Qulay Kurs.`,
-    bankShort: (u) => `buys ${u.buy}, sells ${u.sell}`, colCur: "Currency", colBuy: "Bank buys at", colSell: "Bank sells at", colCbu: "Central Bank",
+    bankShort: (u) => `buys ${u.buy}, sells ${u.sell}`, colCur: "Currency", colBuy: "You sell", colSell: "You buy", colCbu: "Central Bank",
     updated: (d, t) => `as of ${d}, ${t}`, rankBuy: (c, r, n) => `Ranked ${r} of ${n} banks by ${X.en.cur[c]} buying rate.`,
     bankSell: (c, b, total, gap, best) => `If you sell ${X.en.amount(c)}, ${b} gives you ${total} so‘m` + (gap ? ` — ${gap} so‘m less than the best rate (${best}).` : ` — the best rate today.`),
     address: "Head office address", compare: "Compare with all banks", otherBanks: "Other banks",
@@ -217,7 +217,7 @@ const X = {
     goldTitle: "Gold bar prices today — Central Bank of Uzbekistan | Qulay Kurs", goldH1: "Central Bank gold bar prices",
     goldDesc: (g) => `Today 1 gram of gold (10 g bar) costs ${g.perGram} so‘m. Purchase and buy-back prices for 5, 10, 20, 50 and 100 gram bars.`,
     goldLead: (g) => `The Central Bank sells a 10 gram gold bar for ${g.sell10} so‘m and buys it back, packaging intact, for ${g.back10} so‘m. If you buy a bar and hand it straight back you lose ${g.loss}% of the price.`,
-    goldCols: ["Bar", "You buy at", "Buy-back", "Per gram", "Spread"], gram: (n) => `${n} g`,
+    goldCols: ["Bar", "You buy at", "Buy-back", "Per gram"], gram: (n) => `${n} g`,
     notFound: "Page not found", notFoundText: "There is no such page. Today’s rates are on the home page.", toHome: "Go to the home page",
   },
 };
@@ -371,7 +371,7 @@ function head({ lang, url, urlOf, title, desc, graph }) {
   return `<title>${esc(fit(title))}</title>
 <meta name="description" content="${esc(desc)}">
 <meta name="robots" content="index, follow, max-image-preview:large">
-<meta name="theme-color" content="#FBF6E9">
+<meta name="theme-color" content="#F5F6F8">
 <link rel="canonical" href="${ORIGIN}${url}">
 ${alternates(urlOf)}
 <meta property="og:site_name" content="Qulay Kurs">
@@ -400,10 +400,14 @@ function linkBlock(lang, bankNames, skipCur) {
   if (cbuAll) curs.push(link(allUrl(lang), y.allCur));
   for (const c of CURS) if (history[c]) curs.push(link(histUrl(lang, c), y.histLink(c)));
   const of = AMOUNTS[skipCur] && perUnit(skipCur) ? skipCur : "USD";
-  const amounts = AMOUNTS[of].map((n) => link(amountUrl(lang, of, n), y.amtLink(n, of)));
-  for (const [c, n] of Object.entries(FEATURED)) if (c !== of && perUnit(c)) amounts.push(link(amountUrl(lang, c, n), y.amtLink(n, c)));
-  const back = CURS.includes(of) ? REV_AMOUNTS.map((n) => link(revUrl(lang, of, n), y.revLink(n, of))) : [];
-  return `<h3>${esc(y.amounts)}</h3><p class="seo-links">${amounts.join("")}</p>${back.length ? `<p class="seo-links">${back.join("")}</p>` : ""}
+  const som = X[lang].som;
+  const ans = (url, text, value) => `<li><a href="${url}">${esc(text)}</a><span>${value}</span></li>`;
+  // One precision per unit: whole so'm, cents for foreign money.
+  const inSom = (v) => `${group(v)} ${esc(som)}`, inCur = (v, c) => `${v.toFixed(2).replace(".", lang === "en" ? "." : ",").replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ${c}`;
+  const amounts = AMOUNTS[of].map((n) => ans(amountUrl(lang, of, n), y.amtLink(n, of), inSom(perUnit(of) * n)));
+  for (const [c, n] of Object.entries(FEATURED)) if (c !== of && perUnit(c)) amounts.push(ans(amountUrl(lang, c, n), y.amtLink(n, c), inSom(perUnit(c) * n)));
+  const back = CURS.includes(of) ? REV_AMOUNTS.map((n) => ans(revUrl(lang, of, n), y.revLink(n, of), inCur(n / perUnit(of), of))) : [];
+  return `<h3>${esc(y.amounts)}</h3><ul class="seo-answers">${amounts.join("")}</ul>${back.length ? `<ul class="seo-answers">${back.join("")}</ul>` : ""}
   <h3>${esc(x.other)}</h3><p class="seo-links">${curs.join("")}</p>
   <h3>${esc(x.allBanks)}</h3><p class="seo-links">${bankNames.map((b) => link(bankUrl(lang, bankSlug(b)), b)).join("")}</p>
   <p class="seo-note">${esc(x.disclaimer)}</p>`;
@@ -435,22 +439,45 @@ function currencyPage(lang, cur) {
   if (cur !== "USD") graph.push(crumbs([["Qulay Kurs", curUrl(lang, "USD")], [t.title[cur], url]]));
 
   // Same order and markup as renderTable() in app.js for "I sell, 100": the app repaints this on load without a jump.
-  const rows = s.byBuy.map((b) => {
-    const diff = (s.bestBuy.buy - b.buy) * 100, best = diff < 0.5;
-    return `<tr data-bank="${esc(b.bank)}"${best ? ' class="top1"' : ""}>
-      <td class="c-bank"><span class="bn">${badge(b.bank, best ? " accent" : "")}<span><b>${esc(b.bank)}</b><small>${esc(b.branch?.address || "")}</small></span></span></td>
+  const best = s.bestBuy.buy, maxGap = (best - s.byBuy.at(-1).buy) * 100 || 1;
+  const gapCell = (diff) => (diff < 0.5 ? `<small class="best">${esc(t.best)}</small>`
+    : `<small class="${diff >= WORTH ? "warn" : ""}"><i class="gap" style="--w:${Math.max(0.08, diff / maxGap).toFixed(3)}"></i>${esc(t.less(group(diff)))}</small>`);
+  const range = (vals) => { const v = vals.filter((n) => n > 0); if (!v.length) return "—"; const lo = Math.min(...v), hi = Math.max(...v); return lo === hi ? rate(lo, lang) : `${rate(lo, lang)}–${rate(hi, lang)}`; };
+  const bankRow = (b) => {
+    const diff = (best - b.buy) * 100, top = diff < 0.5;
+    return `<tr data-bank="${esc(b.bank)}"${top ? ' class="top1"' : ""}>
+      <td class="c-bank"><span class="bn">${badge(b.bank, top ? " accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(cleanAddr(b.branch?.address || ""))}</small></span></span></td>
       <td class="num c-buy${b.buy === s.bestBuy.buy ? " hi" : ""}">${rate(b.buy, lang)}</td>
       <td class="num c-sell${b.sell === s.bestSell.sell ? " hi" : ""}">${b.sell ? rate(b.sell, lang) : "—"}</td>
-      <td class="num c-get get"><b>${group(b.buy * 100)}</b><small${best ? ' class="best"' : ""}>${best ? esc(t.best) : `−${group(diff)}`}</small></td>
+      <td class="num c-get get"><b>${group(b.buy * 100)}</b>${gapCell(diff)}</td>
+      <td class="num c-m get"><b>${rate(b.buy, lang)}</b>${gapCell(diff)}</td>
+    </tr>`;
+  };
+  const tiers = [];
+  for (const b of s.byBuy) { const last = tiers.at(-1); if (last && Math.abs(last.rate - b.buy) < 0.005) last.banks.push(b); else tiers.push({ rate: b.buy, banks: [b] }); }
+  const rows = tiers.map((tier, i) => {
+    if (i === 0 || tier.banks.length === 1) return tier.banks.map(bankRow).join("\n");
+    const diff = (best - tier.rate) * 100, n = tier.banks.length;
+    const names = tier.banks.slice(0, 3).map((b) => shortName(b.bank)).join(", ") + (n > 3 ? "…" : "");
+    return `<tr class="tier" data-tier="${tier.rate.toFixed(2)}">
+      <td class="c-bank"><span class="bn"><span class="stack">${tier.banks.slice(0, 2).map((b) => badge(b.bank, " sm")).join("")}</span><span><button type="button" class="bn-name" aria-expanded="false"><b>${esc(t.tier(n))}</b><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><small>${esc(names)}</small></span></span></td>
+      <td class="num c-buy">${range(tier.banks.map((b) => b.buy))}</td>
+      <td class="num c-sell">${range(tier.banks.map((b) => b.sell))}</td>
+      <td class="num c-get get"><b>${group(tier.rate * 100)}</b>${gapCell(diff)}</td>
+      <td class="num c-m get"><b>${rate(tier.rate, lang)}</b>${gapCell(diff)}</td>
     </tr>`;
   }).join("\n");
+  // The verdict under the answer, for "I sell, 100" (renderVerdict() in app.js).
+  const gap = (best - s.byBuy.at(-1).buy) * 100;
+  const within = (Math.max(0.1, Math.ceil(((best - s.byBuy.at(-1).buy) / best) * 1000) / 10)).toFixed(1).replace(".", lang === "en" ? "." : ",") + "%";
+  const verdict = { head: (gap >= WORTH ? t.vdBig : t.vdSmall)(group(WORTH)), line: t.vdLine(true, s.count, within, "100", t.unit[cur](100), group(gap)) };
 
   let html = template.replace('<html lang="uz">', `<html lang="${HTML_LANG[lang]}">`);
   html = cut(html, "<title>", '<link rel="sitemap" type="application/xml" href="https://qulaykurs.uz/sitemap.xml">', head({ lang, url, urlOf: (l) => curUrl(l, cur), title: x.title(cur), desc: x.desc(cur, s), graph }));
   html = cut(html, '<script type="application/ld+json">', "</script>", "");
   html = html.replace(/(data-i18n="([\w.]+)"[^>]*>)[^<]*</g, (m, open, key) => (typeof t[key] === "string" ? `${open}${esc(t[key])}<` : m));
   // Texts the app writes on load; without them a page read without JavaScript keeps the template's Uzbek words.
-  const fill = { amountUnit: t.unit[cur](100), resLabel: t.getSell, colGet: t.getSell, nearLabel: t.near, tLabel: t["hist.cbu"], acTo: t["all.som"], total: group(s.bestBuy.buy * 100), ...(cbuAll ? { allCurSub: t.allSub(cbuAll.currencies.length) } : {}) };
+  const fill = { amountUnit: t.unit[cur](100), resLabel: t.getSell, colGet: t.getSell, nearLabel: t.near, tLabel: t["hist.cbu"], acTo: t["all.som"], total: group(s.bestBuy.buy * 100), vdHead: verdict.head, vdLine: verdict.line, ...(cbuAll ? { allCurSub: t.allSub(cbuAll.currencies.length) } : {}) };
   for (const [id, text] of Object.entries(fill)) {
     const place = new RegExp(`( id="${id}"[^>]*>)[^<]*<`);
     if (!place.test(html)) throw new Error(`template marker not found: #${id}`);
@@ -481,7 +508,7 @@ function shell({ lang, url, urlOf, title, desc, graph, body, noindex, calc }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-${noindex ? `<title>${esc(title)}</title>\n<meta name="robots" content="noindex">\n<meta name="theme-color" content="#FBF6E9">` : head({ lang, url, urlOf, title, desc, graph })}
+${noindex ? `<title>${esc(title)}</title>\n<meta name="robots" content="noindex">\n<meta name="theme-color" content="#F5F6F8">` : head({ lang, url, urlOf, title, desc, graph })}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -544,7 +571,7 @@ function goldPage(lang, allNames) {
   <div class="page-head"><div><h1>${esc(x.goldH1)}</h1><p class="muted">cbu.uz · ${esc(cbuDate(gold.date, lang))}, ${esc(gold.time)}</p></div></div>
   <div class="tbl-scroll"><table class="tbl page-tbl">
     <thead><tr>${x.goldCols.map((c, i) => `<th${i ? ' class="num"' : ""}>${esc(c)}</th>`).join("")}</tr></thead>
-    <tbody>${gold.bars.map((b) => `<tr><td><b>${esc(x.gram(b.grams))}</b></td><td class="num">${group(b.sell)}</td><td class="num">${group(b.buyback)}</td><td class="num">${group(b.sell / b.grams)}</td><td class="num muted">−${(((b.sell - b.buyback) / b.sell) * 100).toFixed(1)}%</td></tr>`).join("")}</tbody>
+    <tbody>${gold.bars.map((b) => `<tr><td><b>${esc(x.gram(b.grams))}</b></td><td class="num">${group(b.sell)}</td><td class="num">${group(b.buyback)}</td><td class="num">${group(b.sell / b.grams)}</td></tr>`).join("")}</tbody>
   </table></div>
   <div class="page-text"><p>${esc(x.goldLead(g))}</p><p><a class="btn btn-accent" href="${home}#/tarix">${esc(x.history)}</a></p></div>
 </div>
