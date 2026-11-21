@@ -10,8 +10,6 @@
 import { mkdir, readFile, rm, writeFile, copyFile, readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { createAlerts, flushAlerts } from "./alerts.js";
 import { fetchBankSites, SITE_CURRENCIES, BANK_SITE_COUNT } from "./bankSites.js";
 
@@ -21,7 +19,6 @@ const STATE = join(SITE, "_state");
 const mode = process.argv[2] === "full" ? "full" : "rates";
 const seed = process.argv.includes("--seed");
 const STATE_URL = (process.env.STATE_URL || "").replace(/\/$/, "");
-const execFileAsync = promisify(execFile);
 const alerts = createAlerts(); // problems for the owner's Telegram (src/alerts.js)
 
 async function put(path, data) {
@@ -79,17 +76,6 @@ await pullPrevious();
 process.env.DATA_DIR = STATE;
 const api = await import("./server.js");
 const now = () => new Date().toISOString();
-
-// Expired Yandex responses must leave both the public dataset and persisted state.
-try {
-  const yandexStateFile = join(STATE, "yandex-branches.json");
-  const yandexState = JSON.parse(await readFile(yandexStateFile, "utf8"));
-  if (!yandexState.expiresAt || Date.parse(yandexState.expiresAt) <= Date.now()) {
-    await rm(yandexStateFile, { force: true });
-  }
-} catch {
-  // No Yandex snapshot has been imported yet.
-}
 
 async function readPrevious(path) {
   try { return JSON.parse(await readFile(join(SITE, path), "utf8")); } catch { return null; }
@@ -208,19 +194,6 @@ await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()
 await step("gold", async () => put("api/gold.json", await api.getGold({ force: true })));
 
 if (mode === "full") {
-  if (process.env.YANDEX_PLACES_KEY) {
-    await step("refresh Yandex branch cache", async () => {
-      const script = join(ROOT, "scripts", "import-yandex-branches.mjs");
-      const { stdout, stderr } = await execFileAsync(process.execPath, [script], {
-        env: { ...process.env, DATA_DIR: STATE },
-        maxBuffer: 4 * 1024 * 1024
-      });
-      if (stdout) process.stdout.write(stdout);
-      if (stderr) process.stderr.write(stderr);
-    });
-  } else {
-    console.log("skip refresh Yandex branch cache (YANDEX_PLACES_KEY is not set)");
-  }
   for (const cur of api.SUPPORTED) {
     await step(`history ${cur}`, async () => {
       const points = await api.getHistory(cur, { force: true });
@@ -232,19 +205,6 @@ if (mode === "full") {
   await step("branches", async () => {
     const branches = await api.getBranches({ force: true });
     await put("api/branches.json", { updatedAt: now(), count: branches.length, branches });
-  });
-  await step("Yandex branches", async () => {
-    // No YANDEX_PLACES_KEY, no imported dataset: nothing to publish, and that is not an error.
-    if (!process.env.YANDEX_PLACES_KEY && !(await readFile(join(STATE, "yandex-branches.json"), "utf8").catch(() => null))) {
-      console.log("skip Yandex branches (no dataset)");
-      return;
-    }
-    try {
-      await put("api/branches/yandex.json", await api.getYandexBranchDataset());
-    } catch (error) {
-      await rm(join(STATE, "yandex-branches.json"), { force: true });
-      throw error;
-    }
   });
   await step("atms", async () => {
     const atms = await api.getAtms({ force: true });

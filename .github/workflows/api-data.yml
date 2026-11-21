@@ -46,7 +46,6 @@ jobs:
           # Data problems (a bank stops publishing, bank.uz blocks us, stale rates) go to the owner on Telegram.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_OWNER_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
-          YANDEX_PLACES_KEY: ${{ secrets.YANDEX_PLACES_KEY }}
           MODE: ${{ (github.event_name == 'push' || github.event.schedule == '15 1,13 * * *') && 'full' || inputs.mode || 'rates' }}
         run: node src/build.js "$MODE"
       - name: Deploy
