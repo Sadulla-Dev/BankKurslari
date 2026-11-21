@@ -11,18 +11,18 @@ Tekshiruv sanasi: **21.11.2026**, 29 bank (bank.uz ro‘yxatidagi hammasi).
 
 | Holat | Banklar soni | Nimani anglatadi |
 |---|---|---|
-| **A. JSON API** | 8 | Eng barqaror. Kursni tayyor JSON’da beradi; sayt dizayni o‘zgarsa ham odatda buzilmaydi. |
+| **A. JSON API** | 9 | Eng barqaror. Kursni tayyor JSON’da beradi; sayt dizayni o‘zgarsa ham odatda buzilmaydi. |
 | **B. HTML** (server sahifaga yozadi) | 16 | Oddiy so‘rov yetadi. Sahifa tuzilishi o‘zgarsa, yig‘uvchi yangilanishi kerak. |
-| **C. Faqat brauzerda** | 4 | Kurs JavaScript bilan chiziladi, manbasi hali aniqlanmagan. Keyingi tekshiruv kerak. |
+| **C. Faqat brauzerda** | 3 | Kurs JavaScript bilan chiziladi, manbasi hali aniqlanmagan. Keyingi tekshiruv kerak. |
 
 **USD olish/sotish kursi bank.uz bilan mos kelgan banklar:**
-- Oddiy server so‘rovi bilan tekshirilganlar: **24 ta**.
-- Faqat brauzerda ko‘rilganlar: **yana 4 ta** (Asakabank, Turon, Poytaxt, Hamkorbank).
+- Oddiy server so‘rovi bilan tekshirilganlar: **25 ta**.
+- Faqat brauzerda ko‘rilganlar: **yana 3 ta** (Turon, Poytaxt, Hamkorbank).
 - **Xalq banki:** sahifasidagi raqam mos keladi, lekin kurs qaysi so‘rovdan kelishi aniq emas (C-guruhda batafsil).
 
-Demak, zaxira sifatida 24 ta bankni (A + B) hozirgi backend usulida, brauzersiz o‘qish mumkin.
+Demak, zaxira sifatida 25 ta bankni (A + B) hozirgi backend usulida, brauzersiz o‘qish mumkin.
 
-## A. JSON API (8)
+## A. JSON API (9)
 
 | Bank | Manzil | Format | Valyutalar | USD |
 |---|---|---|---|---|
@@ -33,6 +33,7 @@ Demak, zaxira sifatida 24 ta bankni (A + B) hozirgi backend usulida, brauzersiz 
 | **Universal bank** | `https://universalbank.uz/api/currencies/daily` | `items[]`: `{code (ISO raqam: 840 = USD), buyingRate, sellingRate}`, qiymatlar matn ko‘rinishida | USD, EUR, RUB, GBP, JPY | ✓ 11 940 / 12 030 |
 | **Openbank** (avval Smartbank) | `https://api.smartbank.uz/retail/cbs-acc-mgmt/currency/rate` | `[{ccy1, buyRate, sellRate, cbuRate}]` | Faqat USD | ✓ 11 930 / 12 010 |
 | **Hayot Bank** | `https://api.hayotbank.uz/api/curr-exchange-rate/get-all?size=2000&search=currExchangeRate.active=true` | `data[]`: `{currency.code (ISO raqam), buy, sell, cbu}`, qiymatlar matn ko‘rinishida | USD, EUR, RUB, GBP, CHF, JPY, KZT | ✓ 11 940 / 12 040 |
+| **Asakabank** | `https://back.asakabank.uz/core/v1/currency-list/` (+ `?page=2`) | `results[]`: `{short_name, purchase, sale, rate_cb, currency_type}`. Jismoniy shaxslar: `currency_type: 1`; kurs bo‘lmasa `"-"`. Sahifasiga 10 ta qator, jami 14 → 2 sahifa. Topilgan sana: 22.11.2026 | USD, EUR, RUB, … | ✓ 11 950 / 12 030 |
 | **Ziraat Bank** | `https://ziraatbank.uz/tr/GetCurrency` | `[{name, value, oldValue, …}]`. **Nomlar chalg‘itadi:** `value` = olish, `oldValue` = sotish. | USD, EUR, **TRY (210 / 250)**, … | ✓ 11 950 / 12 060 |
 
 Universal, Hayot va boshqa ba’zi banklar valyutani ISO raqamli kod bilan beradi: 840 USD, 978 EUR, 643 RUB, 826 GBP, 756 CHF, 392 JPY, 398 KZT, 156 CNY.
@@ -62,11 +63,10 @@ Universal, Hayot va boshqa ba’zi banklar valyutani ISO raqamli kod bilan berad
 
 “Valyutalar” ustunidagi kodlar sahifa matnida uchraydi; ularning hammasi kurs jadvalida ekani alohida tasdiqlanmagan.
 
-## C. Faqat brauzerda ko‘rinadi, manba aniqlanmagan (4)
+## C. Faqat brauzerda ko‘rinadi, manba aniqlanmagan (3)
 
 | Bank | Sahifa | Nima ma’lum | Keyingi qadam |
 |---|---|---|---|
-| **Asakabank** | `https://asakabank.uz/uz/physical-persons/home` | Brauzerda “Valyuta kursi … aktual” bloki bor, kurs mos keladi (11 950 / 12 030). Oddiy HTML’da yo‘q. `back.asakabank.uz` hosti bor | DevTools → Network: blok qaysi so‘rov bilan to‘lishini topish |
 | **Turon bank**, **Poytaxt bank** | `https://turonbank.uz/uz/`, `https://poytaxtbank.uz/uz/` | Ikkalasi bir xil Bitrix komponentini ishlatadi (`pixelcraft/mk.main.rates`). Brauzerda kurs mos keladi (Turon 11 960 / 12 060, Poytaxt 11 915 / 12 030) | Komponentning AJAX manzilini topish; bitta yig‘uvchi ikkalasiga ishlaydi |
 | **Hamkorbank** | `https://hamkorbank.uz/` (Next.js) | Brauzerda mos keladi (11 950 / 12 060). HTML’da ham, RSC javobida ham yo‘q. Sahifada “Последнее обновление: 04.11.2026” yozuvi bor | Manbani DevTools orqali topish |
 | **Xalq banki** | `https://xb.uz/` | Sahifada “1 USD = 11 960 UZS” bor (mos). API: `/api/v1/external/client/exchange-rate/last-thirty-day?_f=json&_l=uz` → `data["DD-MM-YYYY"] = {buying, selling}` — bugun 11 900 / 12 030. Bu bank.uz bilan **mos emas**, ehtimol boshqa turdagi kurs. Tez so‘rovlarga **429** (cheklov) qaytaradi | Sahifadagi kurs qaysi so‘rovdan kelishini aniqlash; so‘rovlarni sekin yuborish |
@@ -83,8 +83,8 @@ Xalq banki bu jadvalda beshinchi qator, lekin yuqoridagi “Qisqacha” jadvalid
 
 ## Zaxira yig‘uvchini qurish tartibi (taklif)
 
-1. **A-guruhdan boshlash** (8 ta JSON). Har bank uchun kichik funksiya bo‘ladi, javob umumiy `{bank, buy, sell}` ko‘rinishiga keltiriladi.
+1. **A-guruhdan boshlash** (9 ta JSON). Har bank uchun kichik funksiya bo‘ladi, javob umumiy `{bank, buy, sell}` ko‘rinishiga keltiriladi.
 2. **Keyin B-guruh** (16 ta HTML) cheerio bilan. Har bank uchun selektor va namuna sahifa saqlanadi, sahifa o‘zgarsa test darhol buzilib, ogohlantiradi.
-3. **C-guruh** uchun avval manbani DevTools orqali topish.
+3. **C-guruh** uchun avval manbani DevTools orqali topish. Eslatma: kurs boshqa subdomendan kelishi mumkin (Asakabank’niki `back.asakabank.uz` bo‘lib chiqdi), shuning uchun Network ro‘yxatini faqat asosiy domen bo‘yicha filtrlamang.
 4. **Ishga tushish qoidasi:** bank.uz natijasi yaroqsiz bo‘lganda (banklar soni avvalgisining yarmidan kam, `build.js`dagi himoya) yoki soatlik `step` xato berganda, zaxira kuniga 4 marta o‘qiladi.
 5. **Har bir kursga manba yoziladi** (`source: "bank.uz"` yoki bankning domeni), va 2 kundan eski kurs olinmaydi.
