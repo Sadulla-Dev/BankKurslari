@@ -12,6 +12,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createAlerts, flushAlerts } from "./alerts.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.SITE_DIR || join(ROOT, "worker", "public");
@@ -20,6 +21,7 @@ const mode = process.argv[2] === "full" ? "full" : "rates";
 const seed = process.argv.includes("--seed");
 const STATE_URL = (process.env.STATE_URL || "").replace(/\/$/, "");
 const execFileAsync = promisify(execFile);
+const alerts = createAlerts(); // problems for the owner's Telegram (src/alerts.js)
 
 async function put(path, data) {
   const file = join(SITE, path);
@@ -55,6 +57,7 @@ async function step(name, fn) {
     console.log(`ok   ${name}`);
   } catch (e) {
     console.error(`FAIL ${name}: ${e.message}`);
+    alerts.add(`step:${name}`, `${name}: ${e.message}`);
   }
 }
 
@@ -106,6 +109,27 @@ for (const cur of [...api.SUPPORTED, ...api.EXTRA_RATES]) {
     await put(path, next);
   });
 }
+// Which banks stopped publishing a USD rate. A bank counts as known for 7 days after it was last seen, so one that
+// stays missing keeps its alert (with a reminder) instead of looking "fixed" on the next run.
+await step("bank watch", async () => {
+  const usd = await readPrevious("api/rates/USD.json"); // the file this run wrote, or the kept one
+  const seenPath = join(STATE, "banks-seen.json");
+  let seen = {};
+  try { seen = JSON.parse(await readFile(seenPath, "utf8")); } catch { /* first run */ }
+  const nowMs = Date.now();
+  const present = new Set((usd?.banks || []).map((b) => b.bank));
+  for (const name of present) seen[name] = nowMs;
+  for (const [name, at] of Object.entries(seen)) {
+    if (present.has(name)) continue;
+    if (nowMs - at > 7 * 24 * 3600 * 1000) { delete seen[name]; continue; }
+    const last = new Date(at + 5 * 3600 * 1000).toISOString().slice(0, 16).replace("T", " ");
+    alerts.add(`bank:${name}`, `${name}: USD kursi kelmayapti (oxirgi marta ${last}, Toshkent vaqti)`);
+  }
+  await writeFile(seenPath, JSON.stringify(seen));
+  // The rates file is kept when bank.uz fails, so a growing age means bank.uz has not given usable data for hours.
+  const ageH = usd?.updatedAt ? (nowMs - Date.parse(usd.updatedAt)) / 3600000 : Infinity;
+  if (ageH > 3) alerts.add("stale:USD", `Kurslar ${Number.isFinite(ageH) ? Math.round(ageH) + " soat" : "uzoq vaqt"}dan beri yangilanmadi (bank.uz javob bermayapti yoki bloklagan bo'lishi mumkin)`);
+});
 await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()));
 await step("gold", async () => put("api/gold.json", await api.getGold({ force: true })));
 
@@ -149,6 +173,8 @@ if (mode === "full") {
   });
 }
 
+const runUrl = process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : "";
+await flushAlerts(alerts, join(STATE, "alerts.json"), { runUrl }); // before the manifest, so the state is carried over
 await put("health.json", { ok: true, currencies: api.SUPPORTED, builtAt: now(), mode });
 const files = (await listFiles(SITE)).filter((f) => f !== "_manifest.json").sort();
 await put("_manifest.json", { builtAt: now(), files });

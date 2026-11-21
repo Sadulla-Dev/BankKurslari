@@ -43,6 +43,9 @@ jobs:
       - name: Build
         env:
           STATE_URL: https://api.qulaykurs.uz
+          # Data problems (a bank stops publishing, bank.uz blocks us, stale rates) go to the owner on Telegram.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_OWNER_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
           YANDEX_PLACES_KEY: ${{ secrets.YANDEX_PLACES_KEY }}
           MODE: ${{ (github.event_name == 'push' || github.event.schedule == '15 1,13 * * *') && 'full' || inputs.mode || 'rates' }}
         run: node src/build.js "$MODE"
@@ -52,3 +55,17 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy
+      # Owner-only alert when this workflow fails (the build's own data problems are sent by backend/src/alerts.js).
+      # Needs secrets TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID; without them it does nothing.
+      - name: Tell the owner
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_OWNER_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_OWNER_CHAT_ID" ] || exit 0
+          curl -fsS -m 20 -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_OWNER_CHAT_ID}" \
+            --data-urlencode "text=❌ Qulay Kurs: \"${WORKFLOW}\" ishi yiqildi. ${RUN_URL}"

@@ -61,3 +61,17 @@ jobs:
         continue-on-error: true
         run: >-
           curl -fsS -m 30 -X POST https://api.indexnow.org/indexnow -H "content-type: application/json; charset=utf-8" --data-binary @.indexnow.json
+      # Owner-only alert when this workflow fails (the build's own data problems are sent by backend/src/alerts.js).
+      # Needs secrets TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID; without them it does nothing.
+      - name: Tell the owner
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_OWNER_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_OWNER_CHAT_ID" ] || exit 0
+          curl -fsS -m 20 -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_OWNER_CHAT_ID}" \
+            --data-urlencode "text=❌ Qulay Kurs: \"${WORKFLOW}\" ishi yiqildi. ${RUN_URL}"
