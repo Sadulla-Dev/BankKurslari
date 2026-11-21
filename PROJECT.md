@@ -206,6 +206,13 @@ Server manzili `composeApp/.../Models.kt` da: Android emulator avtomatik `10.0.2
 ```bash
 ./gradlew :androidApp:installDebug
 ```
+Debug build juda sekin (ishga tushish 1,5–7 s, ANR bo‘lishi mumkin) — tezlikni faqat release kodida baholang. Release’da R8 yoqilgan (`isMinifyEnabled` + `isShrinkResources`); WorkManager reflection bilan yaratadigan klasslar uchun keep qoidalari `androidApp/proguard-rules.pro` da — ularsiz ilova ishga tushishda yiqiladi yoki fon yangilanishi umuman ishlamaydi.
+
+Tezlikni o‘lchash: `benchmark` build turi — release kodi, debug kalit bilan imzolangan, `uz.qulaykurs.app.bench` nomi bilan asosiy ilova yonida o‘rnatiladi:
+```bash
+./gradlew :androidApp:installBenchmark
+adb shell am start -W -n uz.qulaykurs.app.bench/com.example.bankkurslari.MainActivity
+```
 
 ### iOS
 `iosApp/iosApp.xcodeproj` ni Xcode’da oching, Signing’da jamoani tanlang va Run. Tez ishlashi uchun **Release** konfiguratsiyasida yig‘ing (Debug’da Kotlin kodi optimallashtirilmagan).

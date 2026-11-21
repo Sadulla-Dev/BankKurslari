@@ -861,7 +861,7 @@ private fun TodayTopBar(
     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
         val ageMin = updatedAt?.let { kParseMillis(it) }?.let { (nowMillis() - it) / 60_000 }
         val fresh = !offline && (news != null || (ageMin != null && ageMin < 30))
-        FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60))
+        FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60), pulseKey = updatedAt)
         Spacer(Modifier.width(10.dp))
         val time = updatedAt?.formatUpdatedAt()
         val status = news ?: when {

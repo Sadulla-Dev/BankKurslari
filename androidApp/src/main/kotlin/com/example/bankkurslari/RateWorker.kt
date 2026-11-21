@@ -193,8 +193,11 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         }
 
         /** Enqueue a one-off refresh (used on app start and by the widget). */
-        fun enqueueNow(context: Context) {
-            val request = OneTimeWorkRequestBuilder<RateWorker>().build()
+        /** [delaySeconds]: app start passes a few seconds so the refresh does not compete with the first frames. */
+        fun enqueueNow(context: Context, delaySeconds: Long = 0) {
+            val request = OneTimeWorkRequestBuilder<RateWorker>()
+                .apply { if (delaySeconds > 0) setInitialDelay(delaySeconds, TimeUnit.SECONDS) }
+                .build()
             WorkManager.getInstance(context)
                 // KEEP: app start, the currency switch and every widget's onUpdate all ask for a refresh; REPLACE
                 // cancelled the one already running each time, so with several widgets placed it rarely finished.

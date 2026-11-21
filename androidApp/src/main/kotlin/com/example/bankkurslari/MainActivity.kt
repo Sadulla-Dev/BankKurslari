@@ -22,7 +22,8 @@ class MainActivity : ComponentActivity() {
         // Background rate monitoring: widget refresh + change notifications.
         RateWorker.ensureChannel(this)
         RateWorker.schedulePeriodic(this)
-        RateWorker.enqueueNow(this)
+        // The app fetches the selected currency itself; the worker (all currencies + widgets) can wait a little.
+        RateWorker.enqueueNow(this, delaySeconds = 8)
         PlatformHooks.onCurrencyChanged = { RateWorker.enqueueNow(this) }
         PlatformHooks.onAlertsChanged = {
             RateWorker.ensureAlertChannel(this)

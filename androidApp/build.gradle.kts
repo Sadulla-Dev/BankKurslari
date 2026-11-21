@@ -43,11 +43,21 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            // R8: smaller APK (material-icons-extended alone is tens of MB of dex) and faster startup.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        // Release code signed with the debug key and installed next to the debug app (".bench"),
+        // so startup can be measured on a device/emulator without replacing the installed app.
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".bench"
+            matchingFallbacks += listOf("release")
         }
     }
     compileOptions {

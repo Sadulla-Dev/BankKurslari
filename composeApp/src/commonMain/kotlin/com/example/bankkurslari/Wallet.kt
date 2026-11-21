@@ -281,7 +281,7 @@ fun walletTrend(
 ): List<HistoryPoint> {
     if (list.isEmpty()) return emptyList()
     val series = list.associate { h -> h.code to histories[h.code].orEmpty().sortedBy { it.date } }
-    val dates = series.values.flatMap { s -> s.map { it.date } }.filter { it >= since && it < today }.toSortedSet()
+    val dates = series.values.flatMap { s -> s.map { it.date } }.filter { it >= since && it < today }.distinct().sorted()
     if (dates.isEmpty()) return emptyList()
     fun rateOn(code: WalletCode, date: String): Double? {
         if (code == WalletCode.UZS) return 1.0

@@ -5,12 +5,8 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -138,7 +134,7 @@ fun TickerBar(
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             val ageMin = updatedAt?.let { kParseMillis(it) }?.let { (nowMillis() - it) / 60_000 }
             val fresh = !offline && ageMin != null && ageMin < 30
-            FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60))
+            FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60), pulseKey = updatedAt)
             Spacer(Modifier.width(8.dp))
             val time = updatedAt?.formatUpdatedAt()
             Text(
@@ -340,19 +336,26 @@ private fun Sparkline(points: List<HistoryPoint>, modifier: Modifier) {
     }
 }
 
-/** Accent dot with a soft expanding ring while data is fresh; amber when stale/offline; grey otherwise. */
+/**
+ * Accent dot with a soft expanding ring when data is fresh; amber when stale/offline; grey otherwise.
+ * [pulseKey]: the ring pulses a few times whenever it changes (e.g. the update time), then rests.
+ */
 @Composable
-fun FreshDot(fresh: Boolean, stale: Boolean) {
+fun FreshDot(fresh: Boolean, stale: Boolean, pulseKey: Any? = null) {
     val color = if (stale) VsAmber else VsEmerald
     // 8 dp box so the dot itself sits on the content edge; the ring grows outside it (graphicsLayer does not clip).
     Box(Modifier.size(8.dp), contentAlignment = Alignment.Center) {
         Box(Modifier.size(16.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)))
         if (fresh) {
-            val t = rememberInfiniteTransition(label = "pulse")
-            val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2200, easing = Motion.Decelerate), RepeatMode.Restart), label = "p")
+            // A few pulses, not an endless one: an infinite animation makes the whole window draw a frame every
+            // vsync while the screen sits idle (~33 fps measured on a budget phone), costing battery and smoothness.
+            val p = remember { Animatable(1f) }
+            LaunchedEffect(pulseKey) {
+                repeat(3) { p.snapTo(0f); p.animateTo(1f, tween(2200, easing = Motion.Decelerate)) }
+            }
             Box(
                 Modifier.size(8.dp)
-                    .graphicsLayer { scaleX = 1f + p * 1.6f; scaleY = 1f + p * 1.6f; alpha = (1f - p) * 0.45f }
+                    .graphicsLayer { val v = p.value; scaleX = 1f + v * 1.6f; scaleY = 1f + v * 1.6f; alpha = (1f - v) * 0.45f }
                     .clip(CircleShape).background(color)
             )
         }
