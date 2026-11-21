@@ -105,7 +105,7 @@ actual fun BankMapView(
     selectedId: String?,
     labelMode: MapLabel,
     sell: Boolean,
-    best: Int?,
+    best: Double?,
     showMyLocation: Boolean,
     active: Boolean,
     onPinTap: (MapPin) -> Unit,

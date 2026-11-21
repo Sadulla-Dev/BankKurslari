@@ -63,7 +63,7 @@ const val ONBOARDED_KEY = "onboarded_v1"
 @Composable
 fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
     var step by remember { mutableIntStateOf(0) }
-    var currency by remember { mutableStateOf(Currency.entries.firstOrNull { it.code == RateService.selectedCurrency() } ?: Currency.USD) }
+    var currency by remember { mutableStateOf(Currency.MAIN.firstOrNull { it.code == RateService.selectedCurrency() } ?: Currency.USD) }
     var sell by remember { mutableStateOf((appStore().getString("direction") ?: "sell") != "buy") }
 
     fun finish() {
@@ -111,7 +111,7 @@ fun Onboarding(lang: Lang, onLang: (Lang) -> Unit, onDone: () -> Unit) {
                     }
                     1 -> {
                         StepTitle(tr("Asosan qaysi valyuta?", "Какая валюта в основном?", "Which currency do you use most?"))
-                        Currency.entries.forEach { c ->
+                        Currency.MAIN.forEach { c ->
                             Choice("${c.code} · ${c.displayName(lang)}", c == currency) {
                                 currency = c
                                 RateService.setSelectedCurrency(c.code)

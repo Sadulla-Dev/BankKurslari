@@ -95,7 +95,7 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
     var selectedId: String? = null
     var labelMode: MapLabel = MapLabel.RATE
     var sell = true
-    var best: Int? = null
+    var best: Double? = null
     var onPinTap: (MapPin) -> Unit = {}
     var onTileFailure: (Boolean) -> Unit = {}
     var active = false
@@ -194,7 +194,7 @@ actual fun BankMapView(
     selectedId: String?,
     labelMode: MapLabel,
     sell: Boolean,
-    best: Int?,
+    best: Double?,
     showMyLocation: Boolean,
     active: Boolean,
     onPinTap: (MapPin) -> Unit,

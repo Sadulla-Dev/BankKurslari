@@ -69,6 +69,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -161,6 +162,8 @@ fun kGroup(n: Long): String {
 }
 
 fun kGroup(n: Int): String = kGroup(n.toLong())
+
+fun kGroup(v: Double): String = uzsRate(v)
 
 fun kSom(ru: Boolean) = pick(lang, "soʻm", "сум", "so'm")
 
@@ -368,8 +371,12 @@ private fun Modifier.drawBehindLine(color: Color): Modifier = this.then(
     }
 )
 
-private fun quickAmounts(c: Currency): List<Long> =
-    if (c == Currency.RUB) listOf(10_000, 50_000, 100_000, 500_000) else listOf(100, 500, 1_000, 5_000)
+/** Typical cash amounts: currencies worth tens or hundreds of so'm per unit (RUB, JPY, KZT) change hands in bigger numbers. */
+private fun quickAmounts(c: Currency): List<Long> = when (c) {
+    Currency.RUB, Currency.JPY, Currency.KZT -> listOf(10_000, 50_000, 100_000, 500_000)
+    Currency.CNY -> listOf(500, 1_000, 5_000, 10_000)
+    else -> listOf(100, 500, 1_000, 5_000)
+}
 
 /* ---------- sort ---------- */
 
@@ -470,6 +477,16 @@ fun KursScreen(
     var expanded by rememberSaveable { mutableStateOf(false) }
     var sheetBank by remember { mutableStateOf<String?>(null) }
     var showAll by remember { mutableStateOf(false) }
+    // Bank count per extra currency (GBP, CHF, JPY, KZT, CNY): only currencies some bank really trades are offered,
+    // and only once their rates are on the device (cache or network), so picking one never lands on an empty screen.
+    var extraBanks by remember { mutableStateOf<Map<Currency, Int>>(emptyMap()) }
+    LaunchedEffect(ccyMenu) {
+        if (!ccyMenu) return@LaunchedEffect
+        Currency.EXTRA.forEach { c -> cachedRates(c)?.let { extraBanks = extraBanks + (c to it.banks.size) } }
+        Currency.EXTRA.forEach { c ->
+            launch { runCatching { fetchRates(c) }.getOrNull()?.let { extraBanks = extraBanks + (c to it.banks.size) } }
+        }
+    }
 
     val ranked = remember(payload.banks, direction, amount, userLocation, osmBranches) {
         rankBanks(payload.banks, direction, amount, userLocation, osmBranches)
@@ -665,7 +682,7 @@ fun KursScreen(
                                             expanded = ccyMenu, onDismissRequest = { ccyMenu = false },
                                             containerColor = VsCard, shape = VsShape.Panel
                                         ) {
-                                            Currency.entries.forEach { c ->
+                                            Currency.MAIN.forEach { c ->
                                                 DropdownMenuItem(
                                                     text = {
                                                         Text("${c.symbol}  ${c.code}  ·  ${c.displayName(lang)}", style = VsType.Body, color = if (c == currency) VsEmerald else VsInk)
@@ -674,8 +691,44 @@ fun KursScreen(
                                                     onClick = { ccyMenu = false; onCurrency(c) }
                                                 )
                                             }
+                                            // Other currencies banks buy and sell for cash, most banks first.
+                                            val extras = Currency.EXTRA.filter { (extraBanks[it] ?: 0) > 0 || it == currency }
+                                                .sortedByDescending { extraBanks[it] ?: 0 }
+                                            if (extras.isNotEmpty()) {
+                                                HorizontalDivider(color = VsLine, modifier = Modifier.padding(vertical = 4.dp))
+                                                Text(
+                                                    tr("Banklarda yana", "Ещё в банках", "Also at banks"),
+                                                    style = VsType.Meta, color = VsInkSoft,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                                )
+                                                extras.forEach { c ->
+                                                    val n = extraBanks[c]
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Column {
+                                                                Text("${c.symbol}  ${c.code}  ·  ${c.displayName(lang)}", style = VsType.Body, color = if (c == currency) VsEmerald else VsInk)
+                                                                if (n != null) Text(
+                                                                    tr("$n ta bank", "банков: $n", if (n == 1) "1 bank" else "$n banks"),
+                                                                    style = VsType.Meta, color = VsInkSoft
+                                                                )
+                                                            }
+                                                        },
+                                                        trailingIcon = { if (c == currency) Icon(Icons.Outlined.Check, null, tint = VsEmerald) },
+                                                        onClick = { ccyMenu = false; onCurrency(c) }
+                                                    )
+                                                }
+                                            }
+                                            HorizontalDivider(color = VsLine, modifier = Modifier.padding(vertical = 4.dp))
                                             DropdownMenuItem(
-                                                text = { Text(tr("Boshqa valyutalar…", "Другие валюты…", "Other currencies…"), style = VsType.Body, color = VsInkSoft) },
+                                                text = {
+                                                    Column {
+                                                        Text(tr("Markaziy bank kurslari", "Курсы ЦБ", "Central bank rates"), style = VsType.Body, color = VsInkSoft)
+                                                        Text(
+                                                            tr("Barcha valyutalar, banklarda almashtirilmaydiganlari ham", "Все валюты, включая те, что банки не меняют", "All currencies, incl. ones banks don't exchange"),
+                                                            style = VsType.Meta, color = VsInkSoft
+                                                        )
+                                                    }
+                                                },
                                                 onClick = { ccyMenu = false; showAll = true }
                                             )
                                         }
@@ -1027,8 +1080,9 @@ private fun TripVerdict(best: RankedBank, nearest: RankedBank, amount: Double, c
         val extraKm = ((bestKm ?: nearKm) - nearKm).coerceAtLeast(0.0)
         val cost = if (extraKm <= WALKABLE_KM) 0L else ((extraKm * 2 * TAXI_SOM_PER_KM) / 1000.0).roundToLong() * 1000L
         val worth = gain > cost
-        val perUnitGain = abs(best.perUnit - nearest.perUnit).toLong()
-        val breakEven = if (!worth && perUnitGain > 0) ((cost + perUnitGain - 1) / perUnitGain) else 0L
+        // Double: KZT/JPY rates differ by fractions of a so'm per unit.
+        val perUnitGain = abs(best.perUnit - nearest.perUnit)
+        val breakEven = if (!worth && perUnitGain > 0.0) kotlin.math.ceil(cost / perUnitGain).toLong() else 0L
         val near = nearest.rate.bank
         val nearKmText = kKm(nearKm, ru)
         val verdict = if (worth) tr("Arziydi.", "Стоит того.", "Worth it.") else tr("Arzimaydi.", "Не стоит.", "Not worth it.")

@@ -24,9 +24,14 @@ Ilova to‘rtta tabdan iborat: **Kurs**, **Xarita**, **Tarix**, **Hamyon**, hamd
 - **Valyuta kartalari (tepada):** USD, EUR, RUB, har birida MB kursi va kechagiga nisbatan o‘zgarish.
   - Tanlangan karta kattalashadi va 30 kunlik mini-grafik (sparkline) ko‘rsatadi.
   - Kartani bosish yoki chap-o‘ngga surish orqali valyuta almashadi.
-  - Yuqorida ma’lumot yangilangan vaqti va “yangi” belgisi (yashil pulsatsiyalanuvchi nuqta; eskirsa yoki oflaynda sariq).
+  - Yuqorida ma’lumot yangilangan vaqti va “yangi” belgisi (yashil nuqta, yangi kurs kelganda 3 marta pulsatsiya qiladi; eskirsa yoki oflaynda sariq).
+- **Valyuta tanlash (summa kartasidagi tugma):** USD, EUR, RUB, keyin “Banklarda yana” — naqd almashtiradigan banklar soni bilan GBP, CHF, JPY, KZT, CNY (bank.uz, 21.11.2026: 25 / 23 / 22 / 7 / 2 bank; boshqa hech bir valyutani banklar almashtirmaydi).
+  - Faqat kursi qurilmada bor va kamida bitta bank almashtiradigan valyuta ko‘rsatiladi.
+  - Bu valyutalar Kurs va Xaritada ishlaydi; Tarix, vidjetlar va ogohlantirishlar faqat USD/EUR/RUB uchun, tanlov saqlanmaydi.
+  - Oxirgi band — “Markaziy bank kurslari”: barcha 74 valyuta (ma’lumot uchun).
+  - Bank kurslari kasr bo‘lishi mumkin (KZT: 26,1 / 26,9), shuning uchun kurslar `Double`.
 - **Yo‘nalish:** “Men sotaman” / “Men olaman”, foydalanuvchi tilida.
-- **Summa kiritish:** katta raqam, minglik ajratish bilan; tezkor tugmalar 100 / 500 / 1 000 / 5 000 (RUB uchun 10 000 / 50 000 / …). Oxirgi summa eslab qolinadi.
+- **Summa kiritish:** katta raqam, minglik ajratish bilan; tezkor tugmalar 100 / 500 / 1 000 / 5 000 (RUB, JPY, KZT uchun 10 000 / 50 000 / …; CNY 500 / 1 000 / …). Oxirgi summa eslab qolinadi.
 - **Eng yaxshi natija (hero):** “Qo‘lingizga tegadi” yoki “To‘lashingiz kerak” summasi so‘mda, bank nomi, 1 birlik kursi, masofa va ish vaqti.
   - **Yo‘nalish** tugmasi (marshrut) va **Ulashish** tugmasi.
 - **Barcha banklar ro‘yxati:** summa bo‘yicha saralangan.
@@ -97,7 +102,6 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - Hamyon bo‘sh bo‘lsa, Kurs ekranida unga taklif kartasi (yopish mumkin).
 - **Valyutani valyutaga almashtirish:** masalan USD → EUR. Eng foydali yo‘l (bir bankda sotish, boshqasida olish), ikkalasi bitta bankda bo‘lsa natija, MB kursi bo‘yicha qiymat va banklar farqi (%).
 - **Maqsad:** masalan “Mashina — 20 000 $”: progress bar, yig‘ilgan summa va yana qancha kerakligi (USD, EUR yoki so‘mda).
-- **Jamg‘arma dinamikasi:** hozirgi jamg‘arma 30 kun / 1 yil davomida MB kursi bo‘yicha qanday o‘zgargani, grafik bilan.
 - Kod: `Wallet.kt` (hisob-kitob, saqlash), `Hamyon.kt` (ekran); web: `web/public/wallet.js` (`#/hamyon`), hisob-kitob bir xil.
 - Web oflayn ishlaydi (`web/public/sw.js`): sahifa va oxirgi kurslar keshda, internet bo‘lmasa shular ko‘rsatiladi.
 
@@ -179,6 +183,7 @@ Bankkurslari/
 ### Backend
 
 Node.js + Express, port 8080. Ma’lumot manbalari: **bank.uz** (tijorat banklari kurslari), **cbu.uz** (MB kursi va arxivi), OpenStreetMap / Yandex (filiallar, bankomatlar).
+USD, EUR, RUB, GBP, KZT kurslari bank.uz’ning umumiy taqqoslash sahifasidan; CHF, JPY, CNY uchun bunday sahifa yo‘q, ular har bir bankning o‘z sahifasidan (`/uz/currency/bank/<bank>`, ~30 sahifa, 4 tadan parallel) yig‘iladi (`server.js`: `PER_BANK_RATES`).
 
 | Endpoint | Tavsif |
 |---|---|

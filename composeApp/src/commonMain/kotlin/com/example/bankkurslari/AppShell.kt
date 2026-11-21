@@ -113,15 +113,15 @@ fun CurrencyTrackerApp(
     val scope = rememberCoroutineScope()
     val saveable = rememberSaveableStateHolder()
     // Ticker cards: CBU rate + 30-day history for every currency. Cache first, then network in background.
-    var tickers by remember { mutableStateOf(Currency.entries.associateWith { TickerData(null, emptyList()) }) }
+    var tickers by remember { mutableStateOf(Currency.MAIN.associateWith { TickerData(null, emptyList()) }) }
     LaunchedEffect(Unit) {
         // Cache first (off the main thread), then the network.
-        Currency.entries.forEach { c ->
+        Currency.MAIN.forEach { c ->
             val cbu = cachedRates(c)?.cbu
             val hist = cachedHistory(c)
             tickers = tickers + (c to TickerData(tickers[c]?.cbu ?: cbu, tickers[c]?.history?.ifEmpty { null } ?: hist))
         }
-        Currency.entries.forEach { c ->
+        Currency.MAIN.forEach { c ->
             launch {
                 runCatching { fetchRates(c) }.getOrNull()?.let { r ->
                     tickers = tickers + (c to (tickers[c] ?: TickerData(null, emptyList())).copy(cbu = r.cbu))
@@ -190,7 +190,7 @@ fun CurrencyTrackerApp(
 
     LaunchedEffect(currency) { analytics = null }
     LaunchedEffect(tab, currency) {
-        if (tab == HomeTab.TREND && analytics == null && !analyticsLoading) {
+        if (tab == HomeTab.TREND && currency.main && analytics == null && !analyticsLoading) {
             analyticsLoading = true
             analytics = runCatching { fetchAnalytics(currency) }.getOrNull()
             analyticsLoading = false
@@ -199,8 +199,17 @@ fun CurrencyTrackerApp(
 
     val onCurrency: (Currency) -> Unit = {
         currency = it
-        RateService.setSelectedCurrency(it.code)
-        PlatformHooks.onCurrencyChanged()
+        // GBP/CHF/JPY/KZT/CNY are a look-up for now: widgets, alerts and the next app start keep the main currency.
+        if (it.main) {
+            RateService.setSelectedCurrency(it.code)
+            PlatformHooks.onCurrencyChanged()
+        }
+    }
+    // Tarix has CBU history only for USD/EUR/RUB: opening it from another currency goes back to the saved main one.
+    LaunchedEffect(tab) {
+        if (tab == HomeTab.TREND && !currency.main) {
+            currency = Currency.MAIN.firstOrNull { it.code == RateService.selectedCurrency() } ?: Currency.USD
+        }
     }
 
     val p = payload

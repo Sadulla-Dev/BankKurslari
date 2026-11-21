@@ -1,5 +1,7 @@
 package com.example.bankkurslari
 
+import kotlin.math.roundToInt
+
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -60,8 +62,8 @@ object Alerts {
     fun bestFor(alert: RateAlert, banks: List<BankRate>): Pair<String, Int>? {
         val rows = banks.filter { alert.bank == null || it.bank == alert.bank }
         return when (alert.side) {
-            AlertSide.SELL -> rows.mapNotNull { r -> r.buy?.let { r.bank to it } }.maxByOrNull { it.second }
-            AlertSide.BUY -> rows.mapNotNull { r -> r.sell?.let { r.bank to it } }.minByOrNull { it.second }
+            AlertSide.SELL -> rows.mapNotNull { r -> r.buy?.let { r.bank to it.roundToInt() } }.maxByOrNull { it.second }
+            AlertSide.BUY -> rows.mapNotNull { r -> r.sell?.let { r.bank to it.roundToInt() } }.minByOrNull { it.second }
         }
     }
 

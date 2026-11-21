@@ -17,7 +17,7 @@ data class OpenState(val known: Boolean, val open: Boolean, val untilText: Strin
 /** One ranked bank row / map pin. total = so'm the user receives (sell) or pays (buy) for `amount`. */
 data class RankedBank(
     val rate: BankRate,
-    val perUnit: Int,            // buy rate when user sells, sell rate when user buys
+    val perUnit: Double,         // buy rate when user sells, sell rate when user buys (so'm per 1 unit)
     val total: Long,             // perUnit * amount, rounded
     val distanceKm: Double?,     // null when user location unknown or nearest branch > 100 km away
     val address: String?,

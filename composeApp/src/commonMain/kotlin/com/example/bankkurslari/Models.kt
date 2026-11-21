@@ -10,13 +10,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 data class Branch(val address: String, val lat: Double, val lng: Double)
 
+/** buy/sell in so'm per 1 unit; Double because some currencies trade in fractions (KZT: 26.1 / 26.9). */
 data class BankRate(
     val bank: String,
-    val buy: Int?,
-    val sell: Int?,
+    val buy: Double?,
+    val sell: Double?,
     val branch: Branch?
 ) {
-    val spread: Int? = if (buy != null && sell != null) sell - buy else null
+    val spread: Double? = if (buy != null && sell != null) sell - buy else null
 }
 
 data class CbuRate(val rate: Double, val diff: Double, val date: String)
@@ -52,12 +53,31 @@ enum class SortMode { BUY, SELL }
 
 enum class ConvertMode { SELL_USD, BUY_USD }
 
-enum class Currency(val code: String, val symbol: String, val nameUz: String, val nameRu: String, val nameEn: String) {
+/**
+ * [main]: the three currencies with CBU history, analytics, alerts and widgets (Tarix, Xarita tabs, settings).
+ * The others are traded in cash by fewer banks: Kurs shows their bank rates only, and the choice is not saved.
+ * bank.uz, 21.11.2026: GBP 25 banks, CHF 23, JPY 22, KZT 7, CNY 2; no bank trades any other currency.
+ */
+enum class Currency(
+    val code: String, val symbol: String, val nameUz: String, val nameRu: String, val nameEn: String, val main: Boolean = true
+) {
     USD("USD", "$", "Dollar", "Доллар", "Dollar"),
     EUR("EUR", "€", "Yevro", "Евро", "Euro"),
-    RUB("RUB", "₽", "Rubl", "Рубль", "Ruble");
+    RUB("RUB", "₽", "Rubl", "Рубль", "Ruble"),
+    GBP("GBP", "£", "Funt sterling", "Фунт стерлингов", "Pound sterling", main = false),
+    CHF("CHF", "Fr", "Shveytsariya franki", "Швейцарский франк", "Swiss franc", main = false),
+    JPY("JPY", "¥", "Yapon iyenasi", "Японская иена", "Japanese yen", main = false),
+    KZT("KZT", "₸", "Qozogʻiston tengesi", "Казахстанский тенге", "Kazakh tenge", main = false),
+    CNY("CNY", "元", "Xitoy yuani", "Китайский юань", "Chinese yuan", main = false);
 
     fun displayName(lang: Lang) = pick(lang, nameUz, nameRu, nameEn)
+
+    companion object {
+        /** Tabs, tickers, history, settings: currencies with full data. */
+        val MAIN: List<Currency> = entries.filter { it.main }
+        /** Bank cash rates only, offered under "Banklarda yana" in Kurs. */
+        val EXTRA: List<Currency> = entries.filter { !it.main }
+    }
 }
 
 /** Public API: Cloudflare Worker serving JSON that GitHub Actions rebuilds (backend/src/build.js). */

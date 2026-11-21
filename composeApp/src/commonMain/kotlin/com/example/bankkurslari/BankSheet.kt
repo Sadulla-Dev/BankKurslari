@@ -1,5 +1,7 @@
 package com.example.bankkurslari
 
+import kotlin.math.roundToInt
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -161,8 +163,8 @@ fun BankSheet(
 
             // bank buys / sells; the side that matters for the user's direction is coloured, the other stays quiet
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val buyD = rateMove(buy, prev?.lastBuy, higherIsBetter = true, relevant = sell, isSellRate = false)
-                val sellD = rateMove(sellRate, prev?.lastSell, higherIsBetter = false, relevant = !sell, isSellRate = true)
+                val buyD = rateMove(buy?.roundToInt(), prev?.lastBuy, higherIsBetter = true, relevant = sell, isSellRate = false)
+                val sellD = rateMove(sellRate?.roundToInt(), prev?.lastSell, higherIsBetter = false, relevant = !sell, isSellRate = true)
                 VsStat(
                     tr("Bank oladi", "Банк покупает", "Bank buys"), buy?.let { kGroup(it) } ?: "—",
                     Modifier.weight(1f), delta = buyD?.first, deltaColor = buyD?.second ?: VsInkSoft

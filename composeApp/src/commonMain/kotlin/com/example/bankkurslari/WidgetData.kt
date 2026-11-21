@@ -1,5 +1,7 @@
 package com.example.bankkurslari
 
+import kotlin.math.roundToInt
+
 /**
  * Home-screen widget data, shared by the Android widget (the iOS widget computes the same from the API in Swift).
  * Two leaderboards like the Telegram post: where selling pays most (bank buy rate, highest first) and where buying
@@ -36,8 +38,8 @@ fun widgetModel(currency: String, payload: RatesPayload): WidgetModel {
             WidgetEntry(b.bank, bankShortName(b.bank), r, place, kotlin.math.abs(r - best), bankLogoName(b.bank))
         }
     }
-    val sell = rank(payload.banks.mapNotNull { b -> b.buy?.let { b to it } }, higherIsBetter = true)
-    val buy = rank(payload.banks.mapNotNull { b -> b.sell?.let { b to it } }, higherIsBetter = false)
+    val sell = rank(payload.banks.mapNotNull { b -> b.buy?.let { b to it.roundToInt() } }, higherIsBetter = true)
+    val buy = rank(payload.banks.mapNotNull { b -> b.sell?.let { b to it.roundToInt() } }, higherIsBetter = false)
     return WidgetModel(currency, payload.cbu.rate, payload.cbu.diff, payload.updatedAt, sell, buy, payload.banks.size)
 }
 

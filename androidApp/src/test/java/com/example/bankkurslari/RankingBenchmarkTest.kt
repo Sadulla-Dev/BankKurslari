@@ -27,7 +27,7 @@ class RankingBenchmarkTest {
     fun rankBanksIsFastAndUnchanged() {
         val br = branches()
         val names = br.map { it.bank }.distinct().take(27)
-        val banks = names.mapIndexed { i, n -> BankRate(n, 11900 + i, 11950 + i, null) }
+        val banks = names.mapIndexed { i, n -> BankRate(n, 11900.0 + i, 11950.0 + i, null) }
 
         // Old matching: every bank against every branch, branch keys recomputed per call.
         fun oldMatchCount(): Int {

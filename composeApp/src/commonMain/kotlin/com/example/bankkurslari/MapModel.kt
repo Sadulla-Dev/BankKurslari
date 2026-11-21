@@ -43,7 +43,10 @@ import kotlin.math.sqrt
 
 /* ---------- Map model (shared by the Android and iOS map views) ---------- */
 
-const val MAP_BEST_TOLERANCE = 5          // spec 6.2: accent when within 5 so'm of best
+const val MAP_BEST_TOLERANCE = 5.0        // spec 6.2: accent when within 5 so'm of best
+
+/** 5 so'm is a rounding step for USD/EUR/RUB; for currencies priced in tens of so'm (JPY 72, KZT 26) it would be 7-20%. */
+fun mapBestTolerance(best: Double): Double = if (best >= 100) MAP_BEST_TOLERANCE else best * 0.0004
 const val MAP_FAR_KM = 100.0              // spec 6.2 / acceptance 7
 
 enum class MapPinKind { PRICED, DOT, ATM }
@@ -105,12 +108,12 @@ fun shortBankName(name: String): String {
     return if (t.length > 14) t.take(13).trimEnd() + "…" else t
 }
 
-fun mapRateText(v: Int): String = v.toLong().formatUzsL()
+fun mapRateText(v: Double): String = uzsRate(v)
 
 fun mapIsClosed(o: OpenState) = o.known && !o.open
 
 /** Which side of the market the user cares about: sell -> highest rate is best, buy -> lowest. */
-fun mapBestRate(ranked: List<RankedBank>, direction: ConvertMode): Int? =
+fun mapBestRate(ranked: List<RankedBank>, direction: ConvertMode): Double? =
     if (direction == ConvertMode.SELL_USD) ranked.maxOfOrNull { it.perUnit } else ranked.minOfOrNull { it.perUnit }
 
 /**
@@ -121,7 +124,7 @@ fun mapBuildPins(
     ranked: List<RankedBank>,
     branches: List<OsmBranch>,
     user: Pair<Double, Double>?,
-    best: Int?
+    best: Double?
 ): List<MapPin> {
     // The ONE teal bank: best-ranked bank that is not known to be closed (ties go to the first in ranking order).
     val bestKey = (ranked.firstOrNull { !mapIsClosed(it.open) } ?: ranked.firstOrNull())?.let { bankKey(it.rate.bank) }
@@ -148,7 +151,7 @@ fun mapBuildPins(
             )
             out.add(
                 MapPin("p$i", MapPinKind.PRICED, br.lat, br.lng, base.rate.bank, rb.address, hours, key, raw, rb,
-                    key == bestKey && best != null && abs(base.perUnit - best) <= MAP_BEST_TOLERANCE, mapIsClosed(st))
+                    key == bestKey && best != null && abs(base.perUnit - best) <= mapBestTolerance(best), mapIsClosed(st))
             )
         } else {
             val st = openState(br.hours)
@@ -168,7 +171,7 @@ fun mapBuildPins(
             val rb = r.copy(distanceKm = raw?.takeIf { it <= MAP_FAR_KM })
             out.add(
                 MapPin("r$key", MapPinKind.PRICED, la, ln, r.rate.bank, r.address, r.hours, key, raw, rb,
-                    key == bestKey && best != null && abs(r.perUnit - best) <= MAP_BEST_TOLERANCE, mapIsClosed(r.open))
+                    key == bestKey && best != null && abs(r.perUnit - best) <= mapBestTolerance(best), mapIsClosed(r.open))
             )
         }
     }
@@ -245,7 +248,7 @@ fun buildMarkerSpecs(
     selectedId: String?,
     labelMode: MapLabel,
     sell: Boolean,
-    best: Int?,
+    best: Double?,
     zoom: Double,
     density: Float,
     viewW: Float = 0f,
@@ -540,7 +543,7 @@ expect fun BankMapView(
     selectedId: String?,
     labelMode: MapLabel,
     sell: Boolean,
-    best: Int?,
+    best: Double?,
     showMyLocation: Boolean,
     active: Boolean,
     onPinTap: (MapPin) -> Unit,

@@ -158,9 +158,9 @@ fun SettingsScreen(
                 VsDivider()
                 RowShell(title = tr("Asosiy valyuta", "Основная валюта", "Main currency"), subtitle = null) {
                     SegmentedHug(
-                        options = Currency.entries.map { it.code },
+                        options = Currency.MAIN.map { it.code },
                         selected = defaultCurrency.ordinal,
-                        onSelect = { onDefaultCurrency(Currency.entries[it]) },
+                        onSelect = { onDefaultCurrency(Currency.MAIN[it]) },
                         height = 36.dp
                     )
                 }

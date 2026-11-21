@@ -179,9 +179,9 @@ fun TickerBar(
                             // Switch as soon as the threshold is crossed (feels immediate), once per gesture.
                             if (!switched && abs(drag) > swipePx) {
                                 val cur = currentCurrency.value
-                                val i = Currency.entries.indexOf(cur)
+                                val i = Currency.MAIN.indexOf(cur)
                                 val next = if (drag < 0) i + 1 else i - 1
-                                if (next in Currency.entries.indices) selectRef.value(Currency.entries[next])
+                                if (next in Currency.MAIN.indices) selectRef.value(Currency.MAIN[next])
                                 switched = true
                             }
                         }
@@ -189,7 +189,7 @@ fun TickerBar(
                 },
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Currency.entries.forEach { c ->
+            Currency.MAIN.forEach { c ->
                 val sel = c == currency
                 val w by animateFloatAsState(if (sel) 1.9f else 1f, spring(dampingRatio = 0.72f, stiffness = 380f), label = "w")
                 TickerCard(

@@ -27,6 +27,16 @@ fun Double.fixed(decimals: Int): String {
 
 fun Int?.formatUzs(): String = this?.toLong()?.formatUzsL() ?: "—"
 
+/** A bank rate in so'm: whole rates grouped (11 995), fractional ones keep up to 2 decimals (26,1 for KZT). */
+fun Double?.formatUzs(): String = this?.let(::uzsRate) ?: "—"
+
+fun uzsRate(v: Double): String {
+    val whole = v.roundToLong()
+    if (abs(v - whole) < 0.005) return whole.formatUzsL()
+    val s = abs(v).fixed(2).trimEnd('0').trimEnd('.')
+    return (if (v < 0) "-" else "") + groupDigits(s.substringBefore('.')) + "," + s.substringAfter('.')
+}
+
 fun Long.formatUzsL(): String = (if (this < 0) "-" else "") + groupDigits(abs(this).toString())
 
 /** "#,##0.00" with space grouping: 11 913.35 */

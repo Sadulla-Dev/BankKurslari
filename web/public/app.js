@@ -321,14 +321,16 @@ function renderCbu() {
 
 /* ---------- all CBU currencies (sheet) ---------- */
 
-const AC_DEFAULT_FAVS = ["CNY", "KZT", "TRY", "AED", "KRW", "GBP"];
+const AC_DEFAULT_FAVS = ["TRY", "AED", "KRW"];
 const AC = {
   list: null, query: "", toSom: true, amount: 100,
   sel: store.get("acSel") || "CNY",
   favs: (() => { try { const v = JSON.parse(store.get("acFavs")); return Array.isArray(v) ? v : AC_DEFAULT_FAVS; } catch { return AC_DEFAULT_FAVS; } })()
 };
-// Currencies that bank.uz publishes bank cash rates for besides the main tabs (backend EXTRA_RATES).
-const AC_BANK_CURS = ["GBP", "KZT"];
+// Currencies banks trade in cash besides the main tabs (backend EXTRA_RATES). bank.uz, 21.11.2026: GBP 25 banks,
+// CHF 23, JPY 22, KZT 7, CNY 2; no bank trades any other currency, so those show the CBU rate only.
+const AC_BANK_CURS = ["GBP", "CHF", "JPY", "KZT", "CNY"];
+const acBankCount = (code) => S.rates[code]?.banks?.length || 0;
 const AB = { sell: true };
 const loadAcBanks = (cur) => once("r" + cur, async () => (S.rates[cur] = await getJSON(`/api/rates/${cur.toLowerCase()}`)));
 const loadCbuAll = () => AC.list ? Promise.resolve(AC.list) : once("cbuall", async () => (AC.list = (await getJSON("/api/cbu/all")).currencies || []));
@@ -360,22 +362,29 @@ function renderAllList() {
   const q = AC.query.trim().toLowerCase();
   const match = (c) => !q || c.code.toLowerCase().includes(q) || Object.values(c.names || {}).some((n) => String(n).toLowerCase().includes(q));
   const items = AC.list.filter(match);
-  const favs = AC.favs.map((code) => items.find((c) => c.code === code)).filter(Boolean);
-  const rest = items.filter((c) => !AC.favs.includes(c.code));
+  // Currencies banks really exchange come first (most banks first); the rest are CBU reference rates only.
+  // USD, EUR, RUB always (every bank), then the extras by number of banks.
+  const banks = [
+    ...CURS.map((code) => items.find((c) => c.code === code)).filter(Boolean),
+    ...items.filter((c) => AC_BANK_CURS.includes(c.code) && acBankCount(c.code) > 0).sort((a, b) => acBankCount(b.code) - acBankCount(a.code))
+  ];
+  const favs = AC.favs.map((code) => items.find((c) => c.code === code)).filter((c) => c && !banks.includes(c));
+  const rest = items.filter((c) => !AC.favs.includes(c.code) && !banks.includes(c));
   const row = (c) => {
     const d = c.diff / (c.nominal || 1);
     const cls = d > 0 ? "up-t" : d < 0 ? "down-t" : "";
     const fav = AC.favs.includes(c.code);
     return `<div class="ac-i${c.code === AC.sel ? " on" : ""}" role="button" tabindex="0" data-code="${acEsc(c.code)}">
       <span class="ac-sym">${acEsc(c.code)}</span>
-      <span class="ac-n"><b>${acEsc(acName(c))}</b><small>${c.nominal > 1 ? `${c.nominal} ${acEsc(c.code)} = ${acRateFmt(c.rate)}` : `1 ${acEsc(c.code)}`}${AC_BANK_CURS.includes(c.code) && S.rates[c.code]?.banks?.length ? ` · <span class="ac-bk">${t.abBadge(S.rates[c.code].banks.length)}</span>` : ""}</small></span>
+      <span class="ac-n"><b>${acEsc(acName(c))}</b><small>${c.nominal > 1 ? `${c.nominal} ${acEsc(c.code)} = ${acRateFmt(c.rate)}` : `1 ${acEsc(c.code)}`}${(AC_BANK_CURS.includes(c.code) || CURS.includes(c.code)) && S.rates[c.code]?.banks?.length ? ` · <span class="ac-bk">${t.abBadge(S.rates[c.code].banks.length)}</span>` : ""}</small></span>
       <span class="ac-r"><b>${acRateFmt(acRate(c))}</b><em class="${cls}">${d ? `${d > 0 ? "▲" : "▼"} ${acRateFmt(Math.abs(d))}` : ""}</em></span>
       <button type="button" class="ac-star${fav ? " on" : ""}" data-star="${acEsc(c.code)}" aria-label="${t["all.fav"]}" aria-pressed="${fav}"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.6l2.3 4.7 5.1.7-3.7 3.6.9 5.1L10 14.3l-4.6 2.4.9-5.1L2.6 8l5.1-.7z" fill="${fav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     </div>`;
   };
   let html = "";
+  if (banks.length) html += `<h4 class="ac-h">${t["all.banks"]}</h4>` + banks.map(row).join("");
   if (favs.length) html += `<h4 class="ac-h">${t["all.favs"]}</h4>` + favs.map(row).join("");
-  if (rest.length) html += `<h4 class="ac-h">${t["all.all"]}</h4>` + rest.map(row).join("");
+  if (rest.length) html += `<h4 class="ac-h">${banks.length ? t["all.cbuOnly"] : t["all.all"]}</h4>` + rest.map(row).join("");
   $("acList").innerHTML = html || `<p class="muted ac-empty">${t["all.empty"]}</p>`;
 }
 /** Bank cash rates for the selected currency, only for banks that publish one. */

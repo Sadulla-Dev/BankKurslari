@@ -179,13 +179,13 @@ fun SegmentedHug(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
 fun CurrencySegmented(currency: Currency, onCurrency: (Currency) -> Unit, modifier: Modifier = Modifier) {
     val cell = 72.dp
     val density = LocalDensity.current
-    val idx = Currency.entries.indexOf(currency)
+    val idx = Currency.MAIN.indexOf(currency)
     val widths = remember { mutableStateMapOf<Int, Dp>() }
     val x by animateDpAsState(cell * idx, Motion.slide(), label = "ccy")
     val w by animateDpAsState(widths[idx] ?: 40.dp, Motion.slide(), label = "ccyw")
     Box(modifier.heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
         Row {
-            Currency.entries.forEachIndexed { i, c ->
+            Currency.MAIN.forEachIndexed { i, c ->
                 val sel = c == currency
                 val color by animateColorAsState(if (sel) VsInk else VsInkSoft, Motion.color(), label = "ccyc")
                 Box(

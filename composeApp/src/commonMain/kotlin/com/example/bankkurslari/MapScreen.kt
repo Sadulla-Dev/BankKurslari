@@ -177,7 +177,7 @@ fun MapScreen(
     }
     val listItems = remember(ranked, openNow, bestOnly, bankSel, best) {
         ranked.mapIndexedNotNull { i, rb ->
-            val good = best != null && abs(rb.perUnit - best) <= MAP_BEST_TOLERANCE
+            val good = best != null && abs(rb.perUnit - best) <= mapBestTolerance(best)
             val ok = !(openNow && mapIsClosed(rb.open)) && (!bestOnly || good) &&
                 (bankSel == null || bankKey(rb.rate.bank) == bankSel)
             if (ok) Triple(i + 1, rb, good) else null
@@ -276,7 +276,8 @@ fun MapScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                MapCapsule(Currency.entries.map { it.code }, currency.ordinal) { onCurrency(Currency.entries[it]) }
+                val capsule = Currency.MAIN + listOfNotNull(currency.takeIf { !it.main })
+                MapCapsule(capsule.map { it.code }, capsule.indexOf(currency)) { onCurrency(capsule[it]) }
                 VsIconButton(
                     Icons.Outlined.Tune, tr("Filtrlar", "Фильтры", "Filters"),
                     onClick = { filtersOpen = !filtersOpen }, floating = true,

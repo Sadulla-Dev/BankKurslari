@@ -1,5 +1,7 @@
 package com.example.bankkurslari
 
+import kotlin.math.roundToInt
+
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -47,8 +49,8 @@ object RateService {
         val buy = payload.banks.filter { it.sell != null }.minByOrNull { it.sell!! }
         return Best(
             currency = currency,
-            sellRate = sell?.buy, sellBank = sell?.bank,
-            buyRate = buy?.sell, buyBank = buy?.bank,
+            sellRate = sell?.buy?.roundToInt(), sellBank = sell?.bank,
+            buyRate = buy?.sell?.roundToInt(), buyBank = buy?.bank,
             updatedAt = payload.updatedAt?.formatUpdatedAt() ?: "",
             fetchedAt = nowMillis()
         )

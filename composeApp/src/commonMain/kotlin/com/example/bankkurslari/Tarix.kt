@@ -136,11 +136,11 @@ fun TarixScreen(
         // Topbar: currency pill + share (+ settings, kept so it stays reachable from this tab).
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Segmented(
-                options = Currency.entries.map { it.code } + pick(lang, "Oltin", "Золото", "Gold"),
-                selected = if (goldMode) Currency.entries.size else Currency.entries.indexOf(currency),
+                options = Currency.MAIN.map { it.code } + pick(lang, "Oltin", "Золото", "Gold"),
+                selected = if (goldMode) Currency.MAIN.size else Currency.MAIN.indexOf(currency),
                 onSelect = { i ->
-                    if (i == Currency.entries.size) goldMode = true
-                    else { goldMode = false; onCurrency(Currency.entries[i]) }
+                    if (i == Currency.MAIN.size) goldMode = true
+                    else { goldMode = false; onCurrency(Currency.MAIN[i]) }
                 },
                 cellWidth = 64.dp
             )
@@ -321,7 +321,7 @@ private fun shortBank(name: String): String =
 
 @Composable
 private fun AlertRow(a: RateAlert, ru: Boolean, unit: String, onDelete: () -> Unit) {
-    val cur = Currency.entries.firstOrNull { it.code == a.currency } ?: Currency.USD
+    val cur = Currency.MAIN.firstOrNull { it.code == a.currency } ?: Currency.USD
     val sell = a.side == AlertSide.SELL
     val op = if (sell) "≥" else "≤"
     val v = "$op ${a.threshold.formatUzs()} $unit"

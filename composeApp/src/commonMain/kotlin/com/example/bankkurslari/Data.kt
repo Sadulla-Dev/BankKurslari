@@ -68,8 +68,8 @@ fun parseRatesPayload(body: String): RatesPayload {
     val root = parseJsonObject(body)
     val cbuJson = root.obj("cbu") ?: error("no cbu")
     val banks = (root.arr("banks") ?: JsonArray(emptyList())).objects().mapNotNull { item ->
-        val buy = item.int("buy")
-        val sell = item.int("sell")
+        val buy = item.dbl("buy")
+        val sell = item.dbl("sell")
         if (buy == null && sell == null) return@mapNotNull null
         val branch = item.obj("branch")?.let {
             Branch(address = it.str("address").orEmpty(), lat = it.dbl("lat") ?: Double.NaN, lng = it.dbl("lng") ?: Double.NaN)
@@ -219,7 +219,7 @@ suspend fun fetchCbuAll(): List<CbuCurrency> = withContext(Dispatchers.Default) 
 data class ExtraBankRate(val bank: String, val buy: Double?, val sell: Double?)
 
 /** Currencies the API serves bank rates for besides USD/EUR/RUB (backend EXTRA_RATES). */
-val BANK_RATE_EXTRAS = setOf("GBP", "KZT")
+val BANK_RATE_EXTRAS: Set<String> = Currency.EXTRA.map { it.code }.toSet()
 
 private fun parseExtraRates(body: String): List<ExtraBankRate> =
     (parseJsonObject(body).arr("banks") ?: JsonArray(emptyList())).objects().mapNotNull { item ->

@@ -45,7 +45,10 @@ const TASHKENT_BBOX = "41.15,69.10,41.40,69.40";
 
 const SUPPORTED = ["USD", "EUR", "RUB"];
 // Bank rates only (no CBU history or analytics): bank.uz publishes these for fewer banks, the site lists them per currency.
-const EXTRA_RATES = ["GBP", "KZT"];
+const EXTRA_RATES = ["GBP", "KZT", "CHF", "JPY", "CNY"];
+// bank.uz has no comparison tab for these; each bank's own page lists them, so they are collected bank by bank.
+// (Checked 21.11.2026 across all 29 banks: no bank quotes any other currency, e.g. TRY, AED or KRW.)
+const PER_BANK_RATES = ["CHF", "JPY", "CNY"];
 
 const app = express();
 // Per-currency caches, keyed by currency code.
@@ -53,6 +56,7 @@ const ratesCache = new Map();
 const historyCache = new Map();
 let cbuAllCache = null; // { cachedAt, map: { USD: {...}, ... } }
 let bankPageCache = null; // { cachedAt, html }
+let perBankCache = null; // { cachedAt, rows: [{ bank, sourceUrl, code, buy, sell }] }
 let cachedAtms = null;
 let cachedBranches = null;
 
@@ -446,6 +450,7 @@ async function getBankPage() {
 }
 
 async function fetchCommercialRates(cur) {
+  if (PER_BANK_RATES.includes(cur)) return fetchPerBankRates(cur);
   const html = await getBankPage();
   const $ = cheerio.load(html);
   const tab = $(`#best_${cur}`);
@@ -479,6 +484,65 @@ async function fetchCommercialRates(cur) {
   }
 
   return rates;
+}
+
+// Every bank's page on bank.uz ("/uz/currency/bank/<slug>") has a table of all currencies it trades:
+// rows of Kod / Birlik / Valyuta / Sotib olish / Sotish / Yangilanish vaqti. 0 or "-" means the bank does not trade it.
+async function getPerBankRows() {
+  if (perBankCache && Date.now() - perBankCache.cachedAt < CACHE_TTL_MS) return perBankCache.rows;
+  const $main = cheerio.load(await getBankPage());
+  const banks = new Map(); // slug -> display name (as on the comparison page, so names match the other currencies)
+  $main('a[href*="/currency/bank/"]').each((_i, a) => {
+    const href = $main(a).attr("href") ?? "";
+    const slug = href.split("/currency/bank/")[1]?.split(/[?#/]/)[0];
+    const name = cleanText($main(a).find(".medium-text").first().text() || $main(a).text());
+    if (slug && name && !banks.has(slug)) banks.set(slug, name);
+  });
+  if (!banks.size) throw new Error("Bank.uz bank list was not found");
+
+  const rows = [];
+  const slugs = [...banks.keys()];
+  // A few at a time: ~30 pages per build, gentle on bank.uz.
+  for (let i = 0; i < slugs.length; i += 4) {
+    await Promise.all(slugs.slice(i, i + 4).map(async (slug) => {
+      const url = new URL(`/uz/currency/bank/${slug}`, BANK_UZ_PAGE).toString();
+      try {
+        const $ = cheerio.load(await fetchText(url));
+        $(".row").each((_j, row) => {
+          const cols = $(row).children();
+          const code = cleanText(cols.first().find("a .medium-text").first().text());
+          if (!/^[A-Z]{3}$/.test(code)) return;
+          const valueOf = (label) => {
+            const col = cols.filter((_k, c) => cleanText($(c).find(".medium-text").first().text()) === label).first();
+            const v = parseAmount(col.find(".medium-text").last().text());
+            return Number.isFinite(v) && v > 0 ? v : null;
+          };
+          const buy = valueOf("Sotib olish");
+          const sell = valueOf("Sotish");
+          if (buy != null || sell != null) rows.push({ bank: banks.get(slug), sourceUrl: url, code, buy, sell });
+        });
+      } catch (error) {
+        console.error(`Bank page ${slug} failed:`, error.message);
+      }
+    }));
+  }
+  if (!rows.length) throw new Error("Bank.uz bank pages could not be parsed");
+  perBankCache = { cachedAt: Date.now(), rows };
+  return rows;
+}
+
+async function fetchPerBankRates(cur) {
+  const rows = (await getPerBankRows()).filter((r) => r.code === cur);
+  return rows
+    .map((r) => ({
+      bank: r.bank,
+      buy: r.buy,
+      sell: r.sell,
+      spread: r.buy != null && r.sell != null ? r.sell - r.buy : null,
+      sourceUrl: r.sourceUrl,
+      branch: BANK_BRANCHES[normalizeBankName(r.bank)] ?? null
+    }))
+    .sort((left, right) => (right.buy ?? -Infinity) - (left.buy ?? -Infinity) || (left.sell ?? Infinity) - (right.sell ?? Infinity));
 }
 
 function parseRateColumn($, column, field, byBank) {
