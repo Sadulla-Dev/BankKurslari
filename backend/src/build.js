@@ -87,20 +87,6 @@ try {
   // No Yandex snapshot has been imported yet.
 }
 
-// CHF, JPY, CNY come from ~30 separate bank pages (see PER_BANK_RATES in server.js): read them only at these Tashkent
-// hours, not every hour, to stay light on bank.uz. A late or skipped scheduled run catches up on the next one.
-const PER_BANK_HOURS = [1, 8, 13, 20];
-const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000;
-function lastPerBankSlot(now = Date.now()) {
-  const local = new Date(now + TASHKENT_OFFSET_MS);
-  for (let daysBack = 0; daysBack < 2; daysBack++) {
-    for (const h of [...PER_BANK_HOURS].reverse()) {
-      const slot = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - daysBack, h) - TASHKENT_OFFSET_MS;
-      if (slot <= now) return slot;
-    }
-  }
-  return 0;
-}
 async function readPrevious(path) {
   try { return JSON.parse(await readFile(join(SITE, path), "utf8")); } catch { return null; }
 }
@@ -110,10 +96,6 @@ for (const cur of [...api.SUPPORTED, ...api.EXTRA_RATES]) {
     const path = `api/rates/${cur}.json`;
     const prev = await readPrevious(path); // pulled from the live site by pullPrevious()
     const before = prev?.banks?.length || 0;
-    if (api.PER_BANK_RATES.includes(cur) && before && Date.parse(prev.updatedAt) >= lastPerBankSlot()) {
-      console.log(`keep ${cur}: bank pages are read at ${PER_BANK_HOURS.join(":00, ")}:00 Tashkent`);
-      return;
-    }
     const next = await api.getRatesPayload(cur, { force: true });
     // bank.uz down, blocking us or changing its markup comes back as few or no banks. Writing that would replace the
     // last good rates with an empty list ("no bank rates" in the apps); keep the previous file instead. Its old

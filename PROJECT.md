@@ -183,7 +183,7 @@ Bankkurslari/
 ### Backend
 
 Node.js + Express, port 8080. Ma’lumot manbalari: **bank.uz** (tijorat banklari kurslari), **cbu.uz** (MB kursi va arxivi), OpenStreetMap / Yandex (filiallar, bankomatlar).
-USD, EUR, RUB, GBP, KZT kurslari bank.uz’ning umumiy taqqoslash sahifasidan; CHF, JPY, CNY uchun bunday sahifa yo‘q, ular har bir bankning o‘z sahifasidan (`/uz/currency/bank/<bank>`, ~30 sahifa, 4 tadan parallel) yig‘iladi (`server.js`: `PER_BANK_RATES`). Bank sahifalari kuniga 4 marta o‘qiladi (Toshkent: 1:00, 8:00, 13:00, 20:00; `build.js`: `PER_BANK_HOURS`), oradagi soatlarda oldingi fayl qoladi.
+USD, EUR, RUB, GBP, KZT kurslari bank.uz’ning umumiy taqqoslash sahifasidan; CHF, JPY, CNY uchun bunday sahifa yo‘q, ular har bir bankning o‘z sahifasidan (`/uz/currency/bank/<bank>`, ~30 sahifa, 4 tadan parallel) yig‘iladi (`server.js`: `PER_BANK_RATES`). Hammasi har soatda yangilanadi.
 Himoya: bank.uz ishlamasa, bloklasa yoki sahifasini o‘zgartirsa, banklar soni avvalgisining yarmidan kam chiqadi — bunday javob yozilmaydi, oxirgi yaxshi kurslar qoladi (eski vaqti bilan, ilova uni “eskirgan” deb ko‘rsatadi).
 
 | Endpoint | Tavsif |
