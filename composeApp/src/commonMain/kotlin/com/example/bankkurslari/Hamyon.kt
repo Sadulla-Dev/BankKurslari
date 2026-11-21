@@ -137,7 +137,7 @@ fun HamyonScreen(innerPadding: PaddingValues, lang: Lang, onOpenSettings: () -> 
             EmptyWallet(lang) { adding = true }
         } else {
             WalletHero(summary, lang)
-            GoalCard(goal, summary.total, quotes, lang) { goalSheet = true }
+            GoalCard(goal, summary.total.takeIf { summary.rows.all { r -> r.som != null } }, quotes, lang) { goalSheet = true }
             HoldingsPanel(summary, lang, onEdit = { editing = it }, onAdd = { adding = true })
             TrendCard(holdings, histories, quotes, lang)
         }
@@ -208,11 +208,13 @@ private fun EmptyWallet(lang: Lang, onAdd: () -> Unit) {
 @Composable
 private fun WalletHero(s: WalletSummary, lang: Lang) {
     val unit = somUnit()
+    // Until every line has a rate the total would be too low (0 on a cold start): show a placeholder instead.
+    val ready = s.rows.all { it.som != null }
     VsCardBox {
         Text(pick(lang, "Banklarda sotsangiz, bugun", "Если продать в банках сегодня", "If you sold at banks today"), style = VsType.Meta, color = VsInkSoft)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                s.total.roundToLong().formatUzsL(), style = VsType.Hero.copy(fontSize = if (s.total >= 1e9) 34.sp else 42.sp),
+                if (ready) s.total.roundToLong().formatUzsL() else "…", style = VsType.Hero.copy(fontSize = if (s.total >= 1e9) 34.sp else 42.sp),
                 color = VsEmeraldDeep, maxLines = 1, modifier = Modifier.weight(1f, fill = false)
             )
             Spacer(Modifier.width(8.dp))
@@ -222,14 +224,14 @@ private fun WalletHero(s: WalletSummary, lang: Lang) {
             val d = s.dayChange.roundToLong()
             VsStat(
                 label = pick(lang, "Kecha bilan farq", "За день", "Since yesterday"),
-                value = (if (d > 0) "+" else "") + d.formatUzsL(),
+                value = if (ready) (if (d > 0) "+" else "") + d.formatUzsL() else "—",
                 delta = pick(lang, "MB kursi boʻyicha", "по курсу ЦБ", "at CBU rate"),
                 deltaColor = VsInkSoft,
                 modifier = Modifier.weight(1f)
             )
             VsStat(
                 label = pick(lang, "Dollarda", "В долларах", "In dollars"),
-                value = s.totalUsd?.let { "$" + it.roundToLong().formatUzsL() } ?: "—",
+                value = s.totalUsd?.takeIf { ready }?.let { "$" + it.roundToLong().formatUzsL() } ?: "—",
                 delta = pick(lang, "MB kursi boʻyicha", "по курсу ЦБ", "at CBU rate"),
                 deltaColor = VsInkSoft,
                 modifier = Modifier.weight(1f)
@@ -571,7 +573,7 @@ private fun HoldingSheet(
 /* ---------- goal ---------- */
 
 @Composable
-private fun GoalCard(goal: WalletGoal?, totalSom: Double, quotes: Map<WalletCode, Quote>, lang: Lang, onEdit: () -> Unit) {
+private fun GoalCard(goal: WalletGoal?, totalSom: Double?, quotes: Map<WalletCode, Quote>, lang: Lang, onEdit: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     if (goal == null) {
         Row(
@@ -591,7 +593,7 @@ private fun GoalCard(goal: WalletGoal?, totalSom: Double, quotes: Map<WalletCode
         }
         return
     }
-    val p = goalProgress(goal, totalSom, quotes)
+    val p = totalSom?.let { goalProgress(goal, it, quotes) }
     val unit = if (goal.code == WalletCode.UZS) somUnit() else goal.code.code
     VsCardBox(Modifier.clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onEdit)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -677,7 +679,10 @@ private fun TrendCard(holdings: List<Holding>, histories: Map<WalletCode, List<H
     val days = if (range == 0) 30 else 365
     val today = todayIso()
     val since = remember(today, days) { LocalDate.parse(today).minus(days, DateTimeUnit.DAY).toString() }
-    val pts = remember(holdings, histories, quotes, since, today) { walletTrend(holdings, histories, quotes, since, today) }
+    // Off the main thread: a year of daily points for every held currency.
+    val pts by androidx.compose.runtime.produceState(emptyList<HistoryPoint>(), holdings, histories, quotes, since, today) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { walletTrend(holdings, histories, quotes, since, today) }
+    }
     val unit = somUnit()
     VsCardBox {
         Row(verticalAlignment = Alignment.CenterVertically) {

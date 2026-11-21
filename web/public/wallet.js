@@ -241,17 +241,18 @@ function renderWallet() {
   const root = $("walletRoot");
   if (!root) return;
   const t = WL(), list = WS.load(), s = wSummary(list);
+  const ready = s.rows.every((r) => r.som != null); // before the rates arrive the total would read 0
   let html = `<div class="w-head"><h1>${esc(t.title)}</h1><p class="muted">${esc(t.sub)}</p></div>`;
   if (!list.length) {
     html += `<div class="card w-card"><h2>${esc(t.emptyT)}</h2><p class="muted">${esc(t.emptyP)}</p><button class="btn btn-accent w-add" type="button" data-wadd>${esc(t.add)}</button></div>`;
   } else {
     html += `<div class="card w-card w-hero"><p class="res-label">${esc(t.heroL)}</p>
-      <div class="result"><span class="big">${group(s.total)}</span><span class="som">${esc(t.som)}</span></div>
+      <div class="result"><span class="big">${ready ? group(s.total) : "…"}</span><span class="som">${esc(t.som)}</span></div>
       <div class="w-stats">
-        <div class="w-stat"><small>${esc(t.day)}</small><b class="${Math.round(s.day) < 0 ? "neg" : ""}">${wSigned(s.day)}</b><em>${esc(t.atCbu)}</em></div>
-        <div class="w-stat"><small>${esc(t.inUsd)}</small><b>${s.usd != null ? "$" + group(s.usd) : "—"}</b><em>${esc(t.atCbu)}</em></div>
+        <div class="w-stat"><small>${esc(t.day)}</small><b class="${Math.round(s.day) < 0 ? "neg" : ""}">${ready ? wSigned(s.day) : "—"}</b><em>${esc(t.atCbu)}</em></div>
+        <div class="w-stat"><small>${esc(t.inUsd)}</small><b>${ready && s.usd != null ? "$" + group(s.usd) : "—"}</b><em>${esc(t.atCbu)}</em></div>
       </div></div>
-      ${renderGoal(s.total)}
+      ${renderGoal(ready ? s.total : null)}
       <div class="card w-list">${s.rows.map((r) => {
         const h = r.h, c = W_CODES[h.code];
         const unit = h.code === "UZS" ? t.som : h.code === "XAU" ? t.grams : h.code;
@@ -275,7 +276,7 @@ function renderWallet() {
 function renderGoal(totalSom) {
   const t = WL(), g = GS.load();
   if (!g) return `<button type="button" class="w-goal-empty" data-wgoal><span aria-hidden="true">🎯</span><span><b>${esc(t.goalSet)}</b><small>${esc(t.goalHint)}</small></span></button>`;
-  const rate = g.code === "UZS" ? 1 : W.quotes[g.code]?.cbu;
+  const rate = totalSom == null ? null : g.code === "UZS" ? 1 : W.quotes[g.code]?.cbu;
   const u = g.code === "UZS" ? t.som : g.code;
   if (!rate) return `<button type="button" class="card w-card w-goal" data-wgoal><span class="w-goal-top"><b>${esc(g.name || t.goal)}</b><em>—</em></span></button>`;
   const saved = totalSom / rate, share = Math.max(0, Math.min(1, saved / g.amount)), left = g.amount - saved;

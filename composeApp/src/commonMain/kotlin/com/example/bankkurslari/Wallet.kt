@@ -300,7 +300,7 @@ fun walletTrend(
 }
 
 /** Histories for the trend: CBU rates for USD/EUR/RUB (cache first), gold per gram from the CBU bar prices. */
-suspend fun cachedWalletHistories(): Map<WalletCode, List<HistoryPoint>> {
+suspend fun cachedWalletHistories(): Map<WalletCode, List<HistoryPoint>> = withContext(Dispatchers.Default) {
     val out = mutableMapOf<WalletCode, List<HistoryPoint>>()
     listOf(Currency.USD to WalletCode.USD, Currency.EUR to WalletCode.EUR, Currency.RUB to WalletCode.RUB).forEach { (c, w) ->
         runCatching { cachedHistory(c) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { out[w] = it }
@@ -308,7 +308,7 @@ suspend fun cachedWalletHistories(): Map<WalletCode, List<HistoryPoint>> {
     RateService.loadCache("gold_history_wallet")?.let { body ->
         runCatching { parseWalletGold(body) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { out[WalletCode.XAU] = it }
     }
-    return out
+    out
 }
 
 suspend fun fetchWalletHistories(): Map<WalletCode, List<HistoryPoint>> = coroutineScope {
