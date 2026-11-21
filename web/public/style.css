@@ -90,6 +90,20 @@ p { margin: 0; }
 .seg button { border: 0; background: none; padding: 8px 14px; border-radius: 9px; font-weight: 500; font-size: 15px; color: var(--ink-2); white-space: nowrap; transition: background .2s, color .2s; }
 .seg button:hover { color: var(--ink); }
 .seg button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+/* "Boshqa ▾" after USD EUR RUB [picked extra], and its menu of currencies banks trade. */
+.seg .cur-more { display: inline-flex; align-items: center; gap: 4px; }
+.seg .cur-more svg { flex: none; transition: transform .2s; }
+.seg .cur-more[aria-expanded="true"] { color: var(--ink); }
+.seg .cur-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.cur-menu { position: absolute; z-index: 1200; padding: 6px; display: grid; gap: 2px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 12px 32px rgba(0, 0, 0, .22); }
+.cur-menu-h { color: var(--ink-2); font-size: 13px; padding: 8px 10px 4px; }
+.cur-menu button { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; border: 0; background: none; border-radius: 10px; padding: 10px; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.cur-menu button:hover, .cur-menu button.on { background: var(--fill); }
+.cur-menu button.on b { color: var(--accent); }
+.cur-menu b { font-weight: 700; font-size: 15px; }
+.cur-menu span { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cur-menu small { color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.cur-menu-skel { height: 44px; margin: 4px; border-radius: 10px; }
 .seg-sm button { padding: 6px 11px; font-size: 14px; }
 .badge { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--fill); color: var(--ink-2); font-weight: 700; font-size: 13px; }
 .badge.accent { background: var(--accent); color: #fff; }
