@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
     /** App shortcuts, the wallet widget and the daily summary pass the tab to open as extra "tab" (HomeTab name). */
     private fun openRequestedTab(intent: Intent?) {
         val name = intent?.getStringExtra(EXTRA_TAB) ?: return
-        HomeTab.entries.firstOrNull { it.name == name }?.let { NavRequests.tab = it }
+        HomeTab.visible.firstOrNull { it.name == name }?.let { NavRequests.tab = it }
     }
 
     companion object {

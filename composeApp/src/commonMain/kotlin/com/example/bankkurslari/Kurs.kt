@@ -481,7 +481,7 @@ fun KursScreen(
     onOpenWallet: () -> Unit = {}
 ) {
     // Hamyon nudge: shown until the wallet has something in it or the user closes it once.
-    var walletNudge by remember { mutableStateOf(WalletStore.load().isEmpty() && appStore().getString("wallet_nudge_off") == null) }
+    var walletNudge by remember { mutableStateOf(WALLET_ENABLED && WalletStore.load().isEmpty() && appStore().getString("wallet_nudge_off") == null) }
     val route = LocalRoute.current
     val ru = kursIsRu()
     val sell = direction == ConvertMode.SELL_USD

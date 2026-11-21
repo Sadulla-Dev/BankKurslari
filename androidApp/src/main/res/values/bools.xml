@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Hamyon is not released yet: hides the wallet widget and the wallet app shortcut. Keep in sync with WALLET_ENABLED. -->
+    <bool name="wallet_enabled">false</bool>
+</resources>

@@ -392,7 +392,7 @@ document.addEventListener("click", (e) => {
 /** Quiet card under the converter pointing to #/hamyon, until the wallet has something or the visitor closes it. */
 function wNudge() {
   document.getElementById("wNudge")?.remove();
-  if (WS.load().length || store.get("wallet_nudge_off")) return;
+  if (!WALLET_ON || WS.load().length || store.get("wallet_nudge_off")) return;
   const conv = document.querySelector(".conv");
   if (!conv) return;
   const t = WL();

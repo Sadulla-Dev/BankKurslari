@@ -34,6 +34,12 @@ data class HistoryPoint(val date: String, val rate: Double)
 
 data class Analytics(val points: List<HistoryPoint>)
 
+/**
+ * Hamyon (savings) is built but not released yet: false hides its tab, the Kurs nudge, the widget and the shortcut
+ * (androidApp res/values/bools.xml `wallet_enabled` must match). Currency-to-currency exchange stays (it lives in Kurs).
+ */
+const val WALLET_ENABLED = false
+
 enum class HomeTab(val icon: ImageVector) {
     KURS(Icons.Outlined.SwapVert),
     MAP(Icons.Outlined.Map),
@@ -46,6 +52,11 @@ enum class HomeTab(val icon: ImageVector) {
         MAP -> tr("Xarita", "Карта", "Map")
         TREND -> tr("Tarix", "История", "History")
         WALLET -> tr("Hamyon", "Кошелёк", "Wallet")
+    }
+
+    companion object {
+        /** Tabs shown in the bottom bar and reachable from widgets, shortcuts and notifications. */
+        val visible: List<HomeTab> get() = entries.filter { it != WALLET || WALLET_ENABLED }
     }
 }
 

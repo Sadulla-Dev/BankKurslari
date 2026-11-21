@@ -3,7 +3,7 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:shortcutId="wallet"
-        android:enabled="true"
+        android:enabled="@bool/wallet_enabled"
         android:icon="@drawable/ic_shortcut_wallet"
         android:shortcutShortLabel="@string/shortcut_wallet"
         android:shortcutLongLabel="@string/shortcut_wallet_long">

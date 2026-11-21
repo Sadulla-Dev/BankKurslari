@@ -47,6 +47,7 @@
 
         <receiver
             android:name=".WalletWidgetProvider"
+            android:enabled="@bool/wallet_enabled"
             android:exported="false"
             android:label="@string/widget_label_wallet">
             <intent-filter>

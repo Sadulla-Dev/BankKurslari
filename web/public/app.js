@@ -7,7 +7,10 @@ const TASHKENT = [41.3111, 69.2797]; // [lat, lng]
 const CURS = ["USD", "EUR", "RUB"];
 const MAX_MAP_CANDS = 5000; // hard cap on candidates before the project+cluster pass (linear, via a screen-space grid)
 const MAP_STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
-const ROUTES = { "": "rates", "xarita": "map", "tarix": "history", "hamyon": "wallet" };
+// Hamyon (#/hamyon, wallet.js) is built but not released yet: false hides its nav link and route and the Kurs nudge.
+// build.mjs has the same switch for the pre-rendered pages. The currency-to-currency entry under the converter stays.
+const WALLET_ON = false;
+const ROUTES = { "": "rates", "xarita": "map", "tarix": "history", ...(WALLET_ON ? { "hamyon": "wallet" } : {}) };
 let themeTransitionId = 0;
 
 const store = {
@@ -1410,6 +1413,7 @@ function bind() {
 
 async function init() {
   setText("year", new Date().getFullYear());
+  document.querySelectorAll('.tabs-nav a[data-view="wallet"]').forEach((a) => { a.hidden = !WALLET_ON; });
   // Offline copy of the site and the last rates (sw.js). Only over https or on localhost.
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));

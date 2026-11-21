@@ -53,7 +53,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                     RateService.saveSnapshot(snapshot)
                     if (!previous.isNaN() && previous != snapshot.rate) {
                         // Once a day the CBU publishes a new rate: send the daily summary (rate, best banks, wallet).
-                        val wallet = WalletStore.load().takeIf { it.isNotEmpty() }?.let { list ->
+                        val wallet = WalletStore.load().takeIf { WALLET_ENABLED && it.isNotEmpty() }?.let { list ->
                             val quotes = cachedQuotes() + fetchQuotes()
                             walletSummary(list, quotes).takeIf { s -> s.rows.any { it.som != null } }
                         }
@@ -84,7 +84,10 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 CHANNEL_ID,
                 trSaved("Kunlik xulosa", "Сводка за день", "Daily summary"),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = trSaved("Markaziy bank yangi kursni eʼlon qilganda: kurs, eng yaxshi banklar va hamyoningiz", "Когда ЦБ объявляет новый курс: курс, лучшие банки и ваш кошелёк", "When the CBU publishes a new rate: rate, best banks and your wallet") }
+            ).apply {
+                description = if (WALLET_ENABLED) trSaved("Markaziy bank yangi kursni eʼlon qilganda: kurs, eng yaxshi banklar va hamyoningiz", "Когда ЦБ объявляет новый курс: курс, лучшие банки и ваш кошелёк", "When the CBU publishes a new rate: rate, best banks and your wallet")
+                else trSaved("Markaziy bank yangi kursni eʼlon qilganda: kurs va eng yaxshi banklar", "Когда ЦБ объявляет новый курс: курс и лучшие банки", "When the CBU publishes a new rate: rate and best banks")
+            }
             val manager = context.getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
@@ -174,7 +177,7 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             val open = PendingIntent.getActivity(
                 context, 2,
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    .putExtra(MainActivity.EXTRA_TAB, if (WalletStore.load().isNotEmpty()) HomeTab.WALLET.name else HomeTab.TREND.name),
+                    .putExtra(MainActivity.EXTRA_TAB, if (WALLET_ENABLED && WalletStore.load().isNotEmpty()) HomeTab.WALLET.name else HomeTab.TREND.name),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             val n = NotificationCompat.Builder(context, CHANNEL_ID)

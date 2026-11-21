@@ -371,7 +371,7 @@ private fun BottomBar(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 10.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            HomeTab.entries.forEach { item ->
+            HomeTab.visible.forEach { item ->
                 val active = item == selected
                 val source = remember { MutableInteractionSource() }
                 val tint by animateColorAsState(if (active) VsEmerald else VsInkSoft, Motion.color(), label = "navtint")

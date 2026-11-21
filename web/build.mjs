@@ -23,6 +23,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(HERE, "public"), DIST = join(HERE, "dist");
 const API = (process.env.API_URL || "https://api.qulaykurs.uz").replace(/\/$/, "");
 const ORIGIN = "https://qulaykurs.uz";
+// Hamyon is not released yet (same switch as WALLET_ON in public/app.js).
+const WALLET_ON = false;
 const LANGS = ["uz", "uzc", "ru", "en"], CURS = ["USD", "EUR", "RUB"];
 // "uzc" is this site's own name for Uzbek in Cyrillic; pages and search engines are told the standard one.
 const HTML_LANG = { uz: "uz", uzc: "uz-Cyrl", ru: "ru", en: "en" }, LANG_LABEL = { uz: "UZ", uzc: "ЎЗ", ru: "RU", en: "EN" };
@@ -492,7 +494,7 @@ ${FONT_LATIN}${isCyrillic(lang) ? "\n" + cyrillicFonts(lang) : ""}
 <header class="top">
   <div class="wrap top-in">
     <a class="logo" href="${home}" aria-label="Qulay Kurs"><img src="/logo.svg" width="32" height="32" alt=""><span>Qulay <b class="logo-k">Kurs</b></span></a>
-    <nav class="tabs-nav" aria-label="Menu"><a href="${home}">${esc(x.home)}</a><a href="${home}#/xarita">${esc(x.map)}</a><a href="${home}#/tarix">${esc(x.history)}</a><a href="${home}#/hamyon">${esc(x.wallet)}</a></nav>
+    <nav class="tabs-nav" aria-label="Menu"><a href="${home}">${esc(x.home)}</a><a href="${home}#/xarita">${esc(x.map)}</a><a href="${home}#/tarix">${esc(x.history)}</a>${WALLET_ON ? `<a href="${home}#/hamyon">${esc(x.wallet)}</a>` : ""}</nav>
     <div class="top-r">${urlOf ? `<div class="langs">${langLinks(lang, urlOf)}</div>` : ""}</div>
   </div>
 </header>
