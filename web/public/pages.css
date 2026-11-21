@@ -5,7 +5,10 @@
 .seo-fold:last-of-type { border-bottom: 1px solid var(--line); }
 .seo-fold summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; cursor: pointer; list-style: none; }
 .seo-fold summary::-webkit-details-marker { display: none; }
-.seo-fold summary h3 { margin: 0; }
+.seo-fold summary h3, .seo-fold summary h2 { margin: 0; }
+/* The daily text with the FAQ: its date heading is the fold title. Language versions are linked from <head> (hreflang) and the sitemap. */
+.seo-fold.seo-main summary { min-height: 56px; }
+.seo-fold.seo-main > p, .seo-fold.seo-main > h3 { max-width: 820px; }
 .seo-fold summary::after { content: ""; flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 1.8px solid var(--ink-2); border-bottom: 1.8px solid var(--ink-2); transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
 .seo-fold[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
 .seo-fold summary:hover h3 { color: var(--accent); }
@@ -21,9 +24,6 @@
 .seo-answers a:hover { color: var(--accent); text-decoration: underline; }
 .seo-answers span { flex: none; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .seo-note { margin-top: 18px !important; font-size: 12px; color: var(--ink-3); }
-.seo-langs { display: flex; gap: 12px; margin-top: 10px !important; font-size: 13px; }
-.seo-langs a { color: var(--ink-2); }
-.seo-langs a.on { color: var(--ink); font-weight: 600; text-decoration: none; }
 
 .langs a { padding: 5px 9px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-decoration: none; }
 .langs a.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow-sm); }

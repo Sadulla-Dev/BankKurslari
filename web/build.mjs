@@ -490,11 +490,11 @@ function currencyPage(lang, cur) {
   html = cut(html, '<p class="muted" id="tblSub">', "</p>", `<p class="muted" id="tblSub">${esc(x.sub(s.count, at.time))}</p>`);
   html = cut(html, '<tbody id="tbody">', "</tbody>", `<tbody id="tbody">\n${rows}\n</tbody>`);
   html = cut(html, '<section class="wrap seo-copy"', "</section>", `<section class="wrap seo-copy" aria-labelledby="seo-title">
-  <h2 id="seo-title">${esc(x.h2(cur, at.date))}</h2>
+  <details class="seo-fold seo-main"><summary><h2 id="seo-title">${esc(x.h2(cur, at.date))}</h2></summary>
   <p>${esc(x.lead(cur, s))}</p>
   ${faq.map(([q, a]) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join("\n  ")}
+  </details>
   ${linkBlock(lang, s.byBuy.map((b) => b.bank), cur)}
-  <p class="seo-langs">${langLinks(lang, (l) => curUrl(l, cur))}</p>
 </section>`);
   if (isCyrillic(lang)) html = html.replace(FONT_LATIN, FONT_LATIN + "\n" + cyrillicFonts(lang));
   html = html.replace(/\?v=\w+/g, `?v=${VERSION}`).replace('<link rel="stylesheet" href="/style.css', '<link rel="stylesheet" href="/pages.css?v=' + VERSION + '">\n<link rel="stylesheet" href="/style.css');
