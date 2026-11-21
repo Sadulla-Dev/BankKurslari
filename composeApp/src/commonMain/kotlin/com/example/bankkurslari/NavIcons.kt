@@ -39,6 +39,7 @@ fun NavIcon(tab: HomeTab, tint: Color, play: Float, modifier: Modifier = Modifie
                 HomeTab.KURS -> rates(tint, stroke, play)
                 HomeTab.MAP -> pin(tint, stroke, play)
                 HomeTab.TREND -> trends(tint, stroke, play)
+                HomeTab.WALLET -> wallet(tint, stroke, play)
             }
         }
     }
@@ -100,6 +101,21 @@ private fun DrawScope.trends(c: Color, st: Stroke, t: Float) {
         val seg = Path()
         m.getSegment(0f, m.length * draw, seg, true)
         drawPath(seg, c, style = st)
+    }
+}
+
+/** Wallet: the body, a flap that opens and closes, and a coin that drops in. */
+private fun DrawScope.wallet(c: Color, st: Stroke, t: Float) {
+    drawRoundRect(c, Offset(3f, 7f), Size(18f, 13f), CornerRadius(3f), style = st)
+    // Top strap: the card edge peeking out.
+    drawLine(c, Offset(5f, 7f), Offset(16f, 4f), st.width, StrokeCap.Round)
+    drawLine(c, Offset(16f, 4f), Offset(17f, 7f), st.width, StrokeCap.Round)
+    // Clasp pocket on the right; nudges out and back while the coin drops.
+    val nudge = if (t >= 1f) 0f else 1.6f * sin(t * PI).toFloat()
+    translate(nudge, 0f) {
+        drawRoundRect(c, Offset(14f, 11f), Size(7f, 5f), CornerRadius(2f), style = st)
+        val pop = if (t >= 1f) 1f else easeOutBack(t.coerceIn(0f, 1f))
+        drawCircle(c, 0.9f * pop.coerceAtLeast(0.01f), Offset(17f, 13.5f))
     }
 }
 

@@ -44,6 +44,15 @@
         </activity>
 
         <receiver
+            android:name=".WalletWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label_wallet">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/wallet_widget_info" />
+        </receiver>
+        <receiver
             android:name=".RateWidgetProvider"
             android:exported="false"
             android:label="@string/widget_label_usd">

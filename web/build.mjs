@@ -30,7 +30,7 @@ const isUz = (lang) => lang === "uz" || lang === "uzc", isCyrillic = (lang) => l
 // Cache-buster for css/js: changes only when one of those files changes, so _headers can let browsers keep them for good.
 const VERSION = await (async () => {
   const hash = createHash("sha1");
-  for (const f of ["style.css", "pages.css", "shared.js", "app.js", "calc.js"]) hash.update(await readFile(join(PUBLIC, f)));
+  for (const f of ["style.css", "pages.css", "shared.js", "app.js", "calc.js", "wallet.js"]) hash.update(await readFile(join(PUBLIC, f)));
   return hash.digest("hex").slice(0, 10);
 })();
 // The key file public/<key>.txt proves to IndexNow (Yandex, Bing) that address lists come from this site. Not a secret.
@@ -154,7 +154,7 @@ const X = {
     q1: (c) => `${X.uz.Cur[c]}ni qaysi bankka sotgan foydali?`, a1: (c, s) => `Bugun eng yuqori sotib olish kursi: ${s.topBuy}. ${X.uz.amount(c)} uchun ${s.bestBuy.bank} ${s.buyTotal} so‘m beradi.`,
     q2: (c) => `${X.uz.Cur[c]}ni qayerdan arzon sotib olish mumkin?`, a2: (c, s) => `Bugun eng past sotish kursi: ${s.topSell}. ${X.uz.amount(c)} sotib olish ${s.bestSell.bank}da ${s.sellTotal} so‘mga tushadi.`,
     q3: "Markaziy bank kursi nega bank kursidan farq qiladi?", a3: "Markaziy bank kursi — rasmiy hisob-kitob kursi: u buxgalteriya, bojxona va soliq uchun ishlatiladi. Naqd valyutani banklar o‘zlari belgilagan sotib olish va sotish kurslari bo‘yicha almashtiradi, shuning uchun bankdagi kurs har doim biroz boshqacha bo‘ladi.",
-    other: "Boshqa valyutalar", allBanks: "Banklar bo‘yicha kurslar", gold: "Oltin quymalar narxi", home: "Kurslar", map: "Xarita", history: "Tarix",
+    other: "Boshqa valyutalar", allBanks: "Banklar bo‘yicha kurslar", gold: "Oltin quymalar narxi", home: "Kurslar", map: "Xarita", history: "Tarix", wallet: "Hamyon",
     bankTitle: (b, s) => `${b}: dollar kursi bugun — ${s} | Qulay Kurs`, bankH1: (b) => `${b}: valyuta kurslari bugun`,
     bankDesc: (b, u) => `${b} bugun dollarni ${u.buy} so‘mdan sotib oladi va ${u.sell} so‘mdan sotadi. Yevro va rubl kurslari, boshqa banklar bilan solishtirish — Qulay Kursda.`,
     bankShort: (u) => `oladi ${u.buy}, sotadi ${u.sell}`, colCur: "Valyuta", colBuy: "Bank sotib oladi", colSell: "Bank sotadi", colCbu: "Markaziy bank",
@@ -179,7 +179,7 @@ const X = {
     q1: (c) => `В каком банке выгоднее продать ${X.ru.acc[c]}?`, a1: (c, s) => `Самый высокий курс покупки сегодня: ${s.topBuy}. За ${X.ru.amount(c)} ${s.bestBuy.bank} даст ${s.buyTotal} сум.`,
     q2: (c) => `Где дешевле купить ${X.ru.acc[c]}?`, a2: (c, s) => `Самый низкий курс продажи сегодня: ${s.topSell}. Купить ${X.ru.amount(c)} в ${s.bestSell.bank} обойдётся в ${s.sellTotal} сум.`,
     q3: "Почему курс ЦБ отличается от курса в банке?", a3: "Курс Центрального банка — официальный расчётный курс: он нужен для бухгалтерии, таможни и налогов. Наличную валюту банки меняют по собственным курсам покупки и продажи, поэтому курс в банке всегда немного другой.",
-    other: "Другие валюты", allBanks: "Курсы по банкам", gold: "Цены на золотые слитки", home: "Курсы", map: "Карта", history: "История",
+    other: "Другие валюты", allBanks: "Курсы по банкам", gold: "Цены на золотые слитки", home: "Курсы", map: "Карта", history: "История", wallet: "Кошелёк",
     bankTitle: (b, s) => `${b}: курс доллара сегодня — ${s} | Qulay Kurs`, bankH1: (b) => `${b}: курсы валют сегодня`,
     bankDesc: (b, u) => `${b} сегодня покупает доллар по ${u.buy} сум и продаёт по ${u.sell} сум. Курсы евро и рубля, сравнение с другими банками Узбекистана — в Qulay Kurs.`,
     bankShort: (u) => `покупка ${u.buy}, продажа ${u.sell}`, colCur: "Валюта", colBuy: "Банк покупает", colSell: "Банк продаёт", colCbu: "Курс ЦБ",
@@ -204,7 +204,7 @@ const X = {
     q1: (c) => `Which bank pays the most for a ${X.en.cur[c]}?`, a1: (c, s) => `The highest buying rates today: ${s.topBuy}. For ${X.en.amount(c)}, ${s.bestBuy.bank} gives you ${s.buyTotal} so‘m.`,
     q2: (c) => `Where is it cheapest to buy ${c}?`, a2: (c, s) => `The lowest selling rates today: ${s.topSell}. Buying ${X.en.amount(c)} at ${s.bestSell.bank} costs ${s.sellTotal} so‘m.`,
     q3: "Why is the Central Bank rate different from the rate at a bank?", a3: "The Central Bank rate is the official reference rate used for accounting, customs and taxes. Banks exchange cash at their own buying and selling rates, so the rate you get at a bank is always slightly different.",
-    other: "Other currencies", allBanks: "Rates by bank", gold: "Gold bar prices", home: "Rates", map: "Map", history: "History",
+    other: "Other currencies", allBanks: "Rates by bank", gold: "Gold bar prices", home: "Rates", map: "Map", history: "History", wallet: "Wallet",
     bankTitle: (b, s) => `${b}: USD rate today — ${s} | Qulay Kurs`, bankH1: (b) => `${b}: exchange rates today`,
     bankDesc: (b, u) => `${b} buys the US dollar at ${u.buy} so‘m and sells it at ${u.sell} so‘m today. Euro and ruble rates and a comparison with other banks in Uzbekistan on Qulay Kurs.`,
     bankShort: (u) => `buys ${u.buy}, sells ${u.sell}`, colCur: "Currency", colBuy: "Bank buys at", colSell: "Bank sells at", colCbu: "Central Bank",
@@ -492,7 +492,7 @@ ${FONT_LATIN}${isCyrillic(lang) ? "\n" + cyrillicFonts(lang) : ""}
 <header class="top">
   <div class="wrap top-in">
     <a class="logo" href="${home}" aria-label="Qulay Kurs"><img src="/logo.svg" width="32" height="32" alt=""><span>Qulay <b class="logo-k">Kurs</b></span></a>
-    <nav class="tabs-nav" aria-label="Menu"><a href="${home}">${esc(x.home)}</a><a href="${home}#/xarita">${esc(x.map)}</a><a href="${home}#/tarix">${esc(x.history)}</a></nav>
+    <nav class="tabs-nav" aria-label="Menu"><a href="${home}">${esc(x.home)}</a><a href="${home}#/xarita">${esc(x.map)}</a><a href="${home}#/tarix">${esc(x.history)}</a><a href="${home}#/hamyon">${esc(x.wallet)}</a></nav>
     <div class="top-r">${urlOf ? `<div class="langs">${langLinks(lang, urlOf)}</div>` : ""}</div>
   </div>
 </header>

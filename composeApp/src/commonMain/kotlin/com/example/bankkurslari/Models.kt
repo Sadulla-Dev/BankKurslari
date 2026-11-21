@@ -2,6 +2,7 @@ package com.example.bankkurslari
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.runtime.Composable
@@ -35,13 +36,15 @@ data class Analytics(val points: List<HistoryPoint>)
 enum class HomeTab(val icon: ImageVector) {
     KURS(Icons.Outlined.SwapVert),
     MAP(Icons.Outlined.Map),
-    TREND(Icons.AutoMirrored.Outlined.ShowChart);
+    TREND(Icons.AutoMirrored.Outlined.ShowChart),
+    WALLET(Icons.Outlined.AccountBalanceWallet);
 
     @Composable
     fun label(): String = when (this) {
         KURS -> tr("Kurs", "Курс", "Rate")
         MAP -> tr("Xarita", "Карта", "Map")
         TREND -> tr("Tarix", "История", "History")
+        WALLET -> tr("Hamyon", "Кошелёк", "Wallet")
     }
 }
 

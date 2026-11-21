@@ -20,6 +20,7 @@ import androidx.work.WorkerParameters
 import java.text.DecimalFormat
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
+import kotlin.math.roundToLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -50,10 +51,21 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                     selectedOk = true
                     val previous = RateService.lastRate(currency) // NaN on first run
                     RateService.saveSnapshot(snapshot)
-                    if (!previous.isNaN() && previous != snapshot.rate) notifyRateChange(ctx, snapshot, previous)
+                    if (!previous.isNaN() && previous != snapshot.rate) {
+                        // Once a day the CBU publishes a new rate: send the daily summary (rate, best banks, wallet).
+                        val wallet = WalletStore.load().takeIf { it.isNotEmpty() }?.let { list ->
+                            val quotes = cachedQuotes() + fetchQuotes()
+                            walletSummary(list, quotes).takeIf { s -> s.rows.any { it.som != null } }
+                        }
+                        notifyDailySummary(ctx, snapshot, previous, payload, wallet)
+                    }
                 }
             }
             evaluateAlerts(ctx, currency, payload.banks)
+        }
+        // Wallet lines in GBP, KZT or gold need their own rates for the wallet widget.
+        if (WalletStore.load().any { it.code !in setOf(WalletCode.USD, WalletCode.EUR, WalletCode.RUB, WalletCode.UZS) }) {
+            runCatching { fetchQuotes() }
         }
         RateWidgetProvider.updateAll(ctx)
         if (!anyOk || !selectedOk) Result.retry() else Result.success()
@@ -69,9 +81,9 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return // no channels before Android 8
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Kurs yangilanishlari",
+                trSaved("Kunlik xulosa", "Сводка за день", "Daily summary"),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = "Valyuta kursi o'zgarganda bildirishnoma" }
+            ).apply { description = trSaved("Markaziy bank yangi kursni eʼlon qilganda: kurs, eng yaxshi banklar va hamyoningiz", "Когда ЦБ объявляет новый курс: курс, лучшие банки и ваш кошелёк", "When the CBU publishes a new rate: rate, best banks and your wallet") }
             val manager = context.getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
@@ -159,31 +171,56 @@ class RateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 .enqueueUniquePeriodicWork(PERIODIC_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
         }
 
-        private fun notifyRateChange(context: Context, snap: RateService.Snapshot, previous: Double) {
+        /**
+         * Daily summary, posted when the CBU rate for the selected currency changes (once a day):
+         *   USD 12 004 so'm  ▲ +33
+         *   Selling: Anorbank 11 995 · Buying: Openbank 12 010
+         *   Wallet: 17 955 000 so'm (+49 260 since yesterday)
+         */
+        private fun notifyDailySummary(context: Context, snap: RateService.Snapshot, previous: Double, payload: RatesPayload, wallet: WalletSummary?) {
+            if (!canNotify(context)) return
             ensureChannel(context)
-            val delta = snap.rate - previous
-            val up = delta >= 0
-            val arrow = if (up) "▲" else "▼"
-            val deltaStr = (if (up) "+" else "-") + DecimalFormat("0.##").format(abs(delta))
-            val symbol = RateService.symbol(snap.currency)
+            // The CBU's own change against its previous rate; our last check can be older than a day.
+            val delta = payload.cbu.diff.takeIf { it != 0.0 } ?: (snap.rate - previous)
+            val arrow = if (delta >= 0) "▲ +" else "▼ −"
+            val unit = trSaved("soʻm", "сум", "UZS")
+            val title = "${snap.currency} ${RateService.formatRate(snap.rate)} $unit  $arrow${DecimalFormat("0.##").format(abs(delta))}"
 
-            val title = "${snap.currency} kursi yangilandi"
-            val text = "$symbol 1 ${snap.currency} = ${RateService.formatRate(snap.rate)} UZS  $arrow $deltaStr"
-
+            val lines = mutableListOf<String>()
+            val sellAt = payload.banks.filter { it.buy != null }.maxByOrNull { it.buy!! }
+            val buyAt = payload.banks.filter { it.sell != null }.minByOrNull { it.sell!! }
+            if (sellAt != null && buyAt != null) {
+                lines += trSaved(
+                    "Sotish: ${bankShortName(sellAt.bank)} ${sellAt.buy.formatUzs()} · Olish: ${bankShortName(buyAt.bank)} ${buyAt.sell.formatUzs()}",
+                    "Продать: ${bankShortName(sellAt.bank)} ${sellAt.buy.formatUzs()} · Купить: ${bankShortName(buyAt.bank)} ${buyAt.sell.formatUzs()}",
+                    "Sell: ${bankShortName(sellAt.bank)} ${sellAt.buy.formatUzs()} · Buy: ${bankShortName(buyAt.bank)} ${buyAt.sell.formatUzs()}"
+                )
+            }
+            if (wallet != null) {
+                val d = wallet.dayChange.roundToLong()
+                val dStr = (if (d > 0) "+" else "") + d.formatUzsL()
+                lines += trSaved(
+                    "Hamyon: ${wallet.total.roundToLong().formatUzsL()} $unit ($dStr)",
+                    "Кошелёк: ${wallet.total.roundToLong().formatUzsL()} $unit ($dStr)",
+                    "Wallet: ${wallet.total.roundToLong().formatUzsL()} $unit ($dStr)"
+                )
+            }
+            val text = lines.joinToString("\n")
+            val open = PendingIntent.getActivity(
+                context, 1, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE
+            )
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notes_mono)
                 .setContentTitle(title)
-                .setContentText(text)
+                .setContentText(lines.firstOrNull().orEmpty())
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()
-
-            // On Android 13+ posting requires the runtime POST_NOTIFICATIONS permission.
-            if (ContextCompat.checkSelfPermission(context, "android.permission.POST_NOTIFICATIONS")
-                == PackageManager.PERMISSION_GRANTED ||
-                android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU
-            ) {
+            try {
                 NotificationManagerCompat.from(context).notify(snap.currency.hashCode(), notification)
+            } catch (_: SecurityException) {
             }
         }
     }

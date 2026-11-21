@@ -43,7 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** App palette (ui/theme/Color.kt), day and night, so the widget follows the system theme like the app does. */
-private object WColors {
+internal object WidgetColors {
     val card = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF1F1C15))
     val ink = ColorProvider(day = Color(0xFF1B1710), night = Color(0xFFF2EDE0))
     val soft = ColorProvider(day = Color(0xFF6A6252), night = Color(0xFFB5AC98))
@@ -99,11 +99,11 @@ class CompactRubWidget : QulayWidget("RUB", compactOnly = true)
 @Composable
 private fun WidgetContent(model: WidgetModel?, logos: Map<String, Bitmap>, compactOnly: Boolean) {
     val size = LocalSize.current
-    val root = GlanceModifier.fillMaxSize().appWidgetBackground().cornerRadius(22.dp).background(WColors.card)
+    val root = GlanceModifier.fillMaxSize().appWidgetBackground().cornerRadius(22.dp).background(WidgetColors.card)
         .clickable(actionStartActivity<MainActivity>())
     if (model == null || model.sell.isEmpty() || model.buy.isEmpty()) {
         Box(root.padding(16.dp), contentAlignment = Alignment.Center) {
-            Text(trSaved("Kurslar yuklanmoqda…", "Загрузка курсов…", "Loading rates…"), style = TextStyle(color = WColors.soft, fontSize = 13.sp))
+            Text(trSaved("Kurslar yuklanmoqda…", "Загрузка курсов…", "Loading rates…"), style = TextStyle(color = WidgetColors.soft, fontSize = 13.sp))
         }
         return
     }
@@ -148,16 +148,16 @@ private fun CompactRates(m: WidgetModel, root: GlanceModifier) {
     Column(root.padding(horizontal = 11.dp, vertical = 9.dp)) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(Currency.entries.firstOrNull { it.code == m.currency }?.symbol ?: "$",
-                style = TextStyle(color = WColors.emerald, fontSize = 17.sp, fontWeight = FontWeight.Bold))
+                style = TextStyle(color = WidgetColors.emerald, fontSize = 17.sp, fontWeight = FontWeight.Bold))
             Spacer(GlanceModifier.width(6.dp))
-            Text(m.currency, style = TextStyle(color = WColors.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold))
+            Text(m.currency, style = TextStyle(color = WidgetColors.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold))
         }
         Spacer(GlanceModifier.height(4.dp))
         CompactRateRow(trSaved("Sotish", "Продажа", "Sell"), m.sell.firstOrNull()?.rate,
-            WColors.emerald, GlanceModifier.fillMaxWidth().defaultWeight())
-        Box(GlanceModifier.fillMaxWidth().height(1.dp).background(WColors.tile)) {}
+            WidgetColors.emerald, GlanceModifier.fillMaxWidth().defaultWeight())
+        Box(GlanceModifier.fillMaxWidth().height(1.dp).background(WidgetColors.tile)) {}
         CompactRateRow(trSaved("Olish", "Покупка", "Buy"), m.buy.firstOrNull()?.rate,
-            WColors.ink, GlanceModifier.fillMaxWidth().defaultWeight())
+            WidgetColors.ink, GlanceModifier.fillMaxWidth().defaultWeight())
     }
 }
 
@@ -165,12 +165,12 @@ private fun CompactRates(m: WidgetModel, root: GlanceModifier) {
 @Composable
 private fun CompactRatesShort(m: WidgetModel, root: GlanceModifier) {
     Row(root.padding(horizontal = 7.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(m.currency, style = TextStyle(color = WColors.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+        Text(m.currency, style = TextStyle(color = WidgetColors.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold), maxLines = 1)
         Spacer(GlanceModifier.width(5.dp))
-        CompactShortRate(trSaved("Sotish", "Продажа", "Sell"), m.sell.firstOrNull()?.rate, WColors.emerald,
+        CompactShortRate(trSaved("Sotish", "Продажа", "Sell"), m.sell.firstOrNull()?.rate, WidgetColors.emerald,
             GlanceModifier.defaultWeight())
         Spacer(GlanceModifier.width(3.dp))
-        CompactShortRate(trSaved("Olish", "Покупка", "Buy"), m.buy.firstOrNull()?.rate, WColors.ink,
+        CompactShortRate(trSaved("Olish", "Покупка", "Buy"), m.buy.firstOrNull()?.rate, WidgetColors.ink,
             GlanceModifier.defaultWeight())
     }
 }
@@ -179,7 +179,7 @@ private fun CompactRatesShort(m: WidgetModel, root: GlanceModifier) {
 private fun CompactShortRate(label: String, rate: Int?, color: ColorProvider, modifier: GlanceModifier) {
     val valueSize = if (LocalSize.current.width < 108.dp) 9.sp else 11.sp
     Column(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = TextStyle(color = WColors.soft, fontSize = 8.sp), maxLines = 1)
+        Text(label, style = TextStyle(color = WidgetColors.soft, fontSize = 8.sp), maxLines = 1)
         Text(rate?.toLong()?.formatUzsL() ?: "—",
             style = TextStyle(color = color, fontSize = valueSize, fontWeight = FontWeight.Bold), maxLines = 1)
     }
@@ -189,7 +189,7 @@ private fun CompactShortRate(label: String, rate: Int?, color: ColorProvider, mo
 private fun CompactRateRow(label: String, rate: Int?, color: ColorProvider, modifier: GlanceModifier) {
     Column(modifier,
         verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = TextStyle(color = WColors.soft, fontSize = 10.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+        Text(label, style = TextStyle(color = WidgetColors.soft, fontSize = 10.sp, fontWeight = FontWeight.Medium), maxLines = 1)
         Text(rate?.toLong()?.formatUzsL() ?: "—",
             style = TextStyle(color = color, fontSize = 25.sp, fontWeight = FontWeight.Bold), maxLines = 1)
     }
@@ -198,27 +198,27 @@ private fun CompactRateRow(label: String, rate: Int?, color: ColorProvider, modi
 @Composable
 private fun Header(m: WidgetModel, showCbu: Boolean) {
     Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(GlanceModifier.size(20.dp).cornerRadius(6.dp).background(WColors.emerald), contentAlignment = Alignment.Center) {
-            Text(Currency.entries.firstOrNull { it.code == m.currency }?.symbol ?: "$", style = TextStyle(color = WColors.onEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold))
+        Box(GlanceModifier.size(20.dp).cornerRadius(6.dp).background(WidgetColors.emerald), contentAlignment = Alignment.Center) {
+            Text(Currency.entries.firstOrNull { it.code == m.currency }?.symbol ?: "$", style = TextStyle(color = WidgetColors.onEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold))
         }
         Spacer(GlanceModifier.width(6.dp))
-        Text(m.currency, style = TextStyle(color = WColors.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold))
+        Text(m.currency, style = TextStyle(color = WidgetColors.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold))
         if (showCbu) {
             Spacer(GlanceModifier.width(8.dp))
             val diff = m.cbuDiff
             Text(
                 "${trSaved("MB", "ЦБ", "CBU")} ${dec(m.cbuRate.formatRate())}",
-                style = TextStyle(color = WColors.soft, fontSize = 12.sp), maxLines = 1
+                style = TextStyle(color = WidgetColors.soft, fontSize = 12.sp), maxLines = 1
             )
             if (kotlin.math.abs(diff) >= 0.005) {
                 Text(
                     " ${if (diff > 0) "▲" else "▼"}${dec(kotlin.math.abs(diff).formatRate())}",
-                    style = TextStyle(color = if (diff > 0) WColors.emerald else WColors.rose, fontSize = 12.sp), maxLines = 1
+                    style = TextStyle(color = if (diff > 0) WidgetColors.emerald else WidgetColors.rose, fontSize = 12.sp), maxLines = 1
                 )
             }
         }
         Spacer(GlanceModifier.defaultWeight())
-        Text(time(m), style = TextStyle(color = WColors.soft, fontSize = 11.sp), maxLines = 1)
+        Text(time(m), style = TextStyle(color = WidgetColors.soft, fontSize = 11.sp), maxLines = 1)
     }
 }
 
@@ -239,19 +239,19 @@ private fun Small(m: WidgetModel, root: GlanceModifier, each: Int) {
 @Composable
 private fun MiniRanking(title: String, list: List<WidgetEntry>) {
   Column(GlanceModifier.fillMaxWidth()) {
-    Text(title, style = TextStyle(color = WColors.soft, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1, modifier = GlanceModifier.padding(bottom = 2.dp))
+    Text(title, style = TextStyle(color = WidgetColors.soft, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1, modifier = GlanceModifier.padding(bottom = 2.dp))
     list.forEach { e ->
         val lead = e.place == 1
         Box(GlanceModifier.fillMaxWidth().padding(bottom = 1.dp)) { Row(
-            GlanceModifier.fillMaxWidth().height(18.dp).cornerRadius(6.dp).background(if (lead) WColors.tealTint else WColors.card).padding(horizontal = 3.dp),
+            GlanceModifier.fillMaxWidth().height(18.dp).cornerRadius(6.dp).background(if (lead) WidgetColors.tealTint else WidgetColors.card).padding(horizontal = 3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(GlanceModifier.size(14.dp).cornerRadius(7.dp).background(if (lead) WColors.gold else WColors.tile), contentAlignment = Alignment.Center) {
-                Text("${e.place}", style = TextStyle(color = if (lead) ColorProvider(day = Color(0xFF5A3F00), night = Color(0xFF5A3F00)) else WColors.soft, fontSize = 8.sp, fontWeight = FontWeight.Bold))
+            Box(GlanceModifier.size(14.dp).cornerRadius(7.dp).background(if (lead) WidgetColors.gold else WidgetColors.tile), contentAlignment = Alignment.Center) {
+                Text("${e.place}", style = TextStyle(color = if (lead) ColorProvider(day = Color(0xFF5A3F00), night = Color(0xFF5A3F00)) else WidgetColors.soft, fontSize = 8.sp, fontWeight = FontWeight.Bold))
             }
             Spacer(GlanceModifier.width(4.dp))
-            Text(e.short, style = TextStyle(color = WColors.ink, fontSize = 11.sp, fontWeight = if (lead) FontWeight.Bold else FontWeight.Normal), maxLines = 1, modifier = GlanceModifier.defaultWeight())
-            Text(e.rate.toLong().formatUzsL(), style = TextStyle(color = if (lead) WColors.emerald else WColors.ink, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            Text(e.short, style = TextStyle(color = WidgetColors.ink, fontSize = 11.sp, fontWeight = if (lead) FontWeight.Bold else FontWeight.Normal), maxLines = 1, modifier = GlanceModifier.defaultWeight())
+            Text(e.rate.toLong().formatUzsL(), style = TextStyle(color = if (lead) WidgetColors.emerald else WidgetColors.ink, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
         } }
     }
   }
@@ -271,7 +271,7 @@ private fun Board(m: WidgetModel, logos: Map<String, Bitmap>, rows: Int, root: G
         if (large) {
             Text(
                 trSaved("${m.bankCount} ta bank · 1 ${m.currency} uchun, ${som()}", "${m.bankCount} банков · за 1 ${m.currency}, ${som()}", "${m.bankCount} banks · per 1 ${m.currency}, ${som()}"),
-                style = TextStyle(color = WColors.soft, fontSize = 11.sp), maxLines = 1
+                style = TextStyle(color = WidgetColors.soft, fontSize = 11.sp), maxLines = 1
             )
         }
     }
@@ -281,18 +281,18 @@ private fun Board(m: WidgetModel, logos: Map<String, Bitmap>, rows: Int, root: G
 private fun Ranking(title: String, list: List<WidgetEntry>, logos: Map<String, Bitmap>, large: Boolean, sign: String, modifier: GlanceModifier) {
     val rowH = if (large) 30.dp else 20.dp
     Column(modifier) {
-        Text(title, style = TextStyle(color = WColors.soft, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1, modifier = GlanceModifier.padding(bottom = if (large) 6.dp else 3.dp))
+        Text(title, style = TextStyle(color = WidgetColors.soft, fontSize = 11.sp, fontWeight = FontWeight.Medium), maxLines = 1, modifier = GlanceModifier.padding(bottom = if (large) 6.dp else 3.dp))
         list.forEach { e ->
             val lead = e.place == 1
             Box(GlanceModifier.fillMaxWidth().padding(bottom = if (large) 3.dp else 1.dp)) { Row(
-                GlanceModifier.fillMaxWidth().height(rowH).cornerRadius(8.dp).background(if (lead) WColors.tealTint else WColors.card).padding(horizontal = 4.dp),
+                GlanceModifier.fillMaxWidth().height(rowH).cornerRadius(8.dp).background(if (lead) WidgetColors.tealTint else WidgetColors.card).padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    GlanceModifier.size(if (large) 18.dp else 15.dp).cornerRadius(9.dp).background(if (lead) WColors.gold else WColors.tile),
+                    GlanceModifier.size(if (large) 18.dp else 15.dp).cornerRadius(9.dp).background(if (lead) WidgetColors.gold else WidgetColors.tile),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("${e.place}", style = TextStyle(color = if (lead) ColorProvider(day = Color(0xFF5A3F00), night = Color(0xFF5A3F00)) else WColors.soft, fontSize = if (large) 10.sp else 9.sp, fontWeight = FontWeight.Bold))
+                    Text("${e.place}", style = TextStyle(color = if (lead) ColorProvider(day = Color(0xFF5A3F00), night = Color(0xFF5A3F00)) else WidgetColors.soft, fontSize = if (large) 10.sp else 9.sp, fontWeight = FontWeight.Bold))
                 }
                 Spacer(GlanceModifier.width(5.dp))
                 val logo = e.logo?.let { logos[it] }
@@ -300,11 +300,11 @@ private fun Ranking(title: String, list: List<WidgetEntry>, logos: Map<String, B
                     Image(ImageProvider(logo), contentDescription = null, contentScale = ContentScale.Fit, modifier = GlanceModifier.size(18.dp).cornerRadius(5.dp))
                     Spacer(GlanceModifier.width(5.dp))
                 }
-                Text(e.short, style = TextStyle(color = WColors.ink, fontSize = if (large) 12.sp else 11.sp, fontWeight = if (lead) FontWeight.Bold else FontWeight.Normal), maxLines = 1, modifier = GlanceModifier.defaultWeight())
+                Text(e.short, style = TextStyle(color = WidgetColors.ink, fontSize = if (large) 12.sp else 11.sp, fontWeight = if (lead) FontWeight.Bold else FontWeight.Normal), maxLines = 1, modifier = GlanceModifier.defaultWeight())
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(e.rate.toLong().formatUzsL(), style = TextStyle(color = if (lead) WColors.emerald else WColors.ink, fontSize = if (large) 13.sp else 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End), maxLines = 1)
+                    Text(e.rate.toLong().formatUzsL(), style = TextStyle(color = if (lead) WidgetColors.emerald else WidgetColors.ink, fontSize = if (large) 13.sp else 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End), maxLines = 1)
                     if (large && e.gap > 0) {
-                        Text("$sign${e.gap}", style = TextStyle(color = WColors.soft, fontSize = 9.sp, textAlign = TextAlign.End), maxLines = 1)
+                        Text("$sign${e.gap}", style = TextStyle(color = WidgetColors.soft, fontSize = 9.sp, textAlign = TextAlign.End), maxLines = 1)
                     }
                 }
             } }

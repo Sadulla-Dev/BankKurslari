@@ -14,7 +14,7 @@ function ruPlural(n, one, few, many) {
 
 const T = {
   uz: {
-    "tab.rates": "Kurslar", "tab.map": "Xarita", "tab.history": "Tarix",
+    "tab.rates": "Kurslar", "tab.map": "Xarita", "tab.history": "Tarix", "tab.wallet": "Hamyon",
     "mode.sell": "Sotaman", "mode.buy": "Sotib olaman", "som": "so‘m", "go": "Yo‘l",
     "col.bank": "Bank", "col.buy": "Sotib oladi", "col.sell": "Sotadi", "col.km": "Masofa",
     "promo.title": "Qulay Kurs ilovasi", "promo.sub": "Kurs ogohlantirishlari, bosh ekran vidjeti va xarita — telefoningizda. Tez kunda.",
@@ -60,7 +60,7 @@ const T = {
     goldSideNote: "Sotib olish — Markaziy bank quymani sizga sotadigan narx. Qaytarib topshirish — bank shikastlanmagan quymani sizdan qabul qiladigan narx."
   },
   ru: {
-    "tab.rates": "Курсы", "tab.map": "Карта", "tab.history": "История",
+    "tab.rates": "Курсы", "tab.map": "Карта", "tab.history": "История", "tab.wallet": "Кошелёк",
     "mode.sell": "Продаю", "mode.buy": "Покупаю", "som": "сум", "go": "Маршрут",
     "col.bank": "Банк", "col.buy": "Покупает", "col.sell": "Продаёт", "col.km": "Расстояние",
     "promo.title": "Приложение Qulay Kurs", "promo.sub": "Уведомления о курсе, виджет на экране и карта — в вашем телефоне. Скоро.",
@@ -106,7 +106,7 @@ const T = {
     goldSideNote: "Продажа — цена, по которой ЦБ продаёт вам слиток. Выкуп — цена, по которой ЦБ принимает неповреждённый слиток."
   },
   en: {
-    "tab.rates": "Rates", "tab.map": "Map", "tab.history": "History",
+    "tab.rates": "Rates", "tab.map": "Map", "tab.history": "History", "tab.wallet": "Wallet",
     "mode.sell": "I sell", "mode.buy": "I buy", "som": "so‘m", "go": "Go",
     "col.bank": "Bank", "col.buy": "Buys at", "col.sell": "Sells at", "col.km": "Distance",
     "promo.title": "The Qulay Kurs app", "promo.sub": "Rate alerts, a home-screen widget and the map — on your phone. Coming soon.",

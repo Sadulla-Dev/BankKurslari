@@ -51,6 +51,9 @@
       <a href="#/tarix" data-view="history">
         <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 14.5l5-5.5 3.5 3 6.5-7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 17.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
         <span data-i18n="tab.history">Tarix</span></a>
+      <a href="#/hamyon" data-view="wallet">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="5.5" width="15" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 5.5l8.5-2.5.8 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="12" y="9" width="5.5" height="4" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+        <span data-i18n="tab.wallet">Hamyon</span></a>
     </nav>
     <div class="top-r">
       <p class="status hide-md"><span class="live"></span><span id="status">…</span></p>
@@ -234,6 +237,11 @@
     </div>
   </div>
 </section>
+
+<!-- ================= WALLET (wallet.js) ================= -->
+<section class="view" id="v-wallet" hidden>
+  <div class="wrap wallet" id="walletRoot"></div>
+</section>
 </main>
 
 <section class="wrap seo-copy" aria-labelledby="seo-title">
@@ -298,5 +306,6 @@
 
 <script src="/shared.js?v=20261120b" defer></script>
 <script src="/app.js?v=20261120b" defer></script>
+<script src="/wallet.js?v=20261120b" defer></script>
 </body>
 </html>

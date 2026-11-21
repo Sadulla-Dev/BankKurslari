@@ -3,6 +3,8 @@
     <string name="widget_description">Banklar reytingi: dollarni qayerda sotish va olish foydali</string>
     <string name="widget_description_eur">Banklar reytingi: yevroni qayerda sotish va olish foydali</string>
     <string name="widget_description_rub">Banklar reytingi: rublni qayerda sotish va olish foydali</string>
+    <string name="widget_label_wallet">Hamyon</string>
+    <string name="widget_description_wallet">Jamgʻarmangiz bugun qancha turadi va kechagidan farqi</string>
     <string name="widget_label_usd">Dollar kursi</string>
     <string name="widget_label_eur">Yevro kursi</string>
     <string name="widget_label_rub">Rubl kursi</string>

@@ -293,6 +293,11 @@ fun CurrencyTrackerApp(
                             amount = amountText.filter { it.isDigit() }.toDoubleOrNull() ?: 0.0,
                             onOpenSettings = { showSettings = true }
                         )
+                        HomeTab.WALLET -> HamyonScreen(
+                            innerPadding = innerPadding,
+                            lang = lang,
+                            onOpenSettings = { showSettings = true }
+                        )
                     }
                     }
                     }

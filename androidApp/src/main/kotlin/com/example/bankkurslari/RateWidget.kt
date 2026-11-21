@@ -31,6 +31,7 @@ class RateWidgetProvider : CurrencyWidgetReceiver(UsdWidget()) {
             CompactUsdWidget().updateAll(context)
             CompactEurWidget().updateAll(context)
             CompactRubWidget().updateAll(context)
+            WalletWidget().updateAll(context)
         }
     }
 }

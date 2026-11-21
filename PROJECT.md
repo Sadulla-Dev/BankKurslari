@@ -15,7 +15,7 @@ Ilova bank kurslarini, Markaziy bank (MB) kursini va bank filiallarini bitta joy
 
 ## 1. Ekranlar va funksiyalar
 
-Ilova uchta tabdan iborat: **Kurs**, **Xarita**, **Tarix**, hamda Sozlamalar oynasi.
+Ilova to‘rtta tabdan iborat: **Kurs**, **Xarita**, **Tarix**, **Hamyon**, hamda Sozlamalar oynasi.
 
 ### 1.1 Kurs (bosh ekran)
 
@@ -86,7 +86,18 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - **Ogohlantirishlar:** “USD 12 000 dan oshsa xabar ber” — bozordagi eng yaxshi yoki aniq bank bo‘yicha, ≥ / ≤ shart, ko‘pi bilan 5 ta.
 - Ma’lumot manbalari (bank.uz, cbu.uz) va yangilangan vaqt.
 
-### 1.6 Sozlamalar
+### 1.6 Hamyon
+
+“Jamg‘armam bugun qancha turadi?” — har kuni ochishga sabab.
+
+- Foydalanuvchi dollar, yevro, rubl, funt, tenge, so‘m va oltin (gramm) miqdorini kiritadi; ma’lumot faqat telefonda (web’da brauzerda) saqlanadi.
+- **Jami qiymat** so‘mda: bugun eng ko‘p to‘laydigan bankning naqd kursi bo‘yicha (oltin: MB qaytarib sotib olish narxi, 10 g quyma).
+- **Kecha bilan farq** (MB kursi o‘zgarishi bo‘yicha) va **dollardagi qiymat**.
+- Har qatorda: miqdor, bank va kurs, so‘mdagi qiymat, kunlik o‘zgarish. Bosish — o‘zgartirish yoki o‘chirish.
+- **Valyutani valyutaga almashtirish:** masalan USD → EUR. Eng foydali yo‘l (bir bankda sotish, boshqasida olish), ikkalasi bitta bankda bo‘lsa natija, MB kursi bo‘yicha qiymat va banklar farqi (%).
+- Kod: `Wallet.kt` (hisob-kitob, saqlash), `Hamyon.kt` (ekran); web: `web/public/wallet.js` (`#/hamyon`), hisob-kitob bir xil.
+
+### 1.7 Sozlamalar
 
 - Til: O‘zbekcha / Русский
 - Mavzu: Tizim / Yorug‘ / Qorong‘i
@@ -97,10 +108,12 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - Ma’lumot manbalari va yangilanish tartibi
 - Fikr bildirish (e-mail)
 
-### 1.7 Android’ga xos
+### 1.8 Android’ga xos
 
 - **Uy ekrani vidjeti:** tanlangan valyuta bo‘yicha eng yaxshi sotish/sotib olish kursi va banklar, MB kursi.
-- **Fon yangilanishi** (WorkManager, ~30 daqiqada): vidjetni yangilaydi, MB kursi o‘zgarsa bildirishnoma yuboradi, ogohlantirish shartlarini tekshiradi.
+- **Hamyon vidjeti:** jamg‘arma qiymati va kechagidan farqi.
+- **Fon yangilanishi** (WorkManager, ~30 daqiqada): vidjetlarni yangilaydi, ogohlantirish shartlarini tekshiradi.
+- **Kunlik xulosa:** MB yangi kursni e’lon qilganda bitta bildirishnoma — kurs va o‘zgarish, eng yaxshi sotish/olish banklari, hamyon qiymati va kunlik farqi.
 
 ---
 

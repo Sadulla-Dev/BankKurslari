@@ -7,7 +7,7 @@ const TASHKENT = [41.3111, 69.2797]; // [lat, lng]
 const CURS = ["USD", "EUR", "RUB"];
 const MAX_MAP_CANDS = 5000; // hard cap on candidates before the project+cluster pass (linear, via a screen-space grid)
 const MAP_STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
-const ROUTES = { "": "rates", "xarita": "map", "tarix": "history" };
+const ROUTES = { "": "rates", "xarita": "map", "tarix": "history", "hamyon": "wallet" };
 let themeTransitionId = 0;
 
 const store = {
@@ -221,7 +221,7 @@ function animateNumber(el, to, fmt = group) {
 function route() {
   const key = location.hash.replace(/^#\/?/, "").split("?")[0];
   S.view = ROUTES[key] || "rates";
-  for (const v of ["rates", "map", "history"]) $(`v-${v}`).hidden = v !== S.view;
+  for (const v of ["rates", "map", "history", "wallet"]) $(`v-${v}`).hidden = v !== S.view;
   document.body.className = "v-" + S.view;
   document.querySelectorAll(".tabs-nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === S.view));
   if (S.view === "map") {
@@ -229,6 +229,7 @@ function route() {
     ensureMap().then(() => { syncMapTheme(); renderMapWhenReady(); }).catch((error) => console.error("Map initialization failed:", error));
   }
   if (S.view === "history") renderHistory();
+  if (S.view === "wallet" && typeof showWallet === "function") showWallet(); // wallet.js (loaded after this file)
   scrollTo(0, 0);
 }
 
@@ -427,6 +428,7 @@ async function openAll() {
   for (const cur of AC_BANK_CURS) loadAcBanks(cur).then(() => { if (S.allOpen) renderAllList(); }).catch(() => {});
   try { await loadCbuAll(); } catch { toast(L().error); }
   renderAllBtn();
+  if (S.view === "wallet" && typeof renderWallet === "function") renderWallet();
   if (S.allOpen) renderAllSheet();
 }
 function closeAll() {
@@ -1256,6 +1258,7 @@ function applyLang() {
   syncTitle();
   renderAll();
   renderAllBtn();
+  if (S.view === "wallet" && typeof renderWallet === "function") renderWallet();
   if (S.allOpen) renderAllSheet();
   if (S.sheetBank) { const list = ranked(S.rates[S.cur]); const b = list.find((x) => x.bank === S.sheetBank); if (b) renderSheet(b, list); }
 }
