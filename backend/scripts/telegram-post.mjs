@@ -169,13 +169,15 @@ function html({ banks, cbu, when }) {
 </div></body></html>`;
 }
 
+/** Renders the card once and returns it as PNG (sharpest) and JPEG (fallback if Telegram can't process the PNG). */
 async function render(page) {
   const browser = await chromium.launch({ channel: process.env.CHROME_CHANNEL || "chrome" });
   try {
     const tab = await browser.newPage({ viewport: { width: 1000, height: 1600 }, deviceScaleFactor: 1.28 });
     await tab.setContent(page, { waitUntil: "networkidle" });
     await tab.evaluate(() => document.fonts.ready);
-    return await tab.locator(".card").screenshot({ type: "png" });
+    const card = tab.locator(".card");
+    return { png: await card.screenshot({ type: "png" }), jpeg: await card.screenshot({ type: "jpeg", quality: 92 }) };
   } finally {
     await browser.close();
   }
@@ -203,19 +205,55 @@ function caption({ banks, cbu, when }) {
 
 /* ---------- send ---------- */
 
-async function sendPhoto(png, text) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Telegram now and then rejects a perfectly good picture with "400 IMAGE_PROCESS_FAILED" (its own image pipeline),
+ * or answers 429/5xx. Those are retried with backoff, and after an image error the JPEG copy is sent instead of the
+ * PNG. Errors that a retry can't fix (bad token, chat not found, caption markup) fail at once.
+ * A request that timed out is NOT retried: Telegram may have posted it already, and a double post is worse.
+ */
+async function sendPhoto(images, text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) throw new Error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set (or use --dry-run)");
-  const form = new FormData();
-  form.append("chat_id", chat);
-  form.append("caption", text);
-  form.append("parse_mode", "HTML");
-  form.append("photo", new Blob([png], { type: "image/png" }), "dollar-kursi.png");
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(60000) });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || !body.ok) throw new Error(`Telegram sendPhoto failed: ${res.status} ${body.description || ""}`);
-  return body.result.message_id;
+  const backoff = [5, 15, 30, 60, 90];
+  let useJpeg = false;
+  let last = "";
+  for (let attempt = 0; attempt <= backoff.length; attempt++) {
+    if (attempt) {
+      console.log(`retry ${attempt}/${backoff.length} as ${useJpeg ? "JPEG" : "PNG"} after: ${last}`);
+    }
+    const form = new FormData();
+    form.append("chat_id", chat);
+    form.append("caption", text);
+    form.append("parse_mode", "HTML");
+    form.append("photo", useJpeg
+      ? new Blob([images.jpeg], { type: "image/jpeg" })
+      : new Blob([images.png], { type: "image/png" }), useJpeg ? "dollar-kursi.jpg" : "dollar-kursi.png");
+    let res, body;
+    try {
+      res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(90000) });
+      body = await res.json().catch(() => ({}));
+    } catch (e) {
+      if (e.name === "TimeoutError" || e.name === "AbortError") {
+        throw new Error("Telegram sendPhoto timed out — not retrying, check the channel: it may have been posted");
+      }
+      last = `network: ${e.cause?.code || e.message}`;
+      if (attempt < backoff.length) await sleep(backoff[attempt] * 1000);
+      continue;
+    }
+    if (res.ok && body.ok) return body.result.message_id;
+    const desc = body.description || "";
+    last = `${res.status} ${desc}`;
+    const imageError = res.status === 400 && /IMAGE_PROCESS_FAILED|PHOTO_|wrong file|failed to get http url content/i.test(desc);
+    const transient = res.status === 429 || res.status >= 500 || imageError;
+    if (!transient) throw new Error(`Telegram sendPhoto failed: ${last}`);
+    if (imageError) useJpeg = !useJpeg; // PNG failed → try JPEG, then alternate
+    const wait = res.status === 429 && body.parameters?.retry_after ? Math.min(body.parameters.retry_after, 120) : backoff[attempt];
+    if (attempt < backoff.length) await sleep(wait * 1000);
+  }
+  throw new Error(`Telegram sendPhoto failed after ${backoff.length + 1} attempts: ${last}`);
 }
 
 /* ---------- main ---------- */
@@ -233,11 +271,11 @@ banks.sort((a, b) => a.name.localeCompare(b.name, "uz"));
 const when = tashkentParts(data.updatedAt || new Date().toISOString());
 const model = { banks, cbu: data.cbu, when };
 
-const png = await render(html(model));
+const images = await render(html(model));
 const text = caption(model);
 if (outPath || dryRun) {
   const file = outPath || "dollar-kursi.png";
-  await writeFile(file, png);
-  console.log(`wrote ${file} (${png.length} bytes)\n\n${text}`);
+  await writeFile(file, images.png);
+  console.log(`wrote ${file} (${images.png.length} bytes; JPEG fallback ${images.jpeg.length} bytes)\n\n${text}`);
 }
-if (!dryRun) console.log(`posted message ${await sendPhoto(png, text)}`);
+if (!dryRun) console.log(`posted message ${await sendPhoto(images, text)}`);
