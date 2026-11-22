@@ -217,7 +217,8 @@ async function sendPhoto(images, text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) throw new Error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set (or use --dry-run)");
-  const backoff = [5, 15, 30, 60, 90];
+  // Seconds to wait before each retry: quick ones for a blip, then 5 and 20 minutes for a longer Telegram outage.
+  const backoff = [5, 15, 30, 60, 90, 300, 1200];
   let useJpeg = false;
   let last = "";
   for (let attempt = 0; attempt <= backoff.length; attempt++) {
