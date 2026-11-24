@@ -306,13 +306,13 @@ export function rateButtons(l, q) {
   const amounts = q.inSom ? SOM_BUTTONS : AMOUNT_BUTTONS[q.cur];
   return {
     inline_keyboard: [
-      amounts.map((a) => ({ text: a === q.amount ? `• ${short(a)} •` : short(a), callback_data: cb({ ...q, amount: a }) })),
+      amounts.map((a) => ({ text: mark(a === q.amount, short(a)), callback_data: cb({ ...q, amount: a }) })),
       q.inSom ? [] : [
         { text: mark(q.dir === "sell", t.dirSell), callback_data: cb({ ...q, dir: "sell" }) },
         { text: mark(q.dir === "buy", t.dirBuy), callback_data: cb({ ...q, dir: "buy" }) }
       ],
       // Switching currency keeps the direction and starts from that currency's usual amount.
-      CURRENCIES.map((cur) => ({ text: cur === q.cur ? `• ${cur} •` : cur, callback_data: cb(cur === q.cur ? q : { ...q, cur, amount: q.inSom ? q.amount : DEFAULT_AMOUNT[cur] }) })),
+      CURRENCIES.map((cur) => ({ text: mark(cur === q.cur, cur), callback_data: cb(cur === q.cur ? q : { ...q, cur, amount: q.inSom ? q.amount : DEFAULT_AMOUNT[cur] }) })),
       [{ text: t.site, url: siteUrl(l, q.cur, q.inSom ? 0 : q.amount) }],
       [{ text: t.alertBtn, callback_data: "an|" + q.cur }]
     ].filter((row) => row.length)

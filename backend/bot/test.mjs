@@ -71,7 +71,7 @@ assert.match(L.moveMessage("USD", { buy: 11960, sell: 12010 }, { buy: 12030, sel
 assert.equal(L.money(26.1), "26,10");
 // Buttons: every callback fits Telegram's 64 bytes, the marked amount and direction match the request.
 const kb = L.rateButtons("uz", { cur: "RUB", dir: "buy", amount: 50000, inSom: false }).inline_keyboard;
-assert.ok(kb[0].some((b) => b.text === "• 50 000 •"));
+assert.ok(kb[0].some((b) => b.text === "✅ 50 000"));
 assert.ok(kb[1][1].text.startsWith("✅") && !kb[1][0].text.startsWith("✅"));
 for (const menu of [L.alertCurMenu("uz"), L.alertSideMenu("ru", "USD", data), L.alertValueMenu("uz", "USD", "SELL", data), L.rateMessage("uz", data, { cur: "USD", dir: "sell", amount: 10000, inSom: false })])
   for (const row of menu.reply_markup.inline_keyboard) for (const b of row) if (b.callback_data) assert.ok(Buffer.byteLength(b.callback_data) <= 64, b.callback_data);
