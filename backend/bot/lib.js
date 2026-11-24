@@ -289,14 +289,16 @@ export function rateMessage(l, data, q) {
   if (q.inSom) {
     head = t.somHead(group(q.amount), q.cur);
     lines = all.map((b, i) => `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${money(q.amount / b.sell)} ${q.cur}`);
-  } else if (q.amount === DEFAULT_AMOUNT[q.cur]) {
-    // The usual case (a keyboard tap): every bank's rate for one unit, best first. Nothing else.
-    head = q.dir === "sell" ? t.listSell(q.cur) : t.listBuy(q.cur);
-    lines = all.map((b, i) => `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${money(b[key])}`);
   } else {
-    // A typed amount: what each bank gives or takes for it.
+    // What each bank gives (or takes) for the amount, 100 by default so the gaps are visible in so'm,
+    // and how far each is from the bank above it: "−1 000" less when selling, "+1 000" more when buying.
     head = q.dir === "sell" ? t.sellHead(money(q.amount), q.cur) : t.buyHead(money(q.amount), q.cur);
-    lines = all.map((b, i) => `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${group(q.amount * b[key])} ${t.som}`);
+    const totals = all.map((b) => Math.round(q.amount * b[key]));
+    lines = all.map((b, i) => {
+      const d = i > 0 ? totals[i] - totals[i - 1] : 0;
+      const gap = d ? ` <i>(${d > 0 ? "+" : "−"}${group(d)})</i>` : "";
+      return `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${group(totals[i])} ${t.som}${gap}`;
+    });
   }
   const text = [head, "", ...lines, "", `${t.cbu}: ${money(data.cbu?.rate || 0)} · ${stamp(data.updatedAt)}`].join("\n");
   return { text, reply_markup: rateButtons(l, q) };
