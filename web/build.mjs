@@ -565,7 +565,7 @@ function currencyPage(lang, cur) {
   // The verdict under the answer, for "I sell, 100" (renderVerdict() in app.js).
   const gap = (best - s.byBuy.at(-1).buy) * 100;
   const within = (Math.max(0.1, Math.ceil(((best - s.byBuy.at(-1).buy) / best) * 1000) / 10)).toFixed(1).replace(".", lang === "en" ? "." : ",") + "%";
-  const verdict = { head: (gap >= WORTH ? t.vdBig : t.vdSmall)(group(WORTH)), line: t.vdLine(true, s.count, within, "100", t.unit[cur](100), group(gap)) };
+  const verdict = { head: (gap >= WORTH ? t.vdBig : t.vdSmall)(group(WORTH)), line: t.vdLine(true, s.count, within, "100", t.unit[cur](100), group(gap), group(WORTH)) };
 
   let html = template.replace('<html lang="uz">', `<html lang="${HTML_LANG[lang]}">`);
   html = cut(html, "<title>", '<link rel="sitemap" type="application/xml" href="https://qulaykurs.uz/sitemap.xml">', head({ lang, url, urlOf: (l) => curUrl(l, cur), title: x.title(cur), desc: x.desc(cur, s), graph }));

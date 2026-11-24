@@ -296,7 +296,7 @@ function renderVerdict(list) {
   const big = gap >= WORTH;
   setText("vdHead", (big ? t.vdBig : t.vdSmall)(group(WORTH)));
   $("vdHead").classList.toggle("big", big);
-  setText("vdLine", t.vdLine(sell, list.length, withinPct((Math.abs(best - worst) / best) * 100), group(S.amount), unit(S.cur, S.amount), group(gap)));
+  setText("vdLine", t.vdLine(sell, list.length, withinPct((Math.abs(best - worst) / best) * 100), group(S.amount), unit(S.cur, S.amount), group(gap), group(WORTH)));
   let nb = null;
   if (S.user && S.branches) {
     for (const b of list) {
