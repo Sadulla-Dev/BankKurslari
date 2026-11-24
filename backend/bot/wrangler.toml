@@ -1,0 +1,28 @@
+# The @qulaykursbot Worker: Telegram webhook, rate alerts, channel move posts and anonymous usage counts.
+# Separate from qulaykurs-api (../worker), which CI redeploys every hour; this one is deployed by hand:
+#   npx wrangler deploy
+# First-time setup (D1 database, secrets, webhook): README.md.
+name = "qulaykurs-bot"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+routes = [
+  { pattern = "bot.qulaykurs.uz", custom_domain = true }
+]
+
+[vars]
+# Where the "rates moved a lot today" posts go. Remove the line to turn them off.
+MOVES_CHANNEL = "@qulay_kurs"
+
+[triggers]
+# Twenty past every hour: the API data workflow starts on the hour and deploys new rates a few minutes later. UTC.
+crons = ["20 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "qulaykurs-bot"
+# Filled in from `npx wrangler d1 create qulaykurs-bot` (README.md, step 1).
+database_id = "REPLACE_WITH_D1_ID"
+
+[observability]
+enabled = true

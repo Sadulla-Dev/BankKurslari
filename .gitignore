@@ -33,3 +33,7 @@ web/.wrangler/
 # Built site (web/build.mjs)
 web/dist/
 web/.indexnow.json
+
+# Bot Worker: local secrets and the local D1 of `wrangler dev`
+backend/bot/.dev.vars
+backend/bot/.wrangler/
