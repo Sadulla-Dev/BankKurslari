@@ -52,9 +52,9 @@ assert.equal(L.rank(data, "sell")[0].bank, "Anorbank");
 assert.equal(L.rank(data, "buy")[0].bank, "Orient Finans Bank");
 assert.equal(L.rank(data, "sell").length, 3);
 const m = L.rateMessage("uz", data, { cur: "USD", dir: "sell", amount: 500, inSom: false });
-assert.match(m.text, /5 980 000 so‘m/);
-assert.match(m.text, /Yangilandi: 24\.11, 15:05/);
-assert.match(m.text, /farqi: <b>30 000 so‘m/);
+assert.match(m.text, /<b>Anorbank<\/b> — 5 980 000 so‘m/);
+assert.match(m.text, /24\.11, 15:05/);
+assert.match(L.rateMessage("uz", data, { cur: "USD", dir: "sell", amount: 100, inSom: false }).text, /🥇 <b>Anorbank<\/b> — 11 960\n🥈/);
 const r = L.rateMessage("ru", data, { cur: "USD", dir: "buy", amount: 6_000_000, inSom: true });
 assert.match(r.text, /500 USD/);
 for (const row of m.reply_markup.inline_keyboard) for (const b of row) if (b.callback_data) assert.ok(Buffer.byteLength(b.callback_data) <= 64);
@@ -69,11 +69,11 @@ assert.ok(L.alertMet("SELL", 12100, 12100) && !L.alertMet("BUY", 12001, 12000));
 assert.equal(L.moveMessage("USD", { buy: 11960, sell: 12010 }, { buy: 11990, sell: 12030, buyBank: "A", sellBank: "B" }, 11971), null);
 assert.match(L.moveMessage("USD", { buy: 11960, sell: 12010 }, { buy: 12030, sell: 12080, buyBank: "Anorbank", sellBank: "B" }, 11971), /qimmatladi[\s\S]*\+70/);
 assert.equal(L.money(26.1), "26,10");
-// Buttons: every callback fits Telegram's 64 bytes, the marked amount and direction match the request.
-const kb = L.rateButtons("uz", { cur: "RUB", dir: "buy", amount: 50000, inSom: false }).inline_keyboard;
-assert.ok(kb[0].some((b) => b.text === "✅ 50 000"));
-assert.ok(kb[1][1].text.startsWith("✅") && !kb[1][0].text.startsWith("✅"));
-for (const menu of [L.alertCurMenu("uz"), L.alertSideMenu("ru", "USD", data), L.alertValueMenu("uz", "USD", "SELL", data), L.rateMessage("uz", data, { cur: "USD", dir: "sell", amount: 10000, inSom: false })])
+// Buttons under a result: only the two directions, the chosen one checked.
+const kb = L.rateButtons("uz", { cur: "RUB", dir: "buy", amount: 10000, inSom: false }).inline_keyboard;
+assert.equal(kb.length, 1);
+assert.ok(kb[0][1].text.startsWith("✅") && !kb[0][0].text.startsWith("✅"));
+for (const menu of [L.alertCurMenu("uz"), L.alertSideMenu("ru", "USD", data), L.alertValueMenu("uz", "USD", "SELL", data)])
   for (const row of menu.reply_markup.inline_keyboard) for (const b of row) if (b.callback_data) assert.ok(Buffer.byteLength(b.callback_data) <= 64, b.callback_data);
 assert.deepEqual(L.alertChoices("USD", "BUY", 12000), [11980, 11950, 11900, 11800]);
 assert.equal(L.mainKeyboard("ru").keyboard[1][1].text, "🔔 Уведомления");

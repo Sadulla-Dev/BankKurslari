@@ -179,6 +179,8 @@ export const T = {
     openBot: "🤖 Botda boshqa summa",
     cbuWord: "MB",
     loading: "⏳ Kurslar yuklanmoqda…",
+    listSell: (cur) => `${FLAG[cur]} <b>${NAME.uz[cur][0].toUpperCase() + NAME.uz[cur].slice(1)}ni sotish</b>, 1 ${cur} uchun:`,
+    listBuy: (cur) => `${FLAG[cur]} <b>${NAME.uz[cur][0].toUpperCase() + NAME.uz[cur].slice(1)} sotib olish</b>, 1 ${cur} uchun:`,
     kbUSD: "💵 Dollar", kbEUR: "💶 Yevro", kbRUB: "🇷🇺 Rubl", kbRates: "📊 Bugungi kurslar", kbAlerts: "🔔 Ogohlantirish",
     dirSell: "Sotaman", dirBuy: "Sotib olaman",
     amountHint: "Boshqa summa: raqamni yozing, masalan <code>750</code>.",
@@ -237,6 +239,8 @@ export const T = {
     openBot: "🤖 Другая сумма в боте",
     cbuWord: "ЦБ",
     loading: "⏳ Загружаю курсы…",
+    listSell: (cur) => `${FLAG[cur]} <b>Продать ${cur}</b>, за 1 ${cur}:`,
+    listBuy: (cur) => `${FLAG[cur]} <b>Купить ${cur}</b>, за 1 ${cur}:`,
     kbUSD: "💵 Доллар", kbEUR: "💶 Евро", kbRUB: "🇷🇺 Рубль", kbRates: "📊 Курсы сегодня", kbAlerts: "🔔 Уведомления",
     dirSell: "Продаю", dirBuy: "Покупаю",
     amountHint: "Другая сумма: напишите число, например <code>750</code>.",
@@ -277,45 +281,37 @@ const MEDAL = ["🥇", "🥈", "🥉", "4.", "5."];
 /** The top-5 text and its buttons for one request. */
 export function rateMessage(l, data, q) {
   const t = T[l];
-  const list = rank(data, q.dir).slice(0, 5);
-  if (!list.length) return { text: t.noData };
+  const all = rank(data, q.dir);
+  if (!all.length) return { text: t.noData };
+  const key = q.dir === "sell" ? "buy" : "sell";
+  const num = (i) => (i < 3 ? MEDAL[i] : `${i + 1}.`);
   let head, lines;
   if (q.inSom) {
     head = t.somHead(group(q.amount), q.cur);
-    lines = list.map((b, i) => `${MEDAL[i]} ${esc(bankName(b.bank))}: <b>${money(q.amount / b.sell)} ${q.cur}</b> <i>(${money(b.sell)})</i>`);
+    lines = all.map((b, i) => `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${money(q.amount / b.sell)} ${q.cur}`);
+  } else if (q.amount === DEFAULT_AMOUNT[q.cur]) {
+    // The usual case (a keyboard tap): every bank's rate for one unit, best first. Nothing else.
+    head = q.dir === "sell" ? t.listSell(q.cur) : t.listBuy(q.cur);
+    lines = all.map((b, i) => `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${money(b[key])}`);
   } else {
+    // A typed amount: what each bank gives or takes for it.
     head = q.dir === "sell" ? t.sellHead(money(q.amount), q.cur) : t.buyHead(money(q.amount), q.cur);
-    const key = q.dir === "sell" ? "buy" : "sell";
-    lines = list.map((b, i) => `${MEDAL[i]} ${esc(bankName(b.bank))}: <b>${group(q.amount * b[key])} ${t.som}</b> <i>(${money(b[key])})</i>`);
-    const worst = rank(data, q.dir).at(-1);
-    const gap = Math.abs(list[0][key] - worst[key]) * q.amount;
-    if (gap >= 1000) lines.push(l === "ru" ? `\nРазница между лучшим и худшим банком: <b>${group(gap)} сум</b>` : `\nEng yaxshi va eng yomon bank farqi: <b>${group(gap)} so‘m</b>`);
+    lines = all.map((b, i) => `${num(i)} <b>${esc(bankName(b.bank))}</b> — ${group(q.amount * b[key])} ${t.som}`);
   }
-  const text = [head, "", ...lines, "", `${t.cbu}: ${money(data.cbu?.rate || 0)} · ${t.updated(stamp(data.updatedAt))}`, `<i>${t.note}</i>`].join("\n");
+  const text = [head, "", ...lines, "", `${t.cbu}: ${money(data.cbu?.rate || 0)} · ${stamp(data.updatedAt)}`].join("\n");
   return { text, reply_markup: rateButtons(l, q) };
 }
 
-// Quick amounts under a result; any other amount is typed as a number.
-export const AMOUNT_BUTTONS = { USD: [100, 500, 1000, 5000, 10000], EUR: [100, 500, 1000, 5000, 10000], RUB: [5000, 10000, 50000, 100000] };
-const SOM_BUTTONS = [1_000_000, 5_000_000, 10_000_000, 50_000_000];
-const short = (n) => (n >= 1_000_000 ? `${n / 1_000_000} mln` : group(n));
-
+/** Under a result: only the two directions. */
 export function rateButtons(l, q) {
   const t = T[l];
+  if (q.inSom) return { inline_keyboard: [] };
   const mark = (on, text) => (on ? `✅ ${text}` : text);
-  const amounts = q.inSom ? SOM_BUTTONS : AMOUNT_BUTTONS[q.cur];
   return {
-    inline_keyboard: [
-      amounts.map((a) => ({ text: mark(a === q.amount, short(a)), callback_data: cb({ ...q, amount: a }) })),
-      q.inSom ? [] : [
-        { text: mark(q.dir === "sell", t.dirSell), callback_data: cb({ ...q, dir: "sell" }) },
-        { text: mark(q.dir === "buy", t.dirBuy), callback_data: cb({ ...q, dir: "buy" }) }
-      ],
-      // Switching currency keeps the direction and starts from that currency's usual amount.
-      CURRENCIES.map((cur) => ({ text: mark(cur === q.cur, cur), callback_data: cb(cur === q.cur ? q : { ...q, cur, amount: q.inSom ? q.amount : DEFAULT_AMOUNT[cur] }) })),
-      [{ text: t.site, url: siteUrl(l, q.cur, q.inSom ? 0 : q.amount) }],
-      [{ text: t.alertBtn, callback_data: "an|" + q.cur }]
-    ].filter((row) => row.length)
+    inline_keyboard: [[
+      { text: mark(q.dir === "sell", t.dirSell), callback_data: cb({ ...q, dir: "sell" }) },
+      { text: mark(q.dir === "buy", t.dirBuy), callback_data: cb({ ...q, dir: "buy" }) }
+    ]]
   };
 }
 

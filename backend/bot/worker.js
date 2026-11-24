@@ -186,8 +186,7 @@ async function onMessage(env, m) {
   await countDirect(env, "bot_rate", "telegram");
   if (!q.inSom) await saveView(env, chat, q);
   return reply(env, chat, l, async () => {
-    const msg = L.rateMessage(l, await rates(env, q.cur), q);
-    return { ...msg, text: `${msg.text}\n\n${t.amountHint}` };
+    return L.rateMessage(l, await rates(env, q.cur), q);
   });
 }
 
@@ -205,8 +204,7 @@ async function onCallback(env, c) {
     if (q) {
       if (!q.inSom) await saveView(env, chat, q);
       await replace(env, c, async () => {
-        const msg = L.rateMessage(l, await rates(env, q.cur), q);
-        return { ...msg, text: `${msg.text}\n\n${t.amountHint}` };
+        return L.rateMessage(l, await rates(env, q.cur), q);
       });
     }
   } else if (kind === "ah") {
