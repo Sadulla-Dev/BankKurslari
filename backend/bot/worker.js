@@ -92,7 +92,7 @@ async function onMessage(env, m) {
   const t = L.T[l];
   const chat = m.chat.id;
   const cmd = (text.match(/^\/(\w+)/) || [])[1]?.toLowerCase();
-  if (m.chat.type === "private" && m.from) await remember(env, m.from, cmd === "start" ? text.split(/\s+/)[1] || "start" : null);
+  if (m.chat.type === "private" && m.from && cmd !== "stop") await remember(env, m.from, cmd === "start" ? text.split(/\s+/)[1] || "start" : null);
 
   if (cmd === "start" || cmd === "help" || cmd === "yordam") {
     if (cmd === "start") await countDirect(env, "bot_start", "telegram");
@@ -105,6 +105,11 @@ async function onMessage(env, m) {
     return send(env, chat, Object.keys(all).length ? L.summaryMessage(l, all) : { text: t.noData });
   }
   if (cmd === "ogohlantirish" || cmd === "alert" || cmd === "alerts") return send(env, chat, await alertsMessage(env, chat, l));
+  if (cmd === "stop") {
+    // The privacy policy promises this: everything the bot keeps about a chat goes.
+    await env.DB.batch([env.DB.prepare("DELETE FROM alerts WHERE chat_id = ?1").bind(chat), env.DB.prepare("DELETE FROM users WHERE chat_id = ?1").bind(chat)]);
+    return send(env, chat, { text: t.stopped });
+  }
   if (cmd === "stats" && env.OWNER_CHAT_ID && String(chat) === String(env.OWNER_CHAT_ID)) return send(env, chat, { text: await stats(env) });
 
   const q = L.parse(text);
