@@ -260,7 +260,10 @@ fun kShareText(item: RankedBank, currency: Currency, amount: Double, updatedAt: 
     return "$head: ${kGroup(amt)} ${currency.code} → ${kGroup(total)} ${kSom(ru)} — ${item.rate.bank}$time"
 }
 
-fun kShare(text: String) = shareText(text)
+fun kShare(text: String) {
+    Usage.track("share")
+    shareText(text)
+}
 
 /* ---------- small building blocks ---------- */
 
@@ -485,6 +488,9 @@ fun KursScreen(
     val sell = direction == ConvertMode.SELL_USD
     val amount = amountText.filter { it.isDigit() }.take(12).toDoubleOrNull() ?: 0.0
     val hasAmount = amount > 0
+    // Counts the core action: typing or tapping an amount other than the one the screen opened with.
+    val startAmount = remember { amountText }
+    LaunchedEffect(amountText) { if (amountText != startAmount && hasAmount) Usage.track("amount") }
 
     var sort by rememberSaveable { mutableStateOf(KursSort.SOM) }
     var onlyOpen by rememberSaveable { mutableStateOf(false) }

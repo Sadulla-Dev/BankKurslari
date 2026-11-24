@@ -93,6 +93,7 @@ fun BankSheet(
     val prev = rememberBankYesterday(item, currency)
     var locationOn by remember { mutableStateOf(hasLocationPermission()) }
     val requestLocation = rememberLocationPermissionRequest { granted -> locationOn = granted }
+    LaunchedEffect(Unit) { Usage.track("bank_sheet") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

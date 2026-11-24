@@ -103,6 +103,7 @@ fun setRememberedMapApp(app: MapApp?) = appStore().putString(KEY, app?.name)
 
 /** Opens [target] in [app]: the app itself when installed, otherwise its web version. Returns false if nothing could open it. */
 fun launchRoute(app: MapApp, target: RouteTarget): Boolean {
+    Usage.track("route")
     if (app == MapApp.OTHER) return launchMapApp(app, target)
     if (isMapAppInstalled(app) && launchMapApp(app, target)) return true
     val web = app.web?.invoke(target) ?: return false

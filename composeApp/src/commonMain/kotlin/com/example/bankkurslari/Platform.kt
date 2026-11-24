@@ -40,6 +40,12 @@ expect class PlatformLock() {
 /** System share sheet with plain text. */
 expect fun shareText(text: String)
 
+/** "android" or "ios", for the anonymous usage counts ([Usage]). */
+expect val usagePlatform: String
+
+/** Debug builds do not count as usage. */
+expect fun isDebugBuild(): Boolean
+
 /** Opens a URL / mailto: link. Returns false if nothing could handle it. */
 expect fun openUri(uri: String): Boolean
 

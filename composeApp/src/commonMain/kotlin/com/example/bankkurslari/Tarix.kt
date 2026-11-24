@@ -295,6 +295,7 @@ fun TarixScreen(
             onDismiss = { showAdd = false },
             onSave = { a ->
                 Alerts.add(a)
+                Usage.track("alert_add")
                 alerts = Alerts.load()
                 PlatformHooks.onAlertsChanged()
                 showAdd = false

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
@@ -103,6 +104,10 @@ actual fun shareText(text: String) {
     }
     start(Intent.createChooser(send, null))
 }
+
+actual val usagePlatform: String = "android"
+
+actual fun isDebugBuild(): Boolean = (AndroidPlatform.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
 actual fun openUri(uri: String): Boolean {
     val action = if (uri.startsWith("mailto:")) Intent.ACTION_SENDTO else Intent.ACTION_VIEW

@@ -4,6 +4,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +57,16 @@ suspend fun httpGet(url: String, readTimeoutMs: Long): String {
     }
     if (!res.status.isSuccess()) throw IllegalStateException("HTTP ${res.status.value}")
     return res.bodyAsText()
+}
+
+/** POST a small JSON [body] to [url]; throws on non-2xx or timeout. */
+suspend fun httpPostJson(url: String, body: String, timeoutMs: Long) {
+    val res = http.post(url) {
+        contentType(ContentType.Application.Json)
+        setBody(body)
+        timeout { requestTimeoutMillis = timeoutMs }
+    }
+    if (!res.status.isSuccess()) throw IllegalStateException("HTTP ${res.status.value}")
 }
 
 /* ---------- rates ---------- */

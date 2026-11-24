@@ -94,6 +94,7 @@ fun CurrencyTrackerApp(
         mutableStateOf(if ((appStore().getString("direction") ?: "sell") == "buy") ConvertMode.BUY_USD else ConvertMode.SELL_USD)
     }
     var tab by remember { mutableStateOf(NavRequests.tab ?: HomeTab.KURS) }
+    LaunchedEffect(tab) { if (tab != HomeTab.KURS) Usage.track("tab_" + tab.name.lowercase()) }
     val requested = NavRequests.tab
     LaunchedEffect(requested) { if (requested != null) { tab = requested; NavRequests.tab = null } }
     var currency by remember {
