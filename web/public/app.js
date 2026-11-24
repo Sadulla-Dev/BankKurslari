@@ -290,14 +290,13 @@ function renderVerdict(list) {
   if (!list.length || !S.amount) { box.hidden = true; return; }
   box.hidden = false;
   const near = $("vdNear");
-  if (list.length < 2) { setText("vdHead", t.vdOne); setText("vdLine", ""); $("vdPlot").innerHTML = ""; near.hidden = true; return; }
+  if (list.length < 2) { setText("vdHead", t.vdOne); setText("vdLine", ""); near.hidden = true; return; }
   const best = list[0].rate, worst = list[list.length - 1].rate;
   const gap = Math.abs(best - worst) * S.amount;
   const big = gap >= WORTH;
   setText("vdHead", (big ? t.vdBig : t.vdSmall)(group(WORTH)));
   $("vdHead").classList.toggle("big", big);
   setText("vdLine", t.vdLine(sell, list.length, withinPct((Math.abs(best - worst) / best) * 100), group(S.amount), unit(S.cur, S.amount), group(gap)));
-  $("vdPlot").innerHTML = ratePlot(list);
   let nb = null;
   if (S.user && S.branches) {
     for (const b of list) {
@@ -310,21 +309,6 @@ function renderVerdict(list) {
     near.textContent = t.vdNear(sell, nb.bank.bank, kmFmt(nb.km), Math.abs(nb.bank.rate - best) * S.amount < 0.5 ? "" : group(Math.abs(nb.bank.rate - best) * S.amount));
     near.onclick = () => openSheet(nb.bank.bank);
   }
-}
-/** Every bank's rate on one line, best on the right; banks with the same rate stack into one taller bar. */
-function ratePlot(list) {
-  const sell = S.mode === "sell";
-  const rates = list.map((b) => b.rate);
-  const lo = Math.min(...rates), hi = Math.max(...rates), span = hi - lo || 1;
-  const counts = new Map();
-  for (const r of rates) { const k = r.toFixed(2); counts.set(k, (counts.get(k) || 0) + 1); }
-  const max = Math.max(...counts.values());
-  const bars = [...counts].map(([k, n]) => {
-    const r = Number(k), x = sell ? (r - lo) / span : (hi - r) / span;
-    return `<i class="${Math.abs(r - list[0].rate) < 0.005 ? "b" : ""}" style="--x:${x.toFixed(4)};--h:${(n / max).toFixed(3)}"></i>`;
-  }).join("");
-  const [left, right] = sell ? [lo, hi] : [hi, lo];
-  return `<div class="vp-bars">${bars}</div><div class="vp-ax"><span>${rateFmt(left)}</span><span>${rateFmt(right)}</span></div>`;
 }
 function renderQuick() {
   const sets = { USD: [100, 500, 1000, 5000], EUR: [100, 500, 1000, 5000], RUB: [1000, 10000, 50000, 100000] };

@@ -161,12 +161,6 @@ p { margin: 0; }
 .verdict { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .vd-head { font-size: 15px; font-weight: 600; line-height: 1.35; color: var(--ink); }
 .vd-line { margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
-.vd-plot { margin-top: 14px; }
-.vp-bars { position: relative; height: 28px; margin: 0 3px; border-bottom: 1px solid var(--line); }
-.vp-bars i { position: absolute; bottom: 0; left: calc(var(--x) * 100%); width: 6px; height: calc(6px + var(--h) * 22px); margin-left: -3px; border-radius: 2px 2px 0 0; background: var(--ink-3); opacity: .45; }
-.vp-bars i.b { background: var(--accent); opacity: 1; }
-.vp-ax { display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px; color: var(--ink-3); }
-.vp-ax span:last-child { color: var(--accent); font-weight: 600; }
 .vd-near { display: block; width: 100%; margin-top: 12px; padding: 11px 12px; border: 0; border-radius: 12px; background: var(--fill); text-align: left; font-size: 14px; line-height: 1.4; color: var(--ink); transition: background .15s; }
 .vd-near:hover { background: var(--accent-soft); }
 

@@ -158,7 +158,6 @@ fun TarixScreen(
                     title = pick(lang, "Oltin, 1 gramm (10 g quyma)", "Золото, 1 грамм (слиток 10 г)", "Gold, per gram (10 g bar)"),
                     allowAmount = false
                 )
-                RangePosition(gs, gs.last().rate, unit)
             } else {
                 Box(
                     modifier = Modifier.fillMaxWidth().height(200.dp).clip(VsShape.Panel).background(VsCard),
@@ -191,7 +190,6 @@ fun TarixScreen(
             }
         }
 
-        if (series.size >= 2) RangePosition(series, cur, unit)
 
         // At banks today
         Row(Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp), verticalAlignment = Alignment.Bottom) {
@@ -595,35 +593,3 @@ fun formatFullDate(iso: String): String {
 }
 
 
-/** "Is today's rate normal?": where today sits between the 30-day low and high, as a sentence and a track. */
-@Composable
-private fun RangePosition(series: List<HistoryPoint>, cur: Double, unit: String) {
-    val today = epochDay(todayIso())
-    val window = series.filter { epochDay(it.date) >= today - 30 }
-    if (window.size < 2) return
-    val lo = window.minOf { it.rate }
-    val hi = window.maxOf { it.rate }
-    if (hi - lo < 1.0) return
-    val pos = ((cur - lo) / (hi - lo)).coerceIn(0.0, 1.0).toFloat()
-    val sentence = when {
-        pos >= 0.85f -> pick(lang, "Bugun oxirgi 30 kunning eng yuqori darajasiga yaqin.", "Сегодня курс почти на максимуме за 30 дней.", "Today is near the 30-day high.")
-        pos <= 0.15f -> pick(lang, "Bugun oxirgi 30 kunning eng past darajasiga yaqin.", "Сегодня курс почти на минимуме за 30 дней.", "Today is near the 30-day low.")
-        else -> pick(lang, "Bugun kurs oxirgi 30 kunning oʻrtasida.", "Сегодня курс в середине диапазона за 30 дней.", "Today sits mid-range over 30 days.")
-    }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(sentence, style = VsType.Body, color = VsInk)
-        Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(VsGround))
-            Box(Modifier.fillMaxWidth(pos).height(4.dp).clip(CircleShape).background(VsEmerald.copy(alpha = 0.35f)))
-            Row(Modifier.fillMaxWidth()) {
-                if (pos > 0f) Spacer(Modifier.weight(pos.coerceAtLeast(0.0001f)))
-                Box(Modifier.size(14.dp).clip(CircleShape).background(VsEmerald))
-                if (pos < 1f) Spacer(Modifier.weight((1f - pos).coerceAtLeast(0.0001f)))
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("${lo.toLong().formatUzsL()}", style = VsType.Meta, color = VsInkSoft)
-            Text("${hi.toLong().formatUzsL()}", style = VsType.Meta, color = VsInkSoft)
-        }
-    }
-}
