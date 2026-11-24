@@ -255,8 +255,9 @@ fun TarixScreen(
             )
         }
 
-        // Gold: a side topic, folded away so the tab answers one question.
-        var goldOpen by rememberSaveable { mutableStateOf(false) }
+        // Gold bar prices of the Central Bank.
+        // Open by default: the bar prices are what people come here for; the header still folds it.
+        var goldOpen by rememberSaveable { mutableStateOf(true) }
         Row(
             Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(VsShape.Panel).clickable(role = Role.Button) { goldOpen = !goldOpen }.padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
