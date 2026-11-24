@@ -30,7 +30,12 @@ eq("dollar 11900 dan tushsa", { kind: "alert", cur: "USD", side: "BUY", threshol
 eq("доллар выше 12100", { kind: "alert", cur: "USD", side: "SELL", threshold: 12100 });
 eq("kurs", { kind: "summary" });
 eq("Assalomu alaykum", { kind: "summary" });
-eq("12345", null);
+eq("12345", { kind: "number", amount: 12345 });
+eq("🔔 Ogohlantirish", { kind: "alerts" });
+eq("🔔 Уведомления", { kind: "alerts" });
+eq("💵 Dollar", { kind: "rate", cur: "USD", dir: "sell", dirGiven: false, amount: 100 });
+eq("📊 Bugungi kurslar", { kind: "summary" });
+eq("📊 Курсы сегодня", { kind: "summary" });
 eq("rahmat", null);
 
 const data = {
@@ -64,4 +69,12 @@ assert.ok(L.alertMet("SELL", 12100, 12100) && !L.alertMet("BUY", 12001, 12000));
 assert.equal(L.moveMessage("USD", { buy: 11960, sell: 12010 }, { buy: 11990, sell: 12030, buyBank: "A", sellBank: "B" }, 11971), null);
 assert.match(L.moveMessage("USD", { buy: 11960, sell: 12010 }, { buy: 12030, sell: 12080, buyBank: "Anorbank", sellBank: "B" }, 11971), /qimmatladi[\s\S]*\+70/);
 assert.equal(L.money(26.1), "26,10");
+// Buttons: every callback fits Telegram's 64 bytes, the marked amount and direction match the request.
+const kb = L.rateButtons("uz", { cur: "RUB", dir: "buy", amount: 50000, inSom: false }).inline_keyboard;
+assert.ok(kb[0].some((b) => b.text === "• 50 000 •"));
+assert.ok(kb[1][1].text.startsWith("✅") && !kb[1][0].text.startsWith("✅"));
+for (const menu of [L.alertCurMenu("uz"), L.alertSideMenu("ru", "USD", data), L.alertValueMenu("uz", "USD", "SELL", data), L.rateMessage("uz", data, { cur: "USD", dir: "sell", amount: 10000, inSom: false })])
+  for (const row of menu.reply_markup.inline_keyboard) for (const b of row) if (b.callback_data) assert.ok(Buffer.byteLength(b.callback_data) <= 64, b.callback_data);
+assert.deepEqual(L.alertChoices("USD", "BUY", 12000), [11980, 11950, 11900, 11800]);
+assert.equal(L.mainKeyboard("ru").keyboard[1][1].text, "🔔 Уведомления");
 console.log(process.exitCode ? "\nFAILED" : "\nall good");

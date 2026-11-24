@@ -38,7 +38,17 @@ export default {
 
 /* ---------- data ---------- */
 
+// Rates kept in the isolate for a minute: most taps come in bursts, and the API changes hourly at most.
+const memo = new Map();
 async function rates(env, cur) {
+  const hit = memo.get(cur);
+  if (hit && Date.now() - hit.at < 60_000) return hit.data;
+  const data = await fetchRates(env, cur);
+  memo.set(cur, { data, at: Date.now() });
+  return data;
+}
+
+async function fetchRates(env, cur) {
   const api = (env.RATES_API || "https://api.qulaykurs.uz").replace(/\/$/, "");
   const res = await fetch(`${api}/api/rates/${cur.toLowerCase()}`, { cf: { cacheTtl: 120, cacheEverything: true } });
   if (!res.ok) throw new Error(`rates ${cur}: HTTP ${res.status}`);
@@ -69,6 +79,53 @@ async function tg(env, method, body) {
 const send = (env, chat_id, msg) =>
   tg(env, "sendMessage", { chat_id, text: msg.text, parse_mode: "HTML", link_preview_options: { is_disabled: true }, ...(msg.reply_markup ? { reply_markup: msg.reply_markup } : {}) });
 
+const edit = (env, chat_id, message_id, msg) =>
+  tg(env, "editMessageText", { chat_id, message_id, text: msg.text, parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: msg.reply_markup || { inline_keyboard: [] } });
+
+const SLOW_MS = 350;
+const later = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Answers a chat message with what `work` builds. "typing…" shows at once; if the answer is not ready in SLOW_MS,
+ * a "⏳ loading" message appears and is then replaced by the answer, so a slow API never looks like a dead bot.
+ */
+async function reply(env, chat, l, work) {
+  tg(env, "sendChatAction", { chat_id: chat, action: "typing" }).catch(() => {});
+  const job = work();
+  const first = await Promise.race([job.then(() => "done", () => "done"), later(SLOW_MS).then(() => "slow")]);
+  if (first === "done") return send(env, chat, await job.catch(() => ({ text: L.T[l].noData })));
+  const placeholder = await send(env, chat, { text: L.T[l].loading });
+  const msg = await job.catch(() => ({ text: L.T[l].noData }));
+  // A reply keyboard (the one under the message box) cannot be put on by editing, so such answers are sent anew.
+  if (!placeholder.ok || msg.reply_markup?.keyboard) {
+    if (placeholder.ok) tg(env, "deleteMessage", { chat_id: chat, message_id: placeholder.result.message_id }).catch(() => {});
+    return send(env, chat, msg);
+  }
+  return edit(env, chat, placeholder.result.message_id, msg);
+}
+
+/** Same for a button press: the pressed button turns into "⏳" if the new content is not ready in SLOW_MS. */
+async function replace(env, c, work) {
+  const chat = c.message?.chat?.id, id = c.message?.message_id;
+  const job = work();
+  const first = await Promise.race([job.then(() => "done", () => "done"), later(SLOW_MS).then(() => "slow")]);
+  if (first === "slow" && c.message?.reply_markup) {
+    const kb = c.message.reply_markup.inline_keyboard.map((row) => row.map((b) => (b.callback_data === c.data ? { ...b, text: "⏳" } : b)));
+    await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: id, reply_markup: { inline_keyboard: kb } });
+  }
+  const msg = await job.catch(() => null);
+  if (msg) await edit(env, chat, id, msg);
+  return msg;
+}
+
+/** What the user looked at last, so a bare "750" means 750 of that currency, that way. */
+async function lastView(env, chat) {
+  const row = await env.DB.prepare("SELECT v FROM state WHERE k = ?1").bind(`u:${chat}`).first();
+  return row ? JSON.parse(row.v) : null;
+}
+const saveView = (env, chat, q) =>
+  env.DB.prepare("INSERT INTO state (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = ?2").bind(`u:${chat}`, JSON.stringify({ cur: q.cur, dir: q.dir })).run().catch(() => {});
+
 /* ---------- updates ---------- */
 
 async function onUpdate(env, u) {
@@ -94,16 +151,18 @@ async function onMessage(env, m) {
   const cmd = (text.match(/^\/(\w+)/) || [])[1]?.toLowerCase();
   if (m.chat.type === "private" && m.from && cmd !== "stop") await remember(env, m.from, cmd === "start" ? text.split(/\s+/)[1] || "start" : null);
 
-  if (cmd === "start" || cmd === "help" || cmd === "yordam") {
-    if (cmd === "start") await countDirect(env, "bot_start", "telegram");
+  const summary = async () => {
     const all = await allRates(env);
-    if (Object.keys(all).length) await send(env, chat, L.summaryMessage(l, all));
-    return send(env, chat, { text: t.help });
+    return Object.keys(all).length ? L.summaryMessage(l, all) : { text: t.noData };
+  };
+  if (cmd === "start") {
+    await countDirect(env, "bot_start", "telegram");
+    // The keyboard under the message box is the main way to use the bot: currency, today's rates, alerts.
+    await send(env, chat, { text: t.welcome, reply_markup: L.mainKeyboard(l) });
+    return reply(env, chat, l, summary);
   }
-  if (cmd === "kurs" || cmd === "rates") {
-    const all = await allRates(env);
-    return send(env, chat, Object.keys(all).length ? L.summaryMessage(l, all) : { text: t.noData });
-  }
+  if (cmd === "help" || cmd === "yordam") return send(env, chat, { text: t.help, reply_markup: L.mainKeyboard(l) });
+  if (cmd === "kurs" || cmd === "rates") return reply(env, chat, l, summary);
   if (cmd === "ogohlantirish" || cmd === "alert" || cmd === "alerts") return send(env, chat, await alertsMessage(env, chat, l));
   if (cmd === "stop") {
     // The privacy policy promises this: everything the bot keeps about a chat goes.
@@ -112,17 +171,24 @@ async function onMessage(env, m) {
   }
   if (cmd === "stats" && env.OWNER_CHAT_ID && String(chat) === String(env.OWNER_CHAT_ID)) return send(env, chat, { text: await stats(env) });
 
-  const q = L.parse(text);
-  if (!q) return send(env, chat, { text: t.unknown });
-  if (q.kind === "summary") {
-    const all = await allRates(env);
-    return send(env, chat, Object.keys(all).length ? L.summaryMessage(l, all) : { text: t.noData });
+  let q = L.parse(text);
+  if (!q) return send(env, chat, { text: t.unknown, reply_markup: L.mainKeyboard(l) });
+  if (q.kind === "summary") return reply(env, chat, l, summary);
+  if (q.kind === "alerts") return send(env, chat, await alertsMessage(env, chat, l));
+  if (q.kind === "number" || (q.kind === "rate" && !q.dirGiven)) {
+    const last = await lastView(env, chat);
+    if (q.kind === "number") q = { kind: "rate", cur: last?.cur || "USD", dir: last?.dir || "sell", amount: q.amount, inSom: false };
+    else if (last?.dir) q = { ...q, dir: last.dir };
   }
-  const data = await rates(env, q.cur).catch(() => null);
-  if (!data) return send(env, chat, { text: t.noData });
-  if (q.kind === "alert") return send(env, chat, { text: await addAlert(env, chat, l, q, data) });
+  if (q.kind === "alert") {
+    return reply(env, chat, l, async () => ({ text: await addAlert(env, chat, l, q, await rates(env, q.cur)), reply_markup: { inline_keyboard: [[{ text: t.myAlerts, callback_data: "ah" }]] } }));
+  }
   await countDirect(env, "bot_rate", "telegram");
-  return send(env, chat, L.rateMessage(l, data, q));
+  if (!q.inSom) await saveView(env, chat, q);
+  return reply(env, chat, l, async () => {
+    const msg = L.rateMessage(l, await rates(env, q.cur), q);
+    return { ...msg, text: `${msg.text}\n\n${t.amountHint}` };
+  });
 }
 
 async function onCallback(env, c) {
@@ -130,23 +196,35 @@ async function onCallback(env, c) {
   const t = L.T[l];
   const chat = c.message?.chat?.id;
   const data = String(c.data || "");
-  let toast;
-  if (data.startsWith("r|")) {
+  const [kind, a, b, v] = data.split("|");
+  // Answer at once: the spinner on the button stops, and replace() shows "⏳" if the new content is slow.
+  const answered = tg(env, "answerCallbackQuery", { callback_query_id: c.id, ...(kind === "ad" ? { text: t.deleted } : {}) });
+  if (!chat || !c.message) return answered;
+  if (kind === "r") {
     const q = L.uncb(data);
-    const d = q && (await rates(env, q.cur).catch(() => null));
-    if (d && c.message) {
-      const msg = L.rateMessage(l, d, q);
-      await tg(env, "editMessageText", { chat_id: chat, message_id: c.message.message_id, text: msg.text, parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: msg.reply_markup });
-    } else if (!d) toast = t.noData;
-  } else if (data === "ah" && chat) {
-    await send(env, chat, await alertsMessage(env, chat, l));
-  } else if (data.startsWith("ad|") && chat) {
-    await env.DB.prepare("DELETE FROM alerts WHERE id = ?1 AND chat_id = ?2").bind(Number(data.slice(3)) || 0, chat).run();
-    const msg = await alertsMessage(env, chat, l);
-    await tg(env, "editMessageText", { chat_id: chat, message_id: c.message.message_id, text: msg.text, parse_mode: "HTML", reply_markup: msg.reply_markup || { inline_keyboard: [] } });
-    toast = t.deleted;
+    if (q) {
+      if (!q.inSom) await saveView(env, chat, q);
+      await replace(env, c, async () => {
+        const msg = L.rateMessage(l, await rates(env, q.cur), q);
+        return { ...msg, text: `${msg.text}\n\n${t.amountHint}` };
+      });
+    }
+  } else if (kind === "ah") {
+    await replace(env, c, () => alertsMessage(env, chat, l));
+  } else if (kind === "ad") {
+    await env.DB.prepare("DELETE FROM alerts WHERE id = ?1 AND chat_id = ?2").bind(Number(a) || 0, chat).run();
+    await replace(env, c, () => alertsMessage(env, chat, l));
+  } else if (kind === "an" && !a) {
+    await replace(env, c, async () => L.alertCurMenu(l));
+  } else if (kind === "an" && L.CURRENCIES.includes(a)) {
+    await replace(env, c, async () => L.alertSideMenu(l, a, await rates(env, a)));
+  } else if (kind === "as" && L.CURRENCIES.includes(a)) {
+    await replace(env, c, async () => L.alertValueMenu(l, a, b === "S" ? "SELL" : "BUY", await rates(env, a)));
+  } else if (kind === "ac" && L.CURRENCIES.includes(a) && Number(v) > 0) {
+    const q = { kind: "alert", cur: a, side: b === "S" ? "SELL" : "BUY", threshold: Number(v) };
+    await replace(env, c, async () => ({ text: await addAlert(env, chat, l, q, await rates(env, a)), reply_markup: { inline_keyboard: [[{ text: t.myAlerts, callback_data: "ah" }]] } }));
   }
-  return tg(env, "answerCallbackQuery", { callback_query_id: c.id, ...(toast ? { text: toast } : {}) });
+  return answered;
 }
 
 async function onInline(env, iq) {
@@ -166,10 +244,11 @@ async function onInline(env, iq) {
 async function alertsMessage(env, chat, l) {
   const t = L.T[l];
   const { results } = await env.DB.prepare("SELECT id, cur, side, threshold FROM alerts WHERE chat_id = ?1 ORDER BY id").bind(chat).all();
-  if (!results.length) return { text: `${t.alertHelp}\n\n${t.alertNone}` };
+  const add = results.length < L.MAX_ALERTS ? [[{ text: t.newAlert, callback_data: "an" }]] : [];
+  if (!results.length) return { text: `${t.alertHelp}\n\n${t.alertNone}`, reply_markup: { inline_keyboard: add } };
   return {
     text: `${t.alertHelp}\n\n${t.alertList}`,
-    reply_markup: { inline_keyboard: results.map((a) => [{ text: `${t.del} ${t.alertRow(a.cur, a.side, L.money(a.threshold))}`, callback_data: `ad|${a.id}` }]) }
+    reply_markup: { inline_keyboard: [...results.map((a) => [{ text: `${t.del} ${t.alertRow(a.cur, a.side, L.money(a.threshold))}`, callback_data: `ad|${a.id}` }]), ...add] }
   };
 }
 

@@ -2,8 +2,13 @@
 
 What it does:
 
-- **Chat:** someone writes `500 dollar`, `1000 yevro sotib olaman`, `5 mln so‘m dollar` or `kurs`; the bot answers with the
-  top 5 banks, buttons to switch currency and direction, and a link to the matching page on qulaykurs.uz.
+- **Buttons first:** `/start` puts a keyboard under the message box (💵 Dollar, 💶 Yevro, 🇷🇺 Rubl, 📊 Bugungi kurslar,
+  🔔 Ogohlantirish). A result has buttons for the amount (100 … 10 000), Sotaman / Sotib olaman, the currency, the site,
+  and a new alert. Alerts are made with buttons too: currency → rises / falls → one of four values near today's best.
+- **Typing works as well:** `500 dollar`, `1000 yevro sotib olaman`, `5 mln so‘m dollar`, `kurs`, or a bare `750`
+  (the currency and direction the user looked at last).
+- **Loading:** "typing…" at once; if the rates take longer than 350 ms, a "⏳ Kurslar yuklanmoqda…" message that the
+  answer then replaces, and on a button press the pressed button turns into ⏳. Rates are kept for a minute in memory.
 - **Inline mode:** `@qulaykursbot 1000 usd` in any chat puts that answer into the chat (people share it, the bot spreads).
 - **Rate alerts:** `dollar 12 100 dan oshsa` / `dollar 11 900 dan tushsa`, at most 5 a person, checked every hour.
   Same rule as the app (`Alerts.kt`): one message when the condition starts to hold, again only after it stopped holding.

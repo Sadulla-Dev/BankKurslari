@@ -54,12 +54,16 @@ export function numberIn(t) {
  *  { kind: "rate", cur, dir: "sell"|"buy", amount, inSom }   amount of currency (or of so'm when inSom)
  *  { kind: "alert", cur, side: "SELL"|"BUY", threshold }
  *  { kind: "summary" } for "kurs", "курс", a bare greeting
+ *  { kind: "alerts" } for the alerts menu
+ *  { kind: "number", amount } for a bare number (the worker fills in the last currency and direction)
  *  null when nothing is recognised
  */
 export function parse(text) {
   const t = normalize(text);
   const cur = currencyIn(t);
   const n = numberIn(t);
+  // The "🔔 Ogohlantirish" keyboard button, or the word typed.
+  if (!(n > 0) && /ogohlantir|уведомлен|оповещ|\balerts?\b/.test(t)) return { kind: "alerts" };
   if (cur && n > 0 && (UP.test(t) || DOWN.test(t)) && !/necha|сколько/.test(t)) {
     // "dollar 12 100 dan oshsa": waits for a rate, not an amount.
     return { kind: "alert", cur, side: UP.test(t) ? "SELL" : "BUY", threshold: Math.round(n) };
@@ -69,8 +73,8 @@ export function parse(text) {
     // "1 000 000 so'm dollar" asks how many dollars that buys; "100 dollar necha so'm" asks for so'm.
     const somAmount = n > 0 && new RegExp(`\\d[\\d\\s.,]*\\s*(ming|mln|млн|тыс)?\\s*(${SOM.source})`, "u").test(t);
     if (somAmount) return { kind: "rate", cur: cur || "USD", dir: "buy", amount: n, inSom: true };
-    if (!cur) return null; // a bare number: not enough to guess
-    return { kind: "rate", cur, dir: dir || "sell", amount: n > 0 ? n : DEFAULT_AMOUNT[cur], inSom: false };
+    if (!cur) return { kind: "number", amount: n }; // "750": the currency and direction the user looked at last
+    return { kind: "rate", cur, dir: dir || "sell", dirGiven: !!dir, amount: n > 0 ? n : DEFAULT_AMOUNT[cur], inSom: false };
   }
   if (/kurs|курс|qancha|сколько|narx|^\/?start|salom|привет|assalom/.test(t)) return { kind: "summary" };
   return null;
@@ -153,7 +157,7 @@ export const T = {
       "• <code>dollar 12 100 dan oshsa</code>: kurs yetganda xabar beraman\n\n" +
       `Istalgan chatda: <code>@${BOT} 100 dollar</code>`,
     alertHelp:
-      "🔔 <b>Kurs ogohlantirishi</b>\n\nYozing, masalan:\n• <code>dollar 12 100 dan oshsa</code>: banklardan biri dollarni 12 100 yoki qimmatroqqa sotib olsa\n" +
+      "🔔 <b>Kurs ogohlantirishi</b>\n\nKurs siz kutgan songa yetganda shu yerga yozaman. “➕ Yangi ogohlantirish” tugmasini bosing yoki yozing, masalan:\n• <code>dollar 12 100 dan oshsa</code>: banklardan biri dollarni 12 100 yoki qimmatroqqa sotib olsa\n" +
       "• <code>dollar 11 900 dan tushsa</code>: banklardan biri dollarni 11 900 yoki arzonroqqa sotsa\n\nKo‘pi bilan 5 ta.",
     alertList: "Sizning ogohlantirishlaringiz:",
     alertNone: "Hozircha ogohlantirish yo‘q.",
@@ -173,7 +177,20 @@ export const T = {
     inlineSell: (a, cur, bank, total) => `${a} ${cur} sotish: ${bank}, ${total} so‘m`,
     inlineBuy: (a, cur, bank, total) => `${a} ${cur} olish: ${bank}, ${total} so‘m`,
     openBot: "🤖 Botda boshqa summa",
-    cbuWord: "MB"
+    cbuWord: "MB",
+    loading: "⏳ Kurslar yuklanmoqda…",
+    kbUSD: "💵 Dollar", kbEUR: "💶 Yevro", kbRUB: "🇷🇺 Rubl", kbRates: "📊 Bugungi kurslar", kbAlerts: "🔔 Ogohlantirish",
+    dirSell: "Sotaman", dirBuy: "Sotib olaman",
+    amountHint: "Boshqa summa: raqamni yozing, masalan <code>750</code>.",
+    welcome: "Assalomu alaykum! Pastdagi tugmalardan valyutani tanlang: eng ko‘p so‘m beradigan yoki eng arzon sotadigan 5 bankni ko‘rsataman.",
+    newAlert: "➕ Yangi ogohlantirish",
+    myAlerts: "🔔 Ogohlantirishlarim",
+    back: "⬅️ Orqaga",
+    pickCur: "🔔 Qaysi valyuta uchun?",
+    pickSide: (cur, s, b) => `🔔 <b>${NAME.uz[cur][0].toUpperCase() + NAME.uz[cur].slice(1)}</b>\nHozir eng yaxshi: sotsangiz <b>${s}</b>, olsangiz <b>${b}</b> so‘m.\n\nNimani kutyapsiz?`,
+    sideUp: "📈 Qimmatlashini (sotish uchun)",
+    sideDown: "📉 Arzonlashini (olish uchun)",
+    pickValue: (cur, side, now) => `🔔 ${side === "SELL" ? `Biror bank ${NAME.uz[cur]}ni qanchadan sotib olsa xabar beray?` : `Biror bank ${NAME.uz[cur]}ni qanchadan sotsa xabar beray?`}\nHozir: <b>${now}</b>\n\nBoshqa son uchun yozing, masalan: <code>${NAME.uz[cur]} ${side === "SELL" ? "12 300 dan oshsa" : "11 800 dan tushsa"}</code>`
   },
   ru: {
     sellHead: (a, cur) => `${FLAG[cur]} <b>${a} ${cur}</b>: где дадут больше всего сумов`,
@@ -198,7 +215,7 @@ export const T = {
       "• <code>доллар выше 12 100</code>: сообщу, когда курс дойдёт\n\n" +
       `В любом чате: <code>@${BOT} 100 долларов</code>`,
     alertHelp:
-      "🔔 <b>Уведомление о курсе</b>\n\nНапишите, например:\n• <code>доллар выше 12 100</code>: когда какой-то банк будет покупать доллар по 12 100 или дороже\n" +
+      "🔔 <b>Уведомление о курсе</b>\n\nНапишу сюда, когда курс дойдёт до нужного числа. Нажмите «➕ Новое уведомление» или напишите, например:\n• <code>доллар выше 12 100</code>: когда какой-то банк будет покупать доллар по 12 100 или дороже\n" +
       "• <code>доллар ниже 11 900</code>: когда какой-то банк будет продавать доллар по 11 900 или дешевле\n\nНе больше 5.",
     alertList: "Ваши уведомления:",
     alertNone: "Уведомлений пока нет.",
@@ -218,7 +235,20 @@ export const T = {
     inlineSell: (a, cur, bank, total) => `Продать ${a} ${cur}: ${bank}, ${total} сум`,
     inlineBuy: (a, cur, bank, total) => `Купить ${a} ${cur}: ${bank}, ${total} сум`,
     openBot: "🤖 Другая сумма в боте",
-    cbuWord: "ЦБ"
+    cbuWord: "ЦБ",
+    loading: "⏳ Загружаю курсы…",
+    kbUSD: "💵 Доллар", kbEUR: "💶 Евро", kbRUB: "🇷🇺 Рубль", kbRates: "📊 Курсы сегодня", kbAlerts: "🔔 Уведомления",
+    dirSell: "Продаю", dirBuy: "Покупаю",
+    amountHint: "Другая сумма: напишите число, например <code>750</code>.",
+    welcome: "Здравствуйте! Выберите валюту кнопками внизу: покажу 5 банков, где дадут больше сумов или продадут дешевле.",
+    newAlert: "➕ Новое уведомление",
+    myAlerts: "🔔 Мои уведомления",
+    back: "⬅️ Назад",
+    pickCur: "🔔 Для какой валюты?",
+    pickSide: (cur, s, b) => `🔔 <b>${cur}</b>\nСейчас лучший курс: продать <b>${s}</b>, купить <b>${b}</b> сум.\n\nЧего ждёте?`,
+    sideUp: "📈 Подорожания (чтобы продать)",
+    sideDown: "📉 Подешевления (чтобы купить)",
+    pickValue: (cur, side, now) => `🔔 ${side === "SELL" ? `Когда какой-то банк будет покупать ${cur} по какой цене?` : `Когда какой-то банк будет продавать ${cur} по какой цене?`}\nСейчас: <b>${now}</b>\n\nДругое число можно написать, например: <code>${NAME.ru[cur]} ${side === "SELL" ? "выше 12 300" : "ниже 11 800"}</code>`
   }
 };
 
@@ -265,17 +295,74 @@ export function rateMessage(l, data, q) {
   return { text, reply_markup: rateButtons(l, q) };
 }
 
+// Quick amounts under a result; any other amount is typed as a number.
+export const AMOUNT_BUTTONS = { USD: [100, 500, 1000, 5000, 10000], EUR: [100, 500, 1000, 5000, 10000], RUB: [5000, 10000, 50000, 100000] };
+const SOM_BUTTONS = [1_000_000, 5_000_000, 10_000_000, 50_000_000];
+const short = (n) => (n >= 1_000_000 ? `${n / 1_000_000} mln` : group(n));
+
 export function rateButtons(l, q) {
   const t = T[l];
-  const amt = (cur) => (cur === q.cur ? q.amount : q.inSom ? q.amount : DEFAULT_AMOUNT[cur]);
+  const mark = (on, text) => (on ? `✅ ${text}` : text);
+  const amounts = q.inSom ? SOM_BUTTONS : AMOUNT_BUTTONS[q.cur];
   return {
     inline_keyboard: [
-      CURRENCIES.map((cur) => ({ text: cur === q.cur ? `• ${cur} •` : cur, callback_data: cb({ ...q, cur, amount: amt(cur) }) })),
-      q.inSom ? [] : [{ text: q.dir === "sell" ? t.toBuy : t.toSell, callback_data: cb({ ...q, dir: q.dir === "sell" ? "buy" : "sell" }) }],
+      amounts.map((a) => ({ text: a === q.amount ? `• ${short(a)} •` : short(a), callback_data: cb({ ...q, amount: a }) })),
+      q.inSom ? [] : [
+        { text: mark(q.dir === "sell", t.dirSell), callback_data: cb({ ...q, dir: "sell" }) },
+        { text: mark(q.dir === "buy", t.dirBuy), callback_data: cb({ ...q, dir: "buy" }) }
+      ],
+      // Switching currency keeps the direction and starts from that currency's usual amount.
+      CURRENCIES.map((cur) => ({ text: cur === q.cur ? `• ${cur} •` : cur, callback_data: cb(cur === q.cur ? q : { ...q, cur, amount: q.inSom ? q.amount : DEFAULT_AMOUNT[cur] }) })),
       [{ text: t.site, url: siteUrl(l, q.cur, q.inSom ? 0 : q.amount) }],
-      [{ text: t.alertBtn, callback_data: "ah" }]
+      [{ text: t.alertBtn, callback_data: "an|" + q.cur }]
     ].filter((row) => row.length)
   };
+}
+
+/** The keyboard under the message box: currencies, today's rates, alerts. Its buttons send their text. */
+export function mainKeyboard(l) {
+  const t = T[l];
+  return {
+    keyboard: [[{ text: t.kbUSD }, { text: t.kbEUR }, { text: t.kbRUB }], [{ text: t.kbRates }, { text: t.kbAlerts }]],
+    resize_keyboard: true,
+    is_persistent: true
+  };
+}
+
+/* ---------- alerts by buttons: currency → what to wait for → value ---------- */
+
+export function alertCurMenu(l) {
+  const t = T[l];
+  return { text: t.pickCur, reply_markup: { inline_keyboard: [CURRENCIES.map((cur) => ({ text: cur, callback_data: `an|${cur}` })), [{ text: t.myAlerts, callback_data: "ah" }]] } };
+}
+
+export function alertSideMenu(l, cur, data) {
+  const t = T[l];
+  const s = alertValue(data, "SELL"), b = alertValue(data, "BUY");
+  return {
+    text: t.pickSide(cur, s ? money(s.value) : "—", b ? money(b.value) : "—"),
+    reply_markup: { inline_keyboard: [[{ text: t.sideUp, callback_data: `as|${cur}|S` }], [{ text: t.sideDown, callback_data: `as|${cur}|B` }], [{ text: t.back, callback_data: "an" }]] }
+  };
+}
+
+const STEPS = { USD: [20, 50, 100, 200], EUR: [20, 50, 100, 200], RUB: [1, 2, 3, 5] };
+/** Values a bit beyond today's best rate, in the direction the user waits for. */
+export function alertChoices(cur, side, now) {
+  const round = (x) => (cur === "RUB" ? Math.round(x * 2) / 2 : Math.round(x / 5) * 5);
+  return STEPS[cur].map((d) => round(side === "SELL" ? now + d : now - d));
+}
+
+export function alertValueMenu(l, cur, side, data) {
+  const t = T[l];
+  const now = alertValue(data, side);
+  if (!now) return { text: t.noData };
+  const choices = alertChoices(cur, side, now.value);
+  const rows = [];
+  for (let i = 0; i < choices.length; i += 2) {
+    rows.push(choices.slice(i, i + 2).map((v) => ({ text: `${side === "SELL" ? "≥" : "≤"} ${money(v)}`, callback_data: `ac|${cur}|${side === "SELL" ? "S" : "B"}|${v}` })));
+  }
+  rows.push([{ text: t.back, callback_data: `an|${cur}` }]);
+  return { text: t.pickValue(cur, side, `${esc(bankName(now.bank))}, ${money(now.value)} ${t.som}`), reply_markup: { inline_keyboard: rows } };
 }
 
 /** Callback data, at most 64 bytes: "r|USD|s|500|0". */
