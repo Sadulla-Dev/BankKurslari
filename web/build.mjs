@@ -328,9 +328,9 @@ Y.uzc = uzCyrillicTexts(Y.uz);
 // themselves, Russian and English take `in` ("в Самарканде", "in Samarkand").
 const Z = {
   uz: {
-    promoTitle: "Ilovada va Telegram botda",
-    promoSub: "Android ilova: yaqin filial xaritada, marshrut va kurs ogohlantirishi. Telegram botga summani yozing — eng yaxshi 5 bankni ko‘rsatadi.",
-    play: "Android ilova", bot: "Telegram bot",
+    promoTitle: "Ilovada va Telegram kanalda",
+    promoSub: "Android ilova: yaqin filial xaritada, marshrut va kurs ogohlantirishi. Telegram kanalda har kuni soat 8:00 da bugungi eng yaxshi kurslar.",
+    play: "Android ilova", channel: "Telegram kanal",
     cities: "Shaharlar bo‘yicha dollar kursi", cityLink: (c) => `${c.name}da dollar kursi`,
     cityTitle: (c, s) => `${c.name}da dollar kursi bugun — ${s.buy} so‘m | Qulay Kurs`, cityH1: (c) => `${c.name}da dollar kursi bugun`,
     cityDesc: (c, n, s) => `${c.name}da ${n} ta bank: dollarni eng qimmat ${s.buyBank} oladi — ${s.buy} so‘m, eng arzon ${s.sellBank} sotadi — ${s.sell} so‘m. Filiallar manzili, Markaziy bank kursi.`,
@@ -340,9 +340,9 @@ const Z = {
     colBank: "Bank", colBranches: "Filiallar", branchesOf: (b, c) => `${b}: ${c.name}dagi filiallar`, more: (n) => `va yana ${n} ta filial`,
   },
   ru: {
-    promoTitle: "В приложении и в Telegram-боте",
-    promoSub: "Android-приложение: ближайшие отделения на карте, маршрут и уведомления о курсе. Напишите сумму Telegram-боту — покажет 5 лучших банков.",
-    play: "Android-приложение", bot: "Telegram-бот",
+    promoTitle: "В приложении и в Telegram-канале",
+    promoSub: "Android-приложение: ближайшие отделения на карте, маршрут и уведомления о курсе. В Telegram-канале каждый день в 8:00 — лучшие курсы на сегодня.",
+    play: "Android-приложение", channel: "Telegram-канал",
     cities: "Курс доллара по городам", cityLink: (c) => `Курс доллара ${c.in}`,
     cityTitle: (c, s) => `Курс доллара ${c.in} сегодня — ${s.buy} сум | Qulay Kurs`, cityH1: (c) => `Курс доллара ${c.in} сегодня`,
     cityDesc: (c, n, s) => `${n} ${ruPlural(n, "банк", "банка", "банков")} ${c.in}: дороже всех доллар покупает ${s.buyBank} — ${s.buy} сум, дешевле всех продаёт ${s.sellBank} — ${s.sell} сум. Адреса отделений, курс ЦБ.`,
@@ -353,8 +353,8 @@ const Z = {
   },
   en: {
     promoTitle: "In the app and on Telegram",
-    promoSub: "Android app: nearby branches on a map, directions and rate alerts. Send an amount to the Telegram bot to get the 5 best banks.",
-    play: "Android app", bot: "Telegram bot",
+    promoSub: "Android app: nearby branches on a map, directions and rate alerts. Our Telegram channel posts today’s best rates every day at 8:00.",
+    play: "Android app", channel: "Telegram channel",
     cities: "Dollar rate by city", cityLink: (c) => `Dollar rate ${c.in}`,
     cityTitle: (c, s) => `Dollar rate ${c.in} today — ${s.buy} UZS | Qulay Kurs`, cityH1: (c) => `Dollar rate ${c.in} today`,
     cityDesc: (c, n, s) => `${n} banks ${c.in}: ${s.buyBank} pays the most for dollars, ${s.buy} UZS; ${s.sellBank} sells them cheapest, ${s.sell} UZS. Branch addresses and the Central Bank rate.`,
@@ -383,15 +383,16 @@ const CITY_DIR = { uz: "shahar", uzc: "shahar", ru: "gorod", en: "city" };
 const cityUrl = (lang, slug) => `${PREFIX[lang]}/${CITY_DIR[lang]}/${slug}`;
 const cityName = (lang, c) => (lang === "uz" ? { name: c.uz } : lang === "uzc" ? { name: uzCyrillic(c.uz) } : lang === "ru" ? { name: c.ruIn, in: c.ruIn } : { name: c.en, in: `in ${c.en}` });
 
-// The site → app and bot links. The Play referrer and the bot's /start payload say which page sent the visitor.
+// The site → app and Telegram channel links. The Play referrer says which kind of page sent the visitor. The site
+// sends people to the channel, not the bot: the channel's description points to @qulaykursbot.
 const PLAY = "https://play.google.com/store/apps/details?id=uz.qulaykurs.app";
 const playUrl = (lang, from) => `${PLAY}&hl=${lang === "ru" ? "ru" : lang === "en" ? "en" : "uz"}&referrer=${encodeURIComponent(`utm_source=qulaykurs.uz&utm_medium=${from}`)}`;
-const botUrl = (from) => `https://t.me/qulaykursbot?start=${from}`;
+const CHANNEL = "https://t.me/qulay_kurs";
 const PLAY_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.2 2.6c-.3.3-.4.7-.4 1.2v16.4c0 .5.1.9.4 1.2l9.2-9.4-9.2-9.4zm10.4 10.6 2.6 2.6-11 6.3 8.4-8.9zm0-2.4L6.2 1.9l11 6.3-2.6 2.6zm3.8-1.9 3 1.7c.9.5.9 1.3 0 1.8l-3 1.7-2.8-2.6 2.8-2.6z"/></svg>';
 const TG_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.5 4.2 2.9 11.4c-1.3.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.4l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.8-1.4-1.5zM8.6 14.1l9.3-5.9c.4-.3.8-.1.5.2l-7.7 7-.3 3.3z"/></svg>';
 function appPromo(lang, from) {
   const z = Z[lang];
-  return `<aside class="promo app-promo"><div class="promo-copy"><h2>${esc(z.promoTitle)}</h2><p>${esc(z.promoSub)}</p></div><div class="promo-btns"><a class="btn store-play" href="${playUrl(lang, from)}" data-ev="play_click" rel="noopener">${PLAY_SVG}${esc(z.play)}</a><a class="btn store-tg" href="${botUrl(from)}" data-ev="bot_click" rel="noopener">${TG_SVG}${esc(z.bot)}</a></div></aside>`;
+  return `<aside class="promo app-promo"><div class="promo-copy"><h2>${esc(z.promoTitle)}</h2><p>${esc(z.promoSub)}</p></div><div class="promo-btns"><a class="btn store-play" href="${playUrl(lang, from)}" data-ev="play_click" rel="noopener">${PLAY_SVG}${esc(z.play)}</a><a class="btn store-tg" href="${CHANNEL}" data-ev="channel_click" rel="noopener">${TG_SVG}${esc(z.channel)}</a></div></aside>`;
 }
 
 /* ---------- data ---------- */

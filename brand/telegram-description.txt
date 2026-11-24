@@ -1,3 +1,4 @@
-Qulay Kurs — O‘zbekiston banklarida dollar kursi har kuni bitta rasmda: qayerda sotish, qayerda olish foydali.
+Qulay Kurs — O‘zbekiston banklarida dollar kursi har kuni 8:00 da bitta rasmda: qayerda sotish, qayerda olish foydali.
 
-Barcha banklar, kalkulyator, oltin narxi va yaqin filiallar xaritasi — https://qulaykurs.uz
+🤖 Summani yozing, eng yaxshi 5 bankni ko‘rsatadi: @qulaykursbot
+🌐 Barcha banklar va xarita: qulaykurs.uz
