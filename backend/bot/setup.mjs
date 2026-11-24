@@ -26,6 +26,8 @@ const toList = (l) => l.map(([command, description]) => ({ command, description 
 await call("setMyCommands", { commands: toList(commands.uz) });
 await call("setMyCommands", { commands: toList(commands.ru), language_code: "ru" });
 
+// Display name: same words as the username @qulaykursbot.
+await call("setMyName", { name: "Qulay Kurs Bot" });
 await call("setMyShortDescription", { short_description: "29 bank kursi: summangizni yozing, eng ko‘p so‘m beradigan bankni ko‘rsataman. qulaykurs.uz" });
 await call("setMyShortDescription", { short_description: "Курсы 29 банков: напишите сумму, покажу, где выгоднее обменять. qulaykurs.uz", language_code: "ru" });
 await call("setMyDescription", {
