@@ -32,7 +32,7 @@ const isUz = (lang) => lang === "uz" || lang === "uzc", isCyrillic = (lang) => l
 // Cache-buster for css/js: changes only when one of those files changes, so _headers can let browsers keep them for good.
 const VERSION = await (async () => {
   const hash = createHash("sha1");
-  for (const f of ["style.css", "pages.css", "shared.js", "app.js", "calc.js", "wallet.js"]) hash.update(await readFile(join(PUBLIC, f)));
+  for (const f of ["style.css", "pages.css", "shared.js", "app.js", "calc.js", "wallet.js", "ev.js"]) hash.update(await readFile(join(PUBLIC, f)));
   return hash.digest("hex").slice(0, 10);
 })();
 // The key file public/<key>.txt proves to IndexNow (Yandex, Bing) that address lists come from this site. Not a secret.
@@ -324,6 +324,76 @@ const Y = {
 X.uzc = uzCyrillicTexts(X.uz);
 Y.uzc = uzCyrillicTexts(Y.uz);
 
+// Texts of the app/bot promo and the city pages. A city `c` comes in as { name, in }: in Uzbek the texts add "da"
+// themselves, Russian and English take `in` ("в Самарканде", "in Samarkand").
+const Z = {
+  uz: {
+    promoTitle: "Ilovada va Telegram botda",
+    promoSub: "Android ilova: yaqin filial xaritada, marshrut va kurs ogohlantirishi. Telegram botga summani yozing — eng yaxshi 5 bankni ko‘rsatadi.",
+    play: "Android ilova", bot: "Telegram bot",
+    cities: "Shaharlar bo‘yicha dollar kursi", cityLink: (c) => `${c.name}da dollar kursi`,
+    cityTitle: (c, s) => `${c.name}da dollar kursi bugun — ${s.buy} so‘m | Qulay Kurs`, cityH1: (c) => `${c.name}da dollar kursi bugun`,
+    cityDesc: (c, n, s) => `${c.name}da ${n} ta bank: dollarni eng qimmat ${s.buyBank} oladi — ${s.buy} so‘m, eng arzon ${s.sellBank} sotadi — ${s.sell} so‘m. Filiallar manzili, Markaziy bank kursi.`,
+    citySub: (n, f, date, time) => `${n} ta bank, ${f} ta filial · ${date}, ${time} holatiga`,
+    cityLead: (c, s) => `${c.name}da dollarni eng qimmat ${s.buyBank} sotib oladi: 1 dollar — ${s.buy} so‘m, 100 dollar — ${s.buy100} so‘m. Eng arzon ${s.sellBank} sotadi: ${s.sell} so‘m. Markaziy bank kursi — ${s.cbu} so‘m.`,
+    cityNote: "Bank kursi odatda uning barcha filiallarida bir xil. Ish vaqtini va kassada valyuta borligini filialning o‘zidan so‘rang.",
+    colBank: "Bank", colBranches: "Filiallar", branchesOf: (b, c) => `${b}: ${c.name}dagi filiallar`, more: (n) => `va yana ${n} ta filial`,
+  },
+  ru: {
+    promoTitle: "В приложении и в Telegram-боте",
+    promoSub: "Android-приложение: ближайшие отделения на карте, маршрут и уведомления о курсе. Напишите сумму Telegram-боту — покажет 5 лучших банков.",
+    play: "Android-приложение", bot: "Telegram-бот",
+    cities: "Курс доллара по городам", cityLink: (c) => `Курс доллара ${c.in}`,
+    cityTitle: (c, s) => `Курс доллара ${c.in} сегодня — ${s.buy} сум | Qulay Kurs`, cityH1: (c) => `Курс доллара ${c.in} сегодня`,
+    cityDesc: (c, n, s) => `${n} ${ruPlural(n, "банк", "банка", "банков")} ${c.in}: дороже всех доллар покупает ${s.buyBank} — ${s.buy} сум, дешевле всех продаёт ${s.sellBank} — ${s.sell} сум. Адреса отделений, курс ЦБ.`,
+    citySub: (n, f, date, time) => `${n} ${ruPlural(n, "банк", "банка", "банков")}, ${f} ${ruPlural(f, "отделение", "отделения", "отделений")} · на ${date}, ${time}`,
+    cityLead: (c, s) => `${c.in[0].toUpperCase() + c.in.slice(1)} дороже всех доллар покупает ${s.buyBank}: 1 доллар — ${s.buy} сум, 100 долларов — ${s.buy100} сум. Дешевле всех продаёт ${s.sellBank}: ${s.sell} сум. Курс ЦБ — ${s.cbu} сум.`,
+    cityNote: "Курс банка обычно одинаков во всех его отделениях. Часы работы и наличие валюты в кассе уточняйте в самом отделении.",
+    colBank: "Банк", colBranches: "Отделения", branchesOf: (b, c) => `${b}: отделения ${c.in}`, more: (n) => `и ещё ${n}`,
+  },
+  en: {
+    promoTitle: "In the app and on Telegram",
+    promoSub: "Android app: nearby branches on a map, directions and rate alerts. Send an amount to the Telegram bot to get the 5 best banks.",
+    play: "Android app", bot: "Telegram bot",
+    cities: "Dollar rate by city", cityLink: (c) => `Dollar rate ${c.in}`,
+    cityTitle: (c, s) => `Dollar rate ${c.in} today — ${s.buy} UZS | Qulay Kurs`, cityH1: (c) => `Dollar rate ${c.in} today`,
+    cityDesc: (c, n, s) => `${n} banks ${c.in}: ${s.buyBank} pays the most for dollars, ${s.buy} UZS; ${s.sellBank} sells them cheapest, ${s.sell} UZS. Branch addresses and the Central Bank rate.`,
+    citySub: (n, f, date, time) => `${n} banks, ${f} branches · as of ${date}, ${time}`,
+    cityLead: (c, s) => `${c.in[0].toUpperCase() + c.in.slice(1)}, ${s.buyBank} pays the most for dollars: ${s.buy} UZS for 1 dollar, ${s.buy100} UZS for 100. ${s.sellBank} sells them cheapest, at ${s.sell} UZS. The Central Bank rate is ${s.cbu} UZS.`,
+    cityNote: "A bank's rate is usually the same at all its branches. Check the opening hours and whether the cash desk has the currency with the branch itself.",
+    colBank: "Bank", colBranches: "Branches", branchesOf: (b, c) => `${b}: branches ${c.in}`, more: (n) => `and ${n} more`,
+  },
+};
+Z.uzc = uzCyrillicTexts(Z.uz);
+
+// Cities with their own dollar page. A branch belongs to the nearest centre within `km` (from /api/branches, which has
+// coordinates but no city). Pages are made only where enough banks have branches.
+const CITIES = [
+  ["toshkent", 41.3111, 69.2797, 18, "Toshkent", "в Ташкенте", "Tashkent"], ["samarqand", 39.6542, 66.9597, 10, "Samarqand", "в Самарканде", "Samarkand"],
+  ["buxoro", 39.7747, 64.4286, 9, "Buxoro", "в Бухаре", "Bukhara"], ["andijon", 40.7821, 72.3442, 9, "Andijon", "в Андижане", "Andijan"],
+  ["namangan", 41.0011, 71.6683, 9, "Namangan", "в Намангане", "Namangan"], ["fargona", 40.3864, 71.7864, 9, "Farg‘ona", "в Фергане", "Fergana"],
+  ["qarshi", 38.8606, 65.7891, 9, "Qarshi", "в Карши", "Karshi"], ["navoiy", 40.0844, 65.3792, 8, "Navoiy", "в Навои", "Navoi"],
+  ["urganch", 41.55, 60.6333, 8, "Urganch", "в Ургенче", "Urgench"], ["nukus", 42.46, 59.61, 9, "Nukus", "в Нукусе", "Nukus"],
+  ["qoqon", 40.5286, 70.9425, 8, "Qo‘qon", "в Коканде", "Kokand"], ["termiz", 37.2242, 67.2783, 8, "Termiz", "в Термезе", "Termez"],
+  ["jizzax", 40.1158, 67.8422, 8, "Jizzax", "в Джизаке", "Jizzakh"], ["guliston", 40.4897, 68.7842, 7, "Guliston", "в Гулистане", "Gulistan"],
+  ["margilon", 40.4711, 71.7247, 6, "Marg‘ilon", "в Маргилане", "Margilan"], ["chirchiq", 41.4689, 69.5822, 7, "Chirchiq", "в Чирчике", "Chirchiq"],
+  ["xiva", 41.3783, 60.3639, 5, "Xiva", "в Хиве", "Khiva"],
+].map(([slug, lat, lng, km, uz, ruIn, en]) => ({ slug, lat, lng, km, uz, ruIn, en }));
+const CITY_DIR = { uz: "shahar", uzc: "shahar", ru: "gorod", en: "city" };
+const cityUrl = (lang, slug) => `${PREFIX[lang]}/${CITY_DIR[lang]}/${slug}`;
+const cityName = (lang, c) => (lang === "uz" ? { name: c.uz } : lang === "uzc" ? { name: uzCyrillic(c.uz) } : lang === "ru" ? { name: c.ruIn, in: c.ruIn } : { name: c.en, in: `in ${c.en}` });
+
+// The site → app and bot links. The Play referrer and the bot's /start payload say which page sent the visitor.
+const PLAY = "https://play.google.com/store/apps/details?id=uz.qulaykurs.app";
+const playUrl = (lang, from) => `${PLAY}&hl=${lang === "ru" ? "ru" : lang === "en" ? "en" : "uz"}&referrer=${encodeURIComponent(`utm_source=qulaykurs.uz&utm_medium=${from}`)}`;
+const botUrl = (from) => `https://t.me/qulaykursbot?start=${from}`;
+const PLAY_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.2 2.6c-.3.3-.4.7-.4 1.2v16.4c0 .5.1.9.4 1.2l9.2-9.4-9.2-9.4zm10.4 10.6 2.6 2.6-11 6.3 8.4-8.9zm0-2.4L6.2 1.9l11 6.3-2.6 2.6zm3.8-1.9 3 1.7c.9.5.9 1.3 0 1.8l-3 1.7-2.8-2.6 2.8-2.6z"/></svg>';
+const TG_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.5 4.2 2.9 11.4c-1.3.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.4l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.8-1.4-1.5zM8.6 14.1l9.3-5.9c.4-.3.8-.1.5.2l-7.7 7-.3 3.3z"/></svg>';
+function appPromo(lang, from) {
+  const z = Z[lang];
+  return `<aside class="promo app-promo"><div class="promo-copy"><h2>${esc(z.promoTitle)}</h2><p>${esc(z.promoSub)}</p></div><div class="promo-btns"><a class="btn store-play" href="${playUrl(lang, from)}" data-ev="play_click" rel="noopener">${PLAY_SVG}${esc(z.play)}</a><a class="btn store-tg" href="${botUrl(from)}" data-ev="bot_click" rel="noopener">${TG_SVG}${esc(z.bot)}</a></div></aside>`;
+}
+
 /* ---------- data ---------- */
 
 async function get(path) {
@@ -345,6 +415,27 @@ const cbuOf = (code) => cbuAll?.currencies.find((c) => c.code === code);
 // Central Bank rate of one unit, 0 when unknown.
 const perUnit = (code) => rates[code]?.cbu.rate || (cbuOf(code) ? cbuOf(code).rate / cbuOf(code).nominal : 0);
 for (const c of CURS) if (!(rates[c].banks?.length > 5)) throw new Error(`${c}: too few banks, refusing to build`);
+
+// Branches per city and bank, for the city pages: { slug → Map(bank slug → [addresses]) }. Only banks with a dollar rate.
+const cityBranches = await (async () => {
+  const data = await get("/api/branches").catch(skip("branches"));
+  if (!(data?.branches?.length > 500)) return {};
+  const km = (a, b) => 6371 * Math.hypot(((b.lng - a.lng) * Math.PI / 180) * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180), ((b.lat - a.lat) * Math.PI / 180));
+  const withRate = new Set(rates.USD.banks.filter((b) => b.buy > 0 && b.sell > 0).map((b) => bankSlug(b.bank)));
+  const out = {};
+  for (const br of data.branches) {
+    if (!(br.lat && br.lng) || !withRate.has(bankSlug(br.bank))) continue;
+    let best = null;
+    for (const c of CITIES) { const d = km(c, br); if (d <= c.km && (!best || d < best.d)) best = { c, d }; }
+    if (!best) continue;
+    const banks = (out[best.c.slug] ??= new Map());
+    const list = banks.get(bankSlug(br.bank)) || banks.set(bankSlug(br.bank), []).get(bankSlug(br.bank));
+    list.push(cleanAddr(br.address || "") || br.address || "");
+  }
+  for (const [slug, banks] of Object.entries(out)) if (banks.size < 5) delete out[slug];
+  return out;
+})();
+const cities = CITIES.filter((c) => cityBranches[c.slug]);
 
 // What the texts need about one currency, already formatted for `lang`.
 function summary(cur, lang) {
@@ -412,6 +503,7 @@ function linkBlock(lang, bankNames, skipCur) {
   return `${fold(y.amounts, `<ul class="seo-answers">${amounts.join("")}</ul>${back.length ? `<ul class="seo-answers">${back.join("")}</ul>` : ""}`)}
   ${fold(x.other, `<p class="seo-links">${curs.join("")}</p>`)}
   ${fold(x.allBanks, `<p class="seo-links">${bankNames.map((b) => link(bankUrl(lang, bankSlug(b)), b)).join("")}</p>`)}
+  ${cities.length ? fold(Z[lang].cities, `<p class="seo-links">${cities.map((c) => link(cityUrl(lang, c.slug), Z[lang].cityLink(cityName(lang, c)))).join("")}</p>`) : ""}
   <p class="seo-note">${esc(x.disclaimer)}</p>`;
 }
 const langLinks = (lang, urlOf) => LANGS.map((l) => `<a href="${urlOf(l)}" hreflang="${HTML_LANG[l]}"${l === lang ? ' class="on" aria-current="true"' : ""}>${LANG_LABEL[l]}</a>`).join("");
@@ -503,7 +595,7 @@ function currencyPage(lang, cur) {
 
 /* ---------- plain pages: banks, gold, 404 ---------- */
 
-function shell({ lang, url, urlOf, title, desc, graph, body, noindex, calc }) {
+function shell({ lang, url, urlOf, title, desc, graph, body, noindex, calc, noPromo }) {
   const x = X[lang], home = curUrl(lang, "USD");
   return `<!doctype html>
 <html lang="${HTML_LANG[lang]}">
@@ -528,9 +620,10 @@ ${FONT_LATIN}${isCyrillic(lang) ? "\n" + cyrillicFonts(lang) : ""}
   </div>
 </header>
 <main class="wrap page-main">
-${body}
+${body}${noindex || noPromo ? "" : "\n" + appPromo(lang, "page")}
 </main>
 <footer class="foot"><div class="wrap foot-in"><span>© ${new Date().getUTCFullYear()} Qulay Kurs</span><a class="foot-tg" href="https://t.me/qulay_kurs" rel="noopener">Telegram @qulay_kurs</a><a href="/privacy">Privacy</a></div></footer>${calc ? `\n<script src="/calc.js?v=${VERSION}" defer></script>` : ""}
+<script src="/ev.js?v=${VERSION}" defer></script>
 </body>
 </html>
 `;
@@ -562,6 +655,42 @@ function bankPage(lang, name, slug, allNames) {
   return shell({
     lang, url, urlOf: (l) => bankUrl(l, slug), title: x.bankTitle(name, x.bankShort(u)), desc: x.bankDesc(name, u), body,
     graph: [crumbs([["Qulay Kurs", home], [name, url]]), { "@type": "WebPage", name: x.bankH1(name), url: ORIGIN + url, inLanguage: HTML_LANG[lang], dateModified: rates[usd.cur].updatedAt, about: { "@type": "BankOrCreditUnion", name, ...(address ? { address } : {}) } }],
+  });
+}
+
+// "Samarqandda dollar kursi": the banks that have branches in the city, best buyer first, and where their branches are.
+function cityPage(lang, city, allNames) {
+  const x = X[lang], z = Z[lang], c = cityName(lang, city), url = cityUrl(lang, city.slug), home = curUrl(lang, "USD");
+  const branches = cityBranches[city.slug];
+  const banks = rates.USD.banks.filter((b) => b.buy > 0 && b.sell > 0 && branches.has(bankSlug(b.bank))).sort((a, b) => b.buy - a.buy || a.sell - b.sell);
+  const buyer = banks[0], seller = [...banks].sort((a, b) => a.sell - b.sell)[0];
+  const at = when(rates.USD.updatedAt, lang);
+  const count = banks.reduce((n, b) => n + branches.get(bankSlug(b.bank)).length, 0);
+  const s = { buy: rate(buyer.buy, lang), buyBank: buyer.bank, sell: rate(seller.sell, lang), sellBank: seller.bank, buy100: group(buyer.buy * 100), cbu: rate(rates.USD.cbu.rate, lang) };
+  const addrList = (b) => {
+    const list = [...new Set(branches.get(bankSlug(b.bank)).filter(Boolean))];
+    if (!list.length) return "";
+    return `<h3 class="addr-h">${esc(z.branchesOf(b.bank, c))}</h3><ul class="addr-list">${list.slice(0, 6).map((a) => `<li>${esc(a)}</li>`).join("")}${list.length > 6 ? `<li class="muted">${esc(z.more(list.length - 6))}</li>` : ""}</ul>`;
+  };
+  const body = `<nav class="crumbs" aria-label="Breadcrumb"><a href="${home}">Qulay Kurs</a><span>›</span><span>${esc(z.cityH1(c))}</span></nav>
+<div class="card page-card">
+  <div class="page-head"><div><h1>${esc(z.cityH1(c))}</h1><p class="muted">${esc(z.citySub(banks.length, count, at.date, at.time))}</p></div></div>
+  <div class="tbl-scroll"><table class="tbl page-tbl">
+    <thead><tr><th>${esc(z.colBank)}</th><th class="num">${esc(x.colBuy)}</th><th class="num">${esc(x.colSell)}</th><th class="num">${esc(z.colBranches)}</th></tr></thead>
+    <tbody>${banks.map((b) => `<tr><td><a href="${bankUrl(lang, bankSlug(b.bank))}">${esc(b.bank)}</a></td><td class="num${b.buy === buyer.buy ? " hi" : ""}">${rate(b.buy, lang)}</td><td class="num${b.sell === seller.sell ? " hi" : ""}">${rate(b.sell, lang)}</td><td class="num muted">${branches.get(bankSlug(b.bank)).length}</td></tr>`).join("")}</tbody>
+  </table></div>
+  <div class="page-text">
+    <p>${esc(z.cityLead(c, s))}</p>
+    <p class="muted">${esc(z.cityNote)}</p>
+    ${addrList(buyer)}${seller !== buyer ? addrList(seller) : ""}
+    <p><a class="btn btn-accent" href="${home}">${esc(x.compare)}</a></p>
+  </div>
+</div>
+${appPromo(lang, "city")}
+<section class="seo-copy">${linkBlock(lang, allNames, null)}</section>`;
+  return shell({
+    lang, url, urlOf: (l) => cityUrl(l, city.slug), title: z.cityTitle(c, s), desc: z.cityDesc(c, banks.length, s), body, noPromo: true,
+    graph: [crumbs([["Qulay Kurs", home], [z.cityH1(c), url]]), { "@type": "WebPage", name: z.cityH1(c), url: ORIGIN + url, inLanguage: HTML_LANG[lang], dateModified: rates.USD.updatedAt }],
   });
 }
 
@@ -725,6 +854,7 @@ const bySlug = new Map(bankNames.map((n) => [bankSlug(n), n])); // one page per 
 for (const lang of LANGS) {
   for (const cur of CURS) await page(curUrl(lang, cur), currencyPage(lang, cur), rates[cur].updatedAt, (l) => curUrl(l, cur));
   for (const [slug, name] of bySlug) await page(bankUrl(lang, slug), bankPage(lang, name, slug, [...bySlug.values()]), rates.USD.updatedAt, (l) => bankUrl(l, slug));
+  for (const city of cities) await page(cityUrl(lang, city.slug), cityPage(lang, city, [...bySlug.values()]), rates.USD.updatedAt, (l) => cityUrl(l, city.slug));
   if (gold) await page(goldUrl(lang), goldPage(lang, [...bySlug.values()]), gold.fetchedAt || rates.USD.updatedAt, goldUrl);
   if (cbuAll) {
     await page(allUrl(lang), allPage(lang, [...bySlug.values()]), cbuAll.updatedAt, allUrl);
@@ -769,4 +899,4 @@ await writeFile(join(DIST, "sitemap.xml"), sitemap);
 }
 // Read by the deploy workflow, which posts it to IndexNow after a deploy. Kept out of dist: it is not part of the site.
 await writeFile(join(HERE, ".indexnow.json"), JSON.stringify({ host: new URL(ORIGIN).host, key: INDEXNOW_KEY, keyLocation: `${ORIGIN}/${INDEXNOW_KEY}.txt`, urlList: pages.map(([url]) => ORIGIN + url) }));
-console.log(`Built ${pages.length} pages into dist (${bySlug.size} banks, rates as of ${rates.USD.updatedAt})`);
+console.log(`Built ${pages.length} pages into dist (${bySlug.size} banks, ${cities.length} cities, rates as of ${rates.USD.updatedAt})`);

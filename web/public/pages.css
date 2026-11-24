@@ -70,3 +70,8 @@ body.page .seo-copy { padding-top: 12px; }
   /* Bank names and column titles may wrap, so three-column tables fit a phone without scrolling. */
   .page-tbl td:first-child, .page-tbl th { white-space: normal; }
 }
+
+/* City pages: where the best banks' branches are. Long addresses wrap. */
+.addr-h { margin: 18px 0 6px; font-size: 15px; font-weight: 700; }
+.addr-list { margin: 0 0 8px; padding-left: 18px; font-size: 14px; color: var(--ink-2); overflow-wrap: anywhere; }
+.addr-list li { margin: 3px 0; }

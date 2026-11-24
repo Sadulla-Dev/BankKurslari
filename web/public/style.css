@@ -308,6 +308,12 @@ p { margin: 0; }
 /* Telegram blue, darkened until white text passes AA (5.3:1; the brand #229ED9 gives 3.0:1). */
 .store-tg { background: #17739E; color: #fff; height: 46px; font-size: 15px; transition: background .15s; }
 .store-tg:hover { background: #135F83; }
+.promo-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.promo .btn svg { margin-right: 8px; flex: none; }
+/* Google Play: near-black, the store's own button colour; white text passes AA in both themes. */
+.store-play { background: #1F2328; color: #fff; height: 46px; font-size: 15px; transition: background .15s; }
+.store-play:hover { background: #000; }
+.page-main > .app-promo { margin-top: 24px; }
 .foot-tg { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; font-weight: 600; }
 .foot-tg svg { color: #229ED9; }
 .foot-tg:hover span { text-decoration: underline; }
@@ -532,7 +538,7 @@ body.v-map .foot { display: none; }
   .tbl td.c-bank { min-width: 0; }
   .tbl-foot { padding: 12px 16px; }
   .promo { padding: 18px; margin-bottom: 24px; }
-  .promo .btn { width: 100%; }
+  .promo .btn, .promo-btns { width: 100%; }
   .mapv { grid-template-columns: minmax(0, 1fr); grid-template-rows: 58% 42%; height: calc(100dvh - var(--top-h) - 64px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px)); }
   .map-main { grid-row: 1; }
   .map-side { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); border-radius: 20px 20px 0 0; margin-top: -16px; position: relative; z-index: 6; box-shadow: 0 -8px 24px rgba(28, 29, 34, .08); }
