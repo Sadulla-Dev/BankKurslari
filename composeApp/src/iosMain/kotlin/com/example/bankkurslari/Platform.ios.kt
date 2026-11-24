@@ -21,6 +21,12 @@ import platform.Foundation.create
 import platform.Foundation.stringWithContentsOfFile
 import platform.Foundation.writeToFile
 import platform.Foundation.NSURL
+import platform.Foundation.NSData
+import platform.UIKit.UIImage
+import kotlinx.cinterop.usePinned
+import kotlinx.cinterop.addressOf
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
@@ -108,6 +114,19 @@ private fun topViewController(): UIViewController? {
     var vc = window.rootViewController
     while (vc?.presentedViewController != null) vc = vc.presentedViewController
     return vc
+}
+
+actual fun ImageBitmap.encodePng(): ByteArray =
+    org.jetbrains.skia.Image.makeFromBitmap(asSkiaBitmap()).encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)?.bytes ?: ByteArray(0)
+
+@OptIn(ExperimentalForeignApi::class)
+actual fun shareImage(png: ByteArray, text: String) {
+    val vc = topViewController() ?: return
+    val image = png.usePinned { pinned -> NSData.create(bytes = pinned.addressOf(0), length = png.size.toULong()) }.let { UIImage.imageWithData(it) }
+    if (image == null) return shareText(text)
+    val sheet = UIActivityViewController(activityItems = listOf(image, text), applicationActivities = null)
+    sheet.popoverPresentationController?.sourceView = vc.view
+    vc.presentViewController(sheet, animated = true, completion = null)
 }
 
 actual val usagePlatform: String = "ios"

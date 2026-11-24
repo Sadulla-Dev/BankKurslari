@@ -46,6 +46,7 @@ fun App(onDarkTheme: (Boolean) -> Unit = {}) {
                     RateService.setLanguage(it.code)
                 }
             )
+            ShareCardHost()
         }
     }
 }

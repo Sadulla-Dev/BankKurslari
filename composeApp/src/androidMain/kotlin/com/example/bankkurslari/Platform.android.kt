@@ -5,6 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
+import android.content.ClipData
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.core.content.FileProvider
+import java.io.ByteArrayOutputStream
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
@@ -103,6 +109,32 @@ actual fun shareText(text: String) {
         putExtra(Intent.EXTRA_TEXT, text)
     }
     start(Intent.createChooser(send, null))
+}
+
+actual fun ImageBitmap.encodePng(): ByteArray {
+    var bmp = asAndroidBitmap()
+    // A captured layer can be a HARDWARE bitmap, which cannot be read back directly.
+    if (bmp.config == Bitmap.Config.HARDWARE) bmp = bmp.copy(Bitmap.Config.ARGB_8888, false)
+    return ByteArrayOutputStream().use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 100, out); out.toByteArray() }
+}
+
+/** The picture goes through the FileProvider declared in androidApp's manifest ("<package>.share", cache/share/). */
+actual fun shareImage(png: ByteArray, text: String) {
+    val ctx = AndroidPlatform.context
+    val ok = runCatching {
+        val dir = File(ctx.cacheDir, "share").apply { mkdirs() }
+        val file = File(dir, "qulaykurs.png").apply { writeBytes(png) }
+        val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".share", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TEXT, text)
+            clipData = ClipData.newRawUri(null, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        start(Intent.createChooser(send, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+    }.getOrDefault(false)
+    if (!ok) shareText(text)
 }
 
 actual val usagePlatform: String = "android"

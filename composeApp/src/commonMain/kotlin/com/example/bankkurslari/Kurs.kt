@@ -257,13 +257,11 @@ fun kShareText(item: RankedBank, currency: Currency, amount: Double, updatedAt: 
     val total = if (amount > 0) item.total else item.perUnit.toLong()
     val time = updatedAt?.formatUpdatedAt()?.let { " ($it)" }.orEmpty()
     val head = if (best) (pick(lang, "Eng yaxshi kurs", "Лучший курс", "Best rate")) else (pick(lang, "Kurs", "Курс", "Rate"))
-    return "$head: ${kGroup(amt)} ${currency.code} → ${kGroup(total)} ${kSom(ru)} — ${item.rate.bank}$time"
+    // The link is what brings the reader of a shared message to us; the bot answers any other amount in Telegram.
+    return "$head: ${kGroup(amt)} ${currency.code} → ${kGroup(total)} ${kSom(ru)} — ${item.rate.bank}$time\n" +
+        pick(lang, "Barcha banklar: qulaykurs.uz · Telegram: @qulaykursbot", "Все банки: qulaykurs.uz · Telegram: @qulaykursbot", "All banks: qulaykurs.uz · Telegram: @qulaykursbot")
 }
 
-fun kShare(text: String) {
-    Usage.track("share")
-    shareText(text)
-}
 
 /* ---------- small building blocks ---------- */
 

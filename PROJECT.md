@@ -197,6 +197,17 @@ Himoya: bank.uz ishlamasa, bloklasa yoki sahifasini o‘zgartirsa, banklar soni 
 | `GET /api/gold` | MB oltin quymalari narxlari (cbu.uz), 1 soatlik kesh |
 | `GET /api/analytics/:cur` | Eski prognoz endpointi — ilova endi ishlatmaydi |
 
+### Telegram bot va hisoblagichlar (`backend/bot`)
+
+Alohida Worker `qulaykurs-bot` (`bot.qulaykurs.uz`), API Worker'dan ajratilgan: u har soat CI orqali qayta deploy bo‘ladi va buzilmasligi kerak. Qo‘lda deploy qilinadi; sozlash: `backend/bot/README.md`.
+
+- **@qulaykursbot**: “500 dollar”, “1000 yevro sotib olaman”, “5 mln so‘m dollar”, “kurs” → eng yaxshi 5 bank, valyuta/yo‘nalish tugmalari, saytga havola. Inline rejim: istalgan chatda `@qulaykursbot 1000 usd`.
+- **Ogohlantirishlar** (“dollar 12 100 dan oshsa”), soatda bir tekshiriladi, `Alerts.kt` qoidasi bilan. iOS va web foydalanuvchilari uchun yagona yo‘l.
+- **Kanalga qo‘shimcha post**: eng yaxshi kurs ertalabkidan keskin o‘zgarsa (USD 0,4%), kuniga ko‘pi bilan bitta.
+- **Anonim hisoblagichlar** `POST /e`: ilova (`Usage.kt`) va sayt (`web/public/ev.js`) kunlik jami sonni yuboradi, identifikatorsiz. Egasi botga `/stats` yozadi.
+- Sayt: shahar sahifalari (`/shahar/<shahar>`), har sahifada Google Play va bot tugmalari.
+- Ilova: bank oynasidagi “Ulashish” rasm (`ShareCard.kt`) va havolali matn yuboradi.
+
 ---
 
 ## 4. Ishga tushirish

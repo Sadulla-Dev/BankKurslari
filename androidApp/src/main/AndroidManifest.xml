@@ -115,6 +115,14 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/rate_widget_info_compact_rub" />
         </receiver>
+        <!-- Share pictures (ShareCard.kt): the system share sheet reads cache/share/ through this provider. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/share_paths" />
+        </provider>
     </application>
 
 </manifest>

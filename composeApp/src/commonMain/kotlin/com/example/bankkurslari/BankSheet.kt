@@ -88,12 +88,12 @@ fun BankSheet(
     val buy = item.rate.buy
     val sellRate = item.rate.sell
     val time = updatedAt?.formatUpdatedAt()
-    val shareText = kShareText(item, currency, amount, updatedAt, false)
     val schedule = formatHours(item.hours, ru) ?: item.hours?.takeIf { it.isNotBlank() }
     val prev = rememberBankYesterday(item, currency)
     var locationOn by remember { mutableStateOf(hasLocationPermission()) }
     val requestLocation = rememberLocationPermissionRequest { granted -> locationOn = granted }
     LaunchedEffect(Unit) { Usage.track("bank_sheet") }
+    val shareCard = shareCardFor(item, currency, amount, sell, updatedAt, best != null && best.rate.bank == item.rate.bank)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -225,7 +225,7 @@ fun BankSheet(
                     modifier = Modifier.weight(1f).alpha(if (canRoute) 1f else 0.4f),
                     icon = Icons.Outlined.Directions
                 )
-                VsSecondaryButton(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share"), { kShare(shareText) })
+                VsSecondaryButton(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share"), { ShareCards.share(shareCard) })
             }
             if (time != null) {
                 Text(
