@@ -274,15 +274,15 @@ fun TarixScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                (pick(lang, "Manba: bank.uz, cbu.uz", "Источник: bank.uz, cbu.uz", "Source: bank.uz, cbu.uz")) + if (time.isNotEmpty()) " · $time" else "",
+                (pick(lang, "Manba: cbu.uz", "Источник: cbu.uz", "Source: cbu.uz")) + if (time.isNotEmpty()) " · $time" else "",
                 style = VsType.Meta, color = VsInkSoft
             )
         }
         if (sourcesOpen) {
             Text(
-                pick(lang, "bank.uz — banklarning naqd kurslari.\ncbu.uz — Markaziy bank kursi va tarixi.",
-                    "bank.uz — наличные курсы банков.\ncbu.uz — курс ЦБ и его история.",
-                    "bank.uz — banks’ cash rates.\ncbu.uz — Central Bank rate and history."),
+                pick(lang, "cbu.uz — Markaziy bank kursi va tarixi.",
+                    "cbu.uz — курс ЦБ и его история.",
+                    "cbu.uz — Central Bank rate and history."),
                 style = VsType.Meta, color = VsInkSoft, modifier = Modifier.padding(horizontal = 4.dp)
             )
         }

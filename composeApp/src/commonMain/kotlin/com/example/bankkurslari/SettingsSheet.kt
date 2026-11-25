@@ -243,8 +243,8 @@ fun SettingsScreen(
                     Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             tr(
-                                "Banklar: bank.uz. Markaziy bank: cbu.uz. Xarita: OpenStreetMap, Esri.",
-                                "Банки: bank.uz. ЦБ: cbu.uz. Карта: OpenStreetMap, Esri."
+                                "Markaziy bank: cbu.uz. Xarita: OpenStreetMap, Esri.",
+                                "ЦБ: cbu.uz. Карта: OpenStreetMap, Esri."
                             ),
                             style = VsType.Meta, color = VsInkSoft
                         )
