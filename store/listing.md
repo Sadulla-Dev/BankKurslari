@@ -90,3 +90,39 @@ Telegram: @qulay_kurs · qulaykurs.uz
 - uz: `Birinchi versiya: banklar kurslari, xarita, kurs tarixi, ogohlantirishlar va vidjetlar.`
 - ru: `Первая версия: курсы банков, карта, история курса, оповещения и виджеты.`
 - en: `First release: bank rates, map, rate history, alerts and widgets.`
+
+## Release notes v1.1 (versionCode 2)
+- uz:
+```
+• Yangi dizayn va yangi belgi
+• Funt, frank, iyena, tenge va yuan kurslari
+• Valyutani valyutaga almashtirish: masalan, dollardan yevroga eng foydali yo‘l
+• Bank kursini rasm bilan ulashish
+• Tarixda Markaziy bank oltin quymalari narxi
+• Soddaroq valyuta tanlash va tozaroq grafik
+• Tezroq ishga tushadi
+```
+- ru:
+```
+• Новый дизайн и новая иконка
+• Курсы фунта, франка, иены, тенге и юаня
+• Обмен валюты на валюту: например, самый выгодный путь из долларов в евро
+• Поделиться курсом банка картинкой
+• Цены золотых слитков ЦБ в истории
+• Проще выбор валюты и чище график
+• Быстрее запускается
+```
+- en:
+```
+• New design and new icon
+• Pound, franc, yen, tenge and yuan rates
+• Currency to currency: e.g. the best way from dollars to euros
+• Share a bank's rate as a picture
+• Central Bank gold bar prices in History
+• Simpler currency menu and a cleaner chart
+• Faster start
+```
+
+Upload: `androidApp/build/outputs/bundle/release/androidApp-release.aab` (./gradlew :androidApp:bundleRelease).
+Store icon for this release: `store/upload-1.1/icon-512.png` (512×512, 32-bit PNG with alpha, as Play asks; the
+24-bit `store/icon-512.png` is the same picture). The live listing still showed the pre-rebrand icon (green chart line).
