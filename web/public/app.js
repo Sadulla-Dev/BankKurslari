@@ -48,7 +48,7 @@ const S = {
   sort: "best", query: "",
   rates: {}, history: {}, bankHist: {},
   branches: null, user: null,
-  range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null, open: new Set(),
+  range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null,
   map: null, markers: [], meMarker: null, hl: null
 };
 const L = () => T[S.lang];
@@ -513,22 +513,19 @@ function bindAll() {
 
 /* ---------- bank table ---------- */
 
-/** Banks in rank order, grouped where the rate is the same (bank.uz rates come in steps of 5 so'm, so ties are common). */
-function tiersOf(rows) {
-  const out = [];
-  for (const r of rows) {
-    const last = out[out.length - 1];
-    if (last && Math.abs(last.rate - r.rate) < 0.005) last.banks.push(r);
-    else out.push({ rate: r.rate, key: r.rate.toFixed(2), banks: [r] });
+/**
+ * Rank of each rate in the list, 1 = best. Banks with the same rate share a rank (bank.uz rates come in steps of 5
+ * so'm, so ties are common): every bank keeps its own row, so the one next to you is found without opening anything.
+ */
+function ranksOf(list) {
+  const ranks = new Map();
+  let rank = 0, prev = null;
+  for (const b of list) {
+    if (prev == null || Math.abs(prev - b.rate) >= 0.005) { rank++; prev = b.rate; }
+    ranks.set(b.bank, rank);
   }
-  return out;
+  return ranks;
 }
-const rangeFmt = (vals) => {
-  const v = vals.filter((x) => x > 0);
-  if (!v.length) return "—";
-  const lo = Math.min(...v), hi = Math.max(...v);
-  return lo === hi ? rateFmt(lo) : `${rateFmt(lo)}–${rateFmt(hi)}`;
-};
 function renderTable() {
   const t = L();
   const d = S.rates[S.cur];
@@ -565,38 +562,28 @@ function renderTable() {
     ? `<small class="best">${esc(t.best)}</small>`
     : `<small class="${diff >= WORTH ? "warn" : ""}"><i class="gap" style="--w:${Math.max(0.08, diff / maxGap).toFixed(3)}"></i>${esc((S.mode === "sell" ? t.less : t.more)(group(diff)))}</small>`;
   const kmCell = (km) => (S.user ? `<td class="num c-km">${km != null ? t.km(kmFmt(km)) : "—"}</td>` : "");
-  const bankRow = (b, cls = "") => {
+  // Rank by rate, shared by banks with the same rate. In rate order a run of equal rates reads as one block: the line
+  // between its rows is dropped (class "tie-next") and the gap to the best is said once, on its first row.
+  const ranks = ranksOf(list);
+  const byRate = S.sort === "best" && !q;
+  const bankRow = (b, i) => {
     const diff = Math.abs(b.rate - best.rate) * S.amount;
     const isBest = diff < 0.5;
+    const rank = ranks.get(b.bank);
+    const tieNext = byRate && rows[i + 1] && ranks.get(rows[i + 1].bank) === rank;
+    const tiePrev = byRate && i > 0 && ranks.get(rows[i - 1].bank) === rank;
+    const gap = tiePrev && !isBest ? "<small>&nbsp;</small>" : gapCell(diff);
     const sub = b.nb?.km != null ? t.away(kmFmt(b.nb.km)) : cleanAddr(b.nb?.address || b.branch?.address);
-    return `<tr data-bank="${esc(b.bank)}" class="${[isBest ? "top1" : "", cls].join(" ").trim()}">
-      <td class="c-bank"><span class="bn">${badgeHTML(b.bank, isBest ? "accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(sub)}</small></span></span></td>
+    return `<tr data-bank="${esc(b.bank)}" class="${[isBest ? "top1" : "", tieNext ? "tie-next" : ""].join(" ").trim()}">
+      <td class="c-bank"><span class="bn"><span class="rk" title="${esc(t.rank(rank))}">${rank}</span>${badgeHTML(b.bank, isBest ? "accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(sub)}</small></span></span></td>
       <td class="num c-buy ${b.buy === maxBuy ? "hi" : ""}">${b.buy ? rateFmt(b.buy) : "—"}</td>
       <td class="num c-sell ${b.sell === minSell ? "hi" : ""}">${b.sell ? rateFmt(b.sell) : "—"}</td>
-      <td class="num c-get get"><b>${group(b.rate * S.amount)}</b>${gapCell(diff)}</td>
-      <td class="num c-m get"><b>${rateFmt(b.rate)}</b>${gapCell(diff)}</td>
+      <td class="num c-get get"><b>${group(b.rate * S.amount)}</b>${gap}</td>
+      <td class="num c-m get"><b>${rateFmt(b.rate)}</b>${gap}</td>
       ${kmCell(b.nb?.km)}
     </tr>`;
   };
-  // Ranked by the answer and not searched: one row per rate, so 29 banks read as the handful of offers they are.
-  // The best rate always shows its banks; any other group opens on tap.
-  if (S.sort !== "best" || q) { $("tbody").innerHTML = rows.map((b) => bankRow(b)).join(""); return; }
-  $("tbody").innerHTML = tiersOf(rows).map((tier, i) => {
-    if (i === 0 || tier.banks.length === 1) return tier.banks.map((b) => bankRow(b)).join("");
-    const open = S.open.has(tier.key);
-    const diff = Math.abs(tier.rate - best.rate) * S.amount;
-    const names = tier.banks.slice(0, 3).map((b) => shortName(b.bank)).join(", ") + (tier.banks.length > 3 ? "…" : "");
-    const kms = tier.banks.map((b) => b.nb?.km).filter((k) => k != null);
-    const head = `<tr class="tier${open ? " open" : ""}" data-tier="${tier.key}">
-      <td class="c-bank"><span class="bn"><span class="stack">${tier.banks.slice(0, 2).map((b) => badgeHTML(b.bank, "sm")).join("")}</span><span><button type="button" class="bn-name" aria-expanded="${open}"><b>${esc(t.tier(tier.banks.length))}</b><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><small>${esc(names)}</small></span></span></td>
-      <td class="num c-buy">${rangeFmt(tier.banks.map((b) => b.buy))}</td>
-      <td class="num c-sell">${rangeFmt(tier.banks.map((b) => b.sell))}</td>
-      <td class="num c-get get"><b>${group(tier.rate * S.amount)}</b>${gapCell(diff)}</td>
-      <td class="num c-m get"><b>${rateFmt(tier.rate)}</b>${gapCell(diff)}</td>
-      ${kmCell(kms.length ? Math.min(...kms) : null)}
-    </tr>`;
-    return head + (open ? tier.banks.map((b) => bankRow(b, "sub")).join("") : "");
-  }).join("");
+  $("tbody").innerHTML = rows.map(bankRow).join("");
 }
 
 /* ---------- bank sheet ---------- */
@@ -1448,14 +1435,6 @@ function bind() {
     if (s) { S.sort = s; renderTable(); }
   });
   $("tbody").addEventListener("click", (e) => {
-    const tier = e.target.closest("tr.tier");
-    if (tier) {
-      const k = tier.dataset.tier;
-      if (S.open.has(k)) S.open.delete(k); else S.open.add(k);
-      renderTable();
-      document.querySelector(`tr.tier[data-tier="${k}"] .bn-name`)?.focus({ preventScroll: true });
-      return;
-    }
     const r = e.target.closest("tr[data-bank]");
     if (r) openSheet(r.dataset.bank);
   });

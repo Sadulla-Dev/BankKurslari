@@ -279,17 +279,11 @@ p { margin: 0; }
 .bn-name { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; padding: 0; border: 0; background: none; text-align: left; color: inherit; font: inherit; cursor: pointer; }
 .bn-name:focus-visible { outline-offset: 3px; border-radius: 4px; }
 .bn-name b { min-width: 0; }
-.chev { flex: none; color: var(--ink-3); transition: transform .2s; }
-.tier.open .chev { transform: rotate(180deg); }
-.tier .c-buy, .tier .c-sell { color: var(--ink-2); }
-/* The first two logos of a rate group, overlapping in the 40px a single logo takes. */
-.stack { display: flex; flex: none; align-items: center; width: 40px; height: 40px; }
-.stack .badge.sm { width: 24px; height: 24px; border-radius: 7px; background: #fff; box-shadow: 0 0 0 2px var(--card); }
-.stack .badge.sm img { padding: 2px; }
-.stack .badge.sm + .badge.sm { margin-left: -8px; }
-.stack .badge.sm:only-child { margin-left: 8px; }
-.tbl tr.sub td.c-bank { padding-left: 46px; }
-.tbl tr.sub { background: color-mix(in srgb, var(--fill) 45%, transparent); }
+/* Rank by rate; banks with the same rate share it. */
+.rk { flex: none; width: 18px; margin-right: -4px; text-align: right; font-size: 13px; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.top1 .rk { color: var(--accent); }
+/* Equal rates in a row read as one block: no line between them. */
+.tbl tr.tie-next td { border-bottom-color: transparent; }
 .tbl-foot { padding: 14px 22px 18px; font-size: 13px; border-top: 1px solid var(--line); }
 .empty { padding: 32px 22px; text-align: center; color: var(--ink-2); }
 .skel-row td { height: 64px; }
@@ -542,9 +536,8 @@ body.v-map .foot { display: none; }
   .tbl td { padding: 0; border: 0; }
   .tbl td.c-buy, .tbl td.c-sell, .tbl td.c-get { display: none; }
   .tbl td.c-m { display: block; }
-  .tbl tr.sub { padding-left: 30px; }
-  .tbl tr.sub td.c-bank { padding-left: 0; }
-  .tbl td.c-km { grid-column: 1; text-align: left; font-size: 12px; color: var(--ink-2); padding-left: 52px; margin-top: -2px; }
+  .tbl tr.tie-next { border-bottom-color: transparent; }
+  .tbl td.c-km { grid-column: 1; text-align: left; font-size: 12px; color: var(--ink-2); padding-left: 78px; margin-top: -2px; }
   .bn > span:last-child { min-width: 0; }
   .bn b, .bn small { max-width: 100%; }
   .tbl td.c-bank { min-width: 0; }

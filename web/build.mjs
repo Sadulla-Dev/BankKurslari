@@ -548,31 +548,23 @@ function currencyPage(lang, cur) {
   const best = s.bestBuy.buy, maxGap = (best - s.byBuy.at(-1).buy) * 100 || 1;
   const gapCell = (diff) => (diff < 0.5 ? `<small class="best">${esc(t.best)}</small>`
     : `<small class="${diff >= WORTH ? "warn" : ""}"><i class="gap" style="--w:${Math.max(0.08, diff / maxGap).toFixed(3)}"></i>${esc(t.less(group(diff)))}</small>`);
-  const range = (vals) => { const v = vals.filter((n) => n > 0); if (!v.length) return "—"; const lo = Math.min(...v), hi = Math.max(...v); return lo === hi ? rate(lo, lang) : `${rate(lo, lang)}–${rate(hi, lang)}`; };
-  const bankRow = (b) => {
-    const diff = (best - b.buy) * 100, top = diff < 0.5;
-    return `<tr data-bank="${esc(b.bank)}"${top ? ' class="top1"' : ""}>
-      <td class="c-bank"><span class="bn">${badge(b.bank, top ? " accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(cleanAddr(b.branch?.address || ""))}</small></span></span></td>
+  // Rank by rate, shared by equal rates; a run of equal rates has no line between its rows and says the gap once.
+  const ranks = [];
+  s.byBuy.forEach((b, i) => ranks.push(i && Math.abs(s.byBuy[i - 1].buy - b.buy) < 0.005 ? ranks[i - 1] : (ranks[i - 1] || 0) + 1));
+  const bankRow = (b, i) => {
+    const diff = (best - b.buy) * 100, top = diff < 0.5, rank = ranks[i];
+    const tieNext = ranks[i + 1] === rank, tiePrev = i > 0 && ranks[i - 1] === rank;
+    const gap = tiePrev && !top ? "<small>&nbsp;</small>" : gapCell(diff);
+    const cls = [top ? "top1" : "", tieNext ? "tie-next" : ""].filter(Boolean).join(" ");
+    return `<tr data-bank="${esc(b.bank)}"${cls ? ` class="${cls}"` : ""}>
+      <td class="c-bank"><span class="bn"><span class="rk" title="${esc(t.rank(rank))}">${rank}</span>${badge(b.bank, top ? " accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(cleanAddr(b.branch?.address || ""))}</small></span></span></td>
       <td class="num c-buy${b.buy === s.bestBuy.buy ? " hi" : ""}">${rate(b.buy, lang)}</td>
       <td class="num c-sell${b.sell === s.bestSell.sell ? " hi" : ""}">${b.sell ? rate(b.sell, lang) : "—"}</td>
-      <td class="num c-get get"><b>${group(b.buy * 100)}</b>${gapCell(diff)}</td>
-      <td class="num c-m get"><b>${rate(b.buy, lang)}</b>${gapCell(diff)}</td>
+      <td class="num c-get get"><b>${group(b.buy * 100)}</b>${gap}</td>
+      <td class="num c-m get"><b>${rate(b.buy, lang)}</b>${gap}</td>
     </tr>`;
   };
-  const tiers = [];
-  for (const b of s.byBuy) { const last = tiers.at(-1); if (last && Math.abs(last.rate - b.buy) < 0.005) last.banks.push(b); else tiers.push({ rate: b.buy, banks: [b] }); }
-  const rows = tiers.map((tier, i) => {
-    if (i === 0 || tier.banks.length === 1) return tier.banks.map(bankRow).join("\n");
-    const diff = (best - tier.rate) * 100, n = tier.banks.length;
-    const names = tier.banks.slice(0, 3).map((b) => shortName(b.bank)).join(", ") + (n > 3 ? "…" : "");
-    return `<tr class="tier" data-tier="${tier.rate.toFixed(2)}">
-      <td class="c-bank"><span class="bn"><span class="stack">${tier.banks.slice(0, 2).map((b) => badge(b.bank, " sm")).join("")}</span><span><button type="button" class="bn-name" aria-expanded="false"><b>${esc(t.tier(n))}</b><svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><small>${esc(names)}</small></span></span></td>
-      <td class="num c-buy">${range(tier.banks.map((b) => b.buy))}</td>
-      <td class="num c-sell">${range(tier.banks.map((b) => b.sell))}</td>
-      <td class="num c-get get"><b>${group(tier.rate * 100)}</b>${gapCell(diff)}</td>
-      <td class="num c-m get"><b>${rate(tier.rate, lang)}</b>${gapCell(diff)}</td>
-    </tr>`;
-  }).join("\n");
+  const rows = s.byBuy.map(bankRow).join("\n");
   // The verdict under the answer, for "I sell, 100" (renderVerdict() in app.js).
   const gap = (best - s.byBuy.at(-1).buy) * 100;
   const within = (Math.max(0.1, Math.ceil(((best - s.byBuy.at(-1).buy) / best) * 1000) / 10)).toFixed(1).replace(".", lang === "en" ? "." : ",") + "%";
