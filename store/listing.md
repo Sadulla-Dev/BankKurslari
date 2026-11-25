@@ -7,6 +7,9 @@ Category: Finance · Tags: Currency converter, Finance news/tools
 Price: Free · Ads: No · Countries: all
 
 ## App name (≤30)
+Play Console (25.11.2026): the default listing language is en-US and holds the Uzbek name and short description
+(Uzbek-language phones see the default). ru-RU was added as a translation on 25.11.2026. There is no uz listing, so
+Play rejects `<uz>` release notes: v1.1 went out with en-US and ru-RU notes.
 The name carries the words people search for: in Russian “курс валют узбекистана” (the two biggest competitors are
 named exactly that), in Uzbek “dollar kursi”. The brand stays at the end. Play counts characters, the limit is 30.
 - uz / default: `Dollar kursi – Qulay Kurs` (25)
