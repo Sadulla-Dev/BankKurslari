@@ -83,6 +83,18 @@ enum class Currency(
 
     fun displayName(lang: Lang) = pick(lang, nameUz, nameRu, nameEn)
 
+    /** One word, for the currency menu: "Frank", not "Shveytsariya franki". */
+    fun shortName(lang: Lang) = when (this) {
+        USD -> pick(lang, "Dollar", "Доллар", "Dollar")
+        EUR -> pick(lang, "Yevro", "Евро", "Euro")
+        RUB -> pick(lang, "Rubl", "Рубль", "Ruble")
+        GBP -> pick(lang, "Funt", "Фунт", "Pound")
+        CHF -> pick(lang, "Frank", "Франк", "Franc")
+        JPY -> pick(lang, "Iyena", "Иена", "Yen")
+        KZT -> pick(lang, "Tenge", "Тенге", "Tenge")
+        CNY -> pick(lang, "Yuan", "Юань", "Yuan")
+    }
+
     companion object {
         /** Tabs, tickers, history, settings: currencies with full data. */
         val MAIN: List<Currency> = entries.filter { it.main }

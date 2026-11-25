@@ -234,8 +234,7 @@ fun InteractiveHistory(
     val axisStyle = VsType.Meta.copy(fontSize = 12.sp, color = inkSoft)
     val bubbleStyle = VsType.Value.copy(fontSize = 13.sp)
     val noteStyle = VsType.Meta.copy(fontSize = 12.sp)
-    val lowLabel = pick(lang, "eng past", "минимум", "the low")
-    val highLabel = pick(lang, "eng yuqori", "максимум", "the high")
+    val tagStyle = VsType.Value.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     val todayLabel = pick(lang, "bugun", "сегодня", "today")
 
     // Y range follows the visible slice smoothly.
@@ -321,7 +320,10 @@ fun InteractiveHistory(
         val plotB = h - bottomPx
         val hair = 1.dp.toPx()
         fun xOf(tv: Double) = leftPx + ((tv - vp.start) / vp.span).toFloat() * plotW
-        fun yOf(v: Double) = topPx + (1f - ((v - yMin) / (yMax - yMin)).toFloat()) * (plotB - topPx)
+        // The line keeps clear of the plot's top and bottom edge by a tag's height, so the value tags of the high and
+        // the low fit above / below their markers instead of landing on the line.
+        val tagRoom = 24.dp.toPx()
+        fun yOf(v: Double) = topPx + tagRoom + (1f - ((v - yMin) / (yMax - yMin)).toFloat()) * (plotB - topPx - 2 * tagRoom)
 
         // y grid + labels
         ticks.forEach { v ->
@@ -358,7 +360,8 @@ fun InteractiveHistory(
             drawPath(path, accent, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
 
-        // markers: the low of the visible window (named by a chip while idle) and today
+        // Markers: the low and the high of the visible window, and today. While idle the low and the high carry their
+        // value as a light tag (the cards under the chart name them with dates); a dark chip appears only while scrubbing.
         val lowIdx = inside.minByOrNull { series[it].rate }
         val showToday = vp.end >= last - 0.5
         val dotA = ((reveal.value - 0.85f) / 0.15f).coerceIn(0f, 1f)
@@ -370,11 +373,8 @@ fun InteractiveHistory(
             if (idleA > 0f) {
                 val v = series[lowIdx].rate
                 val vText = if (amountMode) (v * amt).roundToLong().formatUzsL() else if (today >= 1000) v.roundToLong().formatUzsL() else v.formatRate()
-                val txt = "$vText, ${dayMonthOf(t[lowIdx].toLong())}, $lowLabel"
-                // Dotted guide from the chip down to the marker.
-                drawLine(ink.copy(alpha = 0.7f * idleA), Offset(lx, topPx), Offset(lx, ly - 6.dp.toPx()), strokeWidth = hair,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(2f, 6f)))
-                drawChip(measurer, listOf(txt to bubbleStyle.copy(fontSize = 12.sp, color = bg.copy(alpha = idleA))), lx, ly, leftPx, w - rightPx, topPx, plotB, ink, idleA)
+                drawTag(measurer, vText, tagStyle.copy(color = inkSoft.copy(alpha = idleA)), lx, ly, above = false,
+                    left = leftPx, right = w - rightPx, top = topPx, bottom = plotB, fill = card, border = line, alpha = idleA)
             }
         }
         // The high of the window, marked the same way as the low (chip above the line).
@@ -387,7 +387,8 @@ fun InteractiveHistory(
             if (idleA > 0f) {
                 val v = series[highIdx].rate
                 val vText = if (amountMode) (v * amt).roundToLong().formatUzsL() else if (today >= 1000) v.roundToLong().formatUzsL() else v.formatRate()
-                drawChip(measurer, listOf("$vText, $highLabel" to bubbleStyle.copy(fontSize = 12.sp, color = bg.copy(alpha = idleA))), hx, hy, leftPx, w - rightPx, topPx, plotB, ink, idleA)
+                drawTag(measurer, vText, tagStyle.copy(color = inkSoft.copy(alpha = idleA)), hx, hy, above = true,
+                    left = leftPx, right = w - rightPx, top = topPx, bottom = plotB, fill = card, border = line, alpha = idleA)
             }
         }
         if (showToday) {
@@ -559,19 +560,40 @@ private fun DrawScope.drawChip(
     rs.forEach { r -> drawText(r, topLeft = Offset(bx + padH, y)); y += r.size.height }
 }
 
+/**
+ * Light value tag for a marker at [cx],[cy]: above it ([above]) or below it, beside it when neither fits, always inside
+ * the bounds. Card-coloured with a hairline, so it stays readable over the grid without weighing on the line.
+ */
+private fun DrawScope.drawTag(
+    measurer: TextMeasurer, text: String, style: TextStyle, cx: Float, cy: Float, above: Boolean,
+    left: Float, right: Float, top: Float, bottom: Float, fill: Color, border: Color, alpha: Float
+) {
+    val r = measurer.measure(text, style)
+    val padH = 6.dp.toPx(); val padV = 2.dp.toPx(); val gap = 8.dp.toPx()
+    val bw = r.size.width + padH * 2
+    val bh = r.size.height + padV * 2
+    val fitsAbove = cy - gap - bh >= top
+    val fitsBelow = cy + gap + bh <= bottom
+    // The preferred side first; then beside the marker (the other side is where the line goes); the other side last.
+    val (bx, by) = when {
+        above && fitsAbove -> (cx - bw / 2) to (cy - gap - bh)
+        !above && fitsBelow -> (cx - bw / 2) to (cy + gap)
+        cx + gap + bw <= right -> (cx + gap) to (cy - bh / 2)
+        cx - gap - bw >= left -> (cx - gap - bw) to (cy - bh / 2)
+        fitsAbove -> (cx - bw / 2) to (cy - gap - bh)
+        else -> (cx - bw / 2) to (cy + gap)
+    }
+    val x = bx.coerceIn(left, max(left, right - bw))
+    val y = by.coerceIn(top, max(top, bottom - bh))
+    val corner = CornerRadius(6.dp.toPx())
+    drawRoundRect(fill.copy(alpha = 0.92f * alpha), Offset(x, y), Size(bw, bh), corner)
+    drawRoundRect(border.copy(alpha = alpha), Offset(x, y), Size(bw, bh), corner, style = Stroke(width = 1.dp.toPx()))
+    drawText(r, topLeft = Offset(x + padH, y + padV))
+}
+
 private fun shortDay(iso: String): String {
     val p = iso.take(10).split("-")
     return if (p.size == 3) "${p[2]}.${p[1]}.${p[0].takeLast(2)}" else iso
-}
-
-/** "3 oktabr" / "3 октября" / "3 Oct". */
-private fun dayMonthOf(epochDay: Long): String {
-    val d = LocalDate.fromEpochDays(epochDay.toInt())
-    val i = d.month.number - 1
-    val uz = listOf("yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr")
-    val ru = listOf("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря")
-    val en = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-    return "${d.day} " + pick(lang, uz[i], ru[i], en[i])
 }
 
 /** "dd.MM" or, with [withYear], "dd.MM.yy". */

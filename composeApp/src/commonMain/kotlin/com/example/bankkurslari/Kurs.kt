@@ -96,6 +96,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -634,7 +635,7 @@ fun KursScreen(
             // Topbar: live dot + "Rates at 13:34" + search + settings.
             item(key = "top") {
                 Box(Modifier.rise(entrance, 0)) { TodayTopBar(
-                    updatedAt = payload.updatedAt, offline = offline, news = news,
+                    news = news,
                     searchOpen = searchOpen,
                     onToggleSearch = { searchOpen = !searchOpen; if (!searchOpen) query = "" },
                     onOpenSettings = onOpenSettings
@@ -714,53 +715,33 @@ fun KursScreen(
                                             expanded = ccyMenu, onDismissRequest = { ccyMenu = false },
                                             containerColor = VsCard, shape = VsShape.Panel
                                         ) {
-                                            Currency.MAIN.forEach { c ->
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text("${c.symbol}  ${c.code}  ·  ${c.displayName(lang)}", style = VsType.Body, color = if (c == currency) VsEmerald else VsInk)
-                                                    },
-                                                    trailingIcon = { if (c == currency) Icon(Icons.Outlined.Check, null, tint = VsEmerald) },
-                                                    onClick = { ccyMenu = false; onCurrency(c) }
-                                                )
-                                            }
+                                            // One short line per currency: symbol, code and a one-word name. The extra ones (fewer
+                                            // banks trade them) follow a divider, the Central Bank list comes last.
+                                            @Composable
+                                            fun CcyItem(c: Currency) = DropdownMenuItem(
+                                                text = {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(c.symbol, style = VsType.BodyMedium, color = VsInkSoft, textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.width(28.dp))
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(c.code, style = VsType.BodyMedium, color = VsInk, modifier = Modifier.width(48.dp))
+                                                        Text(c.shortName(lang), style = VsType.Body, color = VsInkSoft, maxLines = 1)
+                                                    }
+                                                },
+                                                trailingIcon = { if (c == currency) Icon(Icons.Outlined.Check, null, tint = VsEmerald, modifier = Modifier.size(20.dp)) },
+                                                onClick = { ccyMenu = false; onCurrency(c) }
+                                            )
+                                            Currency.MAIN.forEach { CcyItem(it) }
                                             // Other currencies banks buy and sell for cash, most banks first.
                                             val extras = Currency.EXTRA.filter { (extraBanks[it] ?: 0) > 0 || it == currency }
                                                 .sortedByDescending { extraBanks[it] ?: 0 }
                                             if (extras.isNotEmpty()) {
                                                 HorizontalDivider(color = VsLine, modifier = Modifier.padding(vertical = 4.dp))
-                                                Text(
-                                                    tr("Banklarda yana", "Ещё в банках", "Also at banks"),
-                                                    style = VsType.Meta, color = VsInkSoft,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                                )
-                                                extras.forEach { c ->
-                                                    val n = extraBanks[c]
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Column {
-                                                                Text("${c.symbol}  ${c.code}  ·  ${c.displayName(lang)}", style = VsType.Body, color = if (c == currency) VsEmerald else VsInk)
-                                                                if (n != null) Text(
-                                                                    tr("$n ta bank", "банков: $n", if (n == 1) "1 bank" else "$n banks"),
-                                                                    style = VsType.Meta, color = VsInkSoft
-                                                                )
-                                                            }
-                                                        },
-                                                        trailingIcon = { if (c == currency) Icon(Icons.Outlined.Check, null, tint = VsEmerald) },
-                                                        onClick = { ccyMenu = false; onCurrency(c) }
-                                                    )
-                                                }
+                                                extras.forEach { CcyItem(it) }
                                             }
                                             HorizontalDivider(color = VsLine, modifier = Modifier.padding(vertical = 4.dp))
                                             DropdownMenuItem(
-                                                text = {
-                                                    Column {
-                                                        Text(tr("Markaziy bank kurslari", "Курсы ЦБ", "Central bank rates"), style = VsType.Body, color = VsInkSoft)
-                                                        Text(
-                                                            tr("Barcha valyutalar, banklarda almashtirilmaydiganlari ham", "Все валюты, включая те, что банки не меняют", "All currencies, incl. ones banks don't exchange"),
-                                                            style = VsType.Meta, color = VsInkSoft
-                                                        )
-                                                    }
-                                                },
+                                                text = { Text(tr("Barcha MB kurslari", "Все курсы ЦБ", "All CBU rates"), style = VsType.Body, color = VsInkSoft, maxLines = 1) },
+                                                trailingIcon = { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsInkSoft, modifier = Modifier.size(18.dp)) },
                                                 onClick = { ccyMenu = false; showAll = true }
                                             )
                                         }
@@ -945,24 +926,21 @@ private fun lossOf(item: RankedBank, best: RankedBank, hasAmount: Boolean): Long
 
 @Composable
 private fun TodayTopBar(
-    updatedAt: String?, offline: Boolean, news: String?, searchOpen: Boolean,
-    onToggleSearch: () -> Unit, onOpenSettings: () -> Unit
+    news: String?, searchOpen: Boolean, onToggleSearch: () -> Unit, onOpenSettings: () -> Unit
 ) {
+    // The app's name (as on the site: "Kurs" in the accent), search and settings. The update time lives in the Central
+    // Bank line under the list, a stale or offline state in its own banner; the name gives way for a moment only to
+    // the result of a pull to refresh ("3 rates changed").
     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-        val ageMin = updatedAt?.let { kParseMillis(it) }?.let { (nowMillis() - it) / 60_000 }
-        val fresh = !offline && (news != null || (ageMin != null && ageMin < 30))
-        FreshDot(fresh = fresh, stale = offline || (ageMin != null && ageMin > 6 * 60), pulseKey = updatedAt)
-        Spacer(Modifier.width(10.dp))
-        val time = updatedAt?.formatUpdatedAt()
-        val status = news ?: when {
-            offline -> pick(lang, "Oflayn · ${time ?: "—"}", "Офлайн · ${time ?: "—"}", "Offline · ${time ?: "—"}")
-            time != null -> pick(lang, "$time yangilandi", "Обновлено в $time", "Updated at $time")
-            else -> ""
-        }
-        Crossfade(status, animationSpec = tween(Motion.MEDIUM), label = "status", modifier = Modifier.weight(1f)) { t ->
-            Text(
-                t, style = VsType.BodyMedium.copy(fontSize = 14.sp),
-                color = if (news != null) VsEmerald else VsInkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis
+        Crossfade(news, animationSpec = tween(Motion.MEDIUM), label = "news", modifier = Modifier.weight(1f)) { t ->
+            if (t != null) Text(t, style = VsType.BodyMedium.copy(fontSize = 14.sp), color = VsEmerald, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            else Text(
+                androidx.compose.ui.text.buildAnnotatedString {
+                    append("Qulay ")
+                    pushStyle(androidx.compose.ui.text.SpanStyle(color = VsEmerald)); append("Kurs"); pop()
+                },
+                style = VsType.Title.copy(fontWeight = FontWeight.Bold), color = VsInk, maxLines = 1,
+                modifier = Modifier.semantics { heading() }
             )
         }
         VsIconButton(
