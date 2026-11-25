@@ -7,20 +7,24 @@ Category: Finance · Tags: Currency converter, Finance news/tools
 Price: Free · Ads: No · Countries: all
 
 ## App name (≤30)
-- uz / default: `Qulay Kurs – valyuta kurslari`
-- ru-RU: `Qulay Kurs – курс валют`
-- en-US: `Qulay Kurs: Currency Rates UZ`
+The name carries the words people search for: in Russian “курс валют узбекистана” (the two biggest competitors are
+named exactly that), in Uzbek “dollar kursi”. The brand stays at the end. Play counts characters, the limit is 30.
+- uz / default: `Dollar kursi – Qulay Kurs` (25)
+- ru-RU: `Курс валют Узбекистана: Qulay` (29) — `Курс валют Узбекистана – Qulay Kurs` would be 35, over the limit
+- en-US: `Currency Rates UZ – Qulay Kurs` (30)
+
+Before (v1): `Qulay Kurs – valyuta kurslari`, `Qulay Kurs – курс валют`, `Qulay Kurs: Currency Rates UZ`.
 
 ## Short description (≤80)
-- uz: `Dollar kursi bugun: banklarda USD, EUR, RUB kurslari, MB kursi va kalkulyator`
-- ru-RU: `Курс доллара сегодня: курсы валют в банках Узбекистана, ЦБ и конвертер`
-- en-US: `Dollar rate today: compare USD, EUR, RUB bank rates in Uzbekistan`
+- uz: `Dollar kursi bugun banklarda: qayerda foydali, xarita, MB kursi` (63)
+- ru-RU: `Курс доллара в банках Узбекистана сегодня: где выгоднее обменять, карта` (71)
+- en-US: `Dollar rate today in Uzbekistan banks: best rate, map and Central Bank` (70)
 
 ## Full description — uz
 Qulay Kurs — O‘zbekistondagi banklarda valyuta kursini bir joyda solishtiruvchi ilova. Dollar kursi, yevro kursi va rubl kursi bugun qaysi bankda eng foydali — bir qarashda ko‘rasiz.
 
 Asosiy imkoniyatlar:
-• 29+ bankning sotib olish va sotish kurslari (USD, EUR, RUB)
+• 29+ bankning sotib olish va sotish kurslari: dollar, yevro, rubl, funt, frank, iyena, tenge, yuan
 • Markaziy bank (MB) rasmiy kursi va kechagiga nisbatan o‘zgarish
 • Valyuta kalkulyatori: summangizni kiriting — qaysi bank ko‘proq so‘m berishini ko‘ring
 • Xarita: yaqin bank filiallari, kurs yozilgan pinlar, ish vaqti, “hozir ochiq” filtri
@@ -39,10 +43,10 @@ Manbalar: cbu.uz va banklar ma’lumotlari. Kurslar ma’lumot uchun ko‘rsatil
 Telegram: @qulay_kurs · qulaykurs.uz
 
 ## Full description — ru-RU
-Qulay Kurs — курсы валют во всех банках Узбекистана в одном приложении. Узнайте, где сегодня выгоднее купить или продать доллар, евро и рубль.
+Qulay Kurs — курс валют Узбекистана во всех банках в одном приложении. Узнайте, где сегодня выгоднее купить или продать доллар, евро и рубль.
 
 Возможности:
-• Курсы покупки и продажи в 29+ банках (USD, EUR, RUB)
+• Курсы покупки и продажи в 29+ банках: доллар, евро, рубль, фунт, франк, иена, тенге, юань
 • Официальный курс ЦБ Узбекистана и изменение за день
 • Конвертер: введите сумму — увидите, какой банк даст больше сумов
 • Карта: ближайшие отделения с курсами на метках, часы работы, фильтр «открыто сейчас»
@@ -64,7 +68,7 @@ Telegram: @qulay_kurs · qulaykurs.uz
 Qulay Kurs compares currency exchange rates across banks in Uzbekistan. See in one glance where to buy or sell US dollars, euros and rubles today for the best rate in Uzbek som (UZS).
 
 Features:
-• Buy and sell rates from 29+ banks (USD, EUR, RUB)
+• Buy and sell rates from 29+ banks: USD, EUR, RUB, GBP, CHF, JPY, KZT, CNY
 • Official Central Bank of Uzbekistan (CBU) rate and daily change
 • Converter: enter an amount and see which bank gives you the most som
 • Map of nearby bank branches with rates on pins, opening hours, "open now" filter

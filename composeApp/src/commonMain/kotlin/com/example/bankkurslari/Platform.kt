@@ -82,6 +82,9 @@ object NavRequests {
         set(v) { state.value = v }
 }
 
+/** Shows the store's own rating dialog (Play In-App Review / StoreKit) if the store allows it now. See [ReviewPrompt]. */
+expect fun requestStoreReview()
+
 /** Diagnostics to the device console (Logcat / Xcode console), tag "QK". */
 expect fun debugLog(msg: String)
 

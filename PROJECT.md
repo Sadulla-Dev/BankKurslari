@@ -117,6 +117,7 @@ Kurs ro‘yxatidan ham, xaritadan ham ochiladi.
 - Fikr bildirish (e-mail)
 
 ### 1.8 Android’ga xos
+- **Baho so‘rash** (Play In-App Review; iOS’da StoreKit): ilova kamida 3 xil kunda ochilgan bo‘lsa, summa kiritilgandan 4 soniya keyin. Ko‘pi bilan 3 marta, 120 kun oralig‘ida; dialogni ko‘rsatish-ko‘rsatmaslikni Play o‘zi hal qiladi. Kod: `ReviewPrompt.kt`.
 
 - **Uy ekrani vidjeti:** tanlangan valyuta bo‘yicha eng yaxshi sotish/sotib olish kursi va banklar, MB kursi.
 - **Hamyon vidjeti:** jamg‘arma qiymati va kechagidan farqi; bosilsa Hamyon ochiladi.
@@ -206,6 +207,8 @@ Alohida Worker `qulaykurs-bot` (`bot.qulaykurs.uz`), API Worker'dan ajratilgan: 
 - **Kanalga qo‘shimcha post**: eng yaxshi kurs ertalabkidan keskin o‘zgarsa (USD 0,4%), kuniga ko‘pi bilan bitta.
 - **Anonim hisoblagichlar** `POST /e`: ilova (`Usage.kt`) va sayt (`web/public/ev.js`) kunlik jami sonni yuboradi, identifikatorsiz. Egasi botga `/stats` yozadi.
 - Sayt: shahar sahifalari (`/shahar/<shahar>`), har sahifada Google Play va bot tugmalari.
+- Sayt → ilova: har sahifa sarlavhasida “Android ilova” tugmasi; Android telefonda tepada yopiladigan banner (30 kun eslab qoladi). iPhone’da ikkalasi yashiriladi (iOS ilova yo‘q). Kod: `web/public/app-link.js`, havolalarda `utm_medium=header|banner`.
+- Bot va kanal tavsiflari (`setup.mjs`): bot “about” va /start oldidagi matnda kanal va sayt, kanal tavsifida bot. Faqat matnlarni yangilash: `TELEGRAM_BOT_TOKEN=… node setup.mjs --texts` (webhook’ga tegmaydi).
 - Ilova: bank oynasidagi “Ulashish” rasm (`ShareCard.kt`) va havolali matn yuboradi.
 
 ---

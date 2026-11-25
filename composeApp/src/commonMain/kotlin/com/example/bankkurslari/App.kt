@@ -22,7 +22,7 @@ fun App(onDarkTheme: (Boolean) -> Unit = {}) {
     appLang = lang
     val dark = when (themeMode) { 1 -> false; 2 -> true; else -> systemDark }
     LaunchedEffect(dark) { onDarkTheme(dark) }
-    LaunchedEffect(Unit) { Usage.appOpened() }
+    LaunchedEffect(Unit) { Usage.appOpened(); ReviewPrompt.onAppOpened() }
     BankKurslariTheme(darkTheme = dark) {
         CompositionLocalProvider(LocalLang provides lang) {
             var onboarded by remember { mutableStateOf(appStore().getBoolean(ONBOARDED_KEY, false)) }

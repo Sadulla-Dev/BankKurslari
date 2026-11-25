@@ -488,7 +488,14 @@ fun KursScreen(
     val hasAmount = amount > 0
     // Counts the core action: typing or tapping an amount other than the one the screen opened with.
     val startAmount = remember { amountText }
-    LaunchedEffect(amountText) { if (amountText != startAmount && hasAmount) Usage.track("amount") }
+    // A few seconds after the amount settles (each keystroke restarts this), the rating ask may come: see ReviewPrompt.
+    LaunchedEffect(amountText) {
+        if (amountText != startAmount && hasAmount) {
+            Usage.track("amount")
+            delay(4_000)
+            ReviewPrompt.onUseful()
+        }
+    }
 
     var sort by rememberSaveable { mutableStateOf(KursSort.SOM) }
     var onlyOpen by rememberSaveable { mutableStateOf(false) }

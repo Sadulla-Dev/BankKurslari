@@ -219,3 +219,13 @@ actual fun rememberNotificationPermissionRequest(): () -> Unit = remember {
         ) { _, _ -> }
     }
 }
+
+/* ---------- store rating ---------- */
+
+/** StoreKit's rating dialog in the active window scene; iOS decides whether it shows (at most 3 times a year). */
+actual fun requestStoreReview() {
+    val scene = platform.UIKit.UIApplication.sharedApplication.connectedScenes
+        .firstOrNull { (it as? platform.UIKit.UIWindowScene)?.activationState == platform.UIKit.UISceneActivationStateForegroundActive }
+        as? platform.UIKit.UIWindowScene ?: return
+    platform.StoreKit.SKStoreReviewController.requestReviewInScene(scene)
+}

@@ -57,6 +57,7 @@ kotlin {
             implementation(libs.maplibre.runtime.opengl)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.play.review)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

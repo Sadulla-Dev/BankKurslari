@@ -28,7 +28,25 @@ object AndroidPlatform {
     @Volatile
     private var appContext: Context? = null
     val context: Context get() = appContext ?: error("initPlatform(context) was not called")
-    fun init(c: Context) { if (appContext == null) appContext = c.applicationContext }
+
+    /** The activity on screen, for APIs that need one (Play In-App Review). Weak: never keeps a closed activity alive. */
+    @Volatile
+    private var resumed: java.lang.ref.WeakReference<android.app.Activity>? = null
+    val currentActivity: android.app.Activity? get() = resumed?.get()?.takeUnless { it.isFinishing }
+
+    fun init(c: Context) {
+        if (appContext != null) return
+        appContext = c.applicationContext
+        (c.applicationContext as? android.app.Application)?.registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
+            override fun onActivityResumed(activity: android.app.Activity) { resumed = java.lang.ref.WeakReference(activity) }
+            override fun onActivityPaused(activity: android.app.Activity) { if (resumed?.get() === activity) resumed = null }
+            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {}
+            override fun onActivityStarted(activity: android.app.Activity) {}
+            override fun onActivityStopped(activity: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
+            override fun onActivityDestroyed(activity: android.app.Activity) {}
+        })
+    }
 }
 
 fun initPlatform(context: Context) = AndroidPlatform.init(context)
@@ -197,4 +215,17 @@ actual fun rememberNotificationPermissionRequest(): () -> Unit {
             ContextCompat.checkSelfPermission(AndroidPlatform.context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
+}
+
+/* ---------- store rating ---------- */
+
+/** Google Play In-App Review: Play decides whether the dialog shows (quota, Play-installed app only). */
+actual fun requestStoreReview() {
+    val activity = AndroidPlatform.currentActivity ?: return
+    runCatching {
+        val manager = com.google.android.play.core.review.ReviewManagerFactory.create(activity)
+        manager.requestReviewFlow().addOnCompleteListener { task ->
+            if (task.isSuccessful && !activity.isFinishing) manager.launchReviewFlow(activity, task.result)
+        }
+    }.onFailure { debugLog("review: ${it.message}") }
 }

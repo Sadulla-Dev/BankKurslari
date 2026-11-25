@@ -1335,6 +1335,7 @@ function applyLang() {
   const t = L();
   document.documentElement.lang = S.lang === "uzc" ? "uz-Cyrl" : S.lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { const v = t[el.dataset.i18n]; if (typeof v === "string") el.textContent = v; });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { const v = t[el.dataset.i18nAria]; if (typeof v === "string") el.setAttribute("aria-label", v); });
   document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === S.lang));
   $("langSel").value = S.lang;
   updateThemeControl();

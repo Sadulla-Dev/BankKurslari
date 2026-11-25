@@ -32,7 +32,7 @@ const isUz = (lang) => lang === "uz" || lang === "uzc", isCyrillic = (lang) => l
 // Cache-buster for css/js: changes only when one of those files changes, so _headers can let browsers keep them for good.
 const VERSION = await (async () => {
   const hash = createHash("sha1");
-  for (const f of ["style.css", "pages.css", "shared.js", "app.js", "calc.js", "wallet.js", "ev.js"]) hash.update(await readFile(join(PUBLIC, f)));
+  for (const f of ["style.css", "pages.css", "shared.js", "app.js", "calc.js", "wallet.js", "ev.js", "app-link.js"]) hash.update(await readFile(join(PUBLIC, f)));
   return hash.digest("hex").slice(0, 10);
 })();
 // The key file public/<key>.txt proves to IndexNow (Yandex, Bing) that address lists come from this site. Not a secret.
@@ -331,6 +331,7 @@ const Z = {
     promoTitle: "Ilovada va Telegram kanalda",
     promoSub: "Android ilova: yaqin filial xaritada, marshrut va kurs ogohlantirishi. Telegram kanalda har kuni soat 8:00 da bugungi eng yaxshi kurslar.",
     play: "Android ilova", channel: "Telegram kanal",
+    appTitle: "Qulay Kurs ilovasi", appSub: "Xarita, marshrut va kurs ogohlantirishi", install: "O‘rnatish", close: "Yopish",
     cities: "Shaharlar bo‘yicha dollar kursi", cityLink: (c) => `${c.name}da dollar kursi`,
     cityTitle: (c, s) => `${c.name}da dollar kursi bugun — ${s.buy} so‘m | Qulay Kurs`, cityH1: (c) => `${c.name}da dollar kursi bugun`,
     cityDesc: (c, n, s) => `${c.name}da ${n} ta bank: dollarni eng qimmat ${s.buyBank} oladi — ${s.buy} so‘m, eng arzon ${s.sellBank} sotadi — ${s.sell} so‘m. Filiallar manzili, Markaziy bank kursi.`,
@@ -343,6 +344,7 @@ const Z = {
     promoTitle: "В приложении и в Telegram-канале",
     promoSub: "Android-приложение: ближайшие отделения на карте, маршрут и уведомления о курсе. В Telegram-канале каждый день в 8:00 — лучшие курсы на сегодня.",
     play: "Android-приложение", channel: "Telegram-канал",
+    appTitle: "Приложение Qulay Kurs", appSub: "Карта, маршрут и уведомления о курсе", install: "Установить", close: "Закрыть",
     cities: "Курс доллара по городам", cityLink: (c) => `Курс доллара ${c.in}`,
     cityTitle: (c, s) => `Курс доллара ${c.in} сегодня — ${s.buy} сум | Qulay Kurs`, cityH1: (c) => `Курс доллара ${c.in} сегодня`,
     cityDesc: (c, n, s) => `${n} ${ruPlural(n, "банк", "банка", "банков")} ${c.in}: дороже всех доллар покупает ${s.buyBank} — ${s.buy} сум, дешевле всех продаёт ${s.sellBank} — ${s.sell} сум. Адреса отделений, курс ЦБ.`,
@@ -355,6 +357,7 @@ const Z = {
     promoTitle: "In the app and on Telegram",
     promoSub: "Android app: nearby branches on a map, directions and rate alerts. Our Telegram channel posts today’s best rates every day at 8:00.",
     play: "Android app", channel: "Telegram channel",
+    appTitle: "Qulay Kurs app", appSub: "Map, directions and rate alerts", install: "Install", close: "Close",
     cities: "Dollar rate by city", cityLink: (c) => `Dollar rate ${c.in}`,
     cityTitle: (c, s) => `Dollar rate ${c.in} today — ${s.buy} UZS | Qulay Kurs`, cityH1: (c) => `Dollar rate ${c.in} today`,
     cityDesc: (c, n, s) => `${n} banks ${c.in}: ${s.buyBank} pays the most for dollars, ${s.buy} UZS; ${s.sellBank} sells them cheapest, ${s.sell} UZS. Branch addresses and the Central Bank rate.`,
@@ -390,6 +393,14 @@ const playUrl = (lang, from) => `${PLAY}&hl=${lang === "ru" ? "ru" : lang === "e
 const CHANNEL = "https://t.me/qulay_kurs";
 const PLAY_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.2 2.6c-.3.3-.4.7-.4 1.2v16.4c0 .5.1.9.4 1.2l9.2-9.4-9.2-9.4zm10.4 10.6 2.6 2.6-11 6.3 8.4-8.9zm0-2.4L6.2 1.9l11 6.3-2.6 2.6zm3.8-1.9 3 1.7c.9.5.9 1.3 0 1.8l-3 1.7-2.8-2.6 2.8-2.6z"/></svg>';
 const TG_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.5 4.2 2.9 11.4c-1.3.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.4l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.8-1.4-1.5zM8.6 14.1l9.3-5.9c.4-.3.8-.1.5.2l-7.7 7-.3 3.3z"/></svg>';
+const CLOSE_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+/** Above the header: the app banner Android visitors see (public/app-link.js unhides it). */
+function appBanner(lang) {
+  const z = Z[lang];
+  return `<aside class="app-banner get-app" id="appBanner" hidden><img src="/icon-192.png" width="40" height="40" alt=""><span class="ab-text"><b>${esc(z.appTitle)}</b><small>${esc(z.appSub)}</small></span><a class="btn btn-sm store-play" href="${playUrl(lang, "banner")}" data-ev="play_banner" rel="noopener">${esc(z.install)}</a><button class="icon-btn ab-close" type="button" aria-label="${esc(z.close)}">${CLOSE_SVG}</button></aside>`;
+}
+/** In the header, on every page: the Play button (hidden on iPhones by app-link.js). */
+const topPlay = (lang) => `<a class="get-app top-play" href="${playUrl(lang, "header")}" data-ev="play_header" rel="noopener">${PLAY_SVG}<span>${esc(Z[lang].play)}</span></a>`;
 function appPromo(lang, from) {
   const z = Z[lang];
   return `<aside class="promo app-promo"><div class="promo-copy"><h2>${esc(z.promoTitle)}</h2><p>${esc(z.promoSub)}</p></div><div class="promo-btns"><a class="btn store-play" href="${playUrl(lang, from)}" data-ev="play_click" rel="noopener">${PLAY_SVG}${esc(z.play)}</a><a class="btn store-tg" href="${CHANNEL}" data-ev="channel_click" rel="noopener">${TG_SVG}${esc(z.channel)}</a></div></aside>`;
@@ -613,11 +624,12 @@ ${FONT_LATIN}${isCyrillic(lang) ? "\n" + cyrillicFonts(lang) : ""}
 <link rel="stylesheet" href="/pages.css?v=${VERSION}">
 </head>
 <body class="page">
+${appBanner(lang)}
 <header class="top">
   <div class="wrap top-in">
     <a class="logo" href="${home}" aria-label="Qulay Kurs"><img src="/logo.svg" width="32" height="32" alt=""><span>Qulay <b class="logo-k">Kurs</b></span></a>
     <nav class="tabs-nav" aria-label="Menu"><a href="${home}">${esc(x.home)}</a><a href="${home}#/xarita">${esc(x.map)}</a><a href="${home}#/tarix">${esc(x.history)}</a>${WALLET_ON ? `<a href="${home}#/hamyon">${esc(x.wallet)}</a>` : ""}</nav>
-    <div class="top-r">${urlOf ? `<div class="langs">${langLinks(lang, urlOf)}</div>` : ""}</div>
+    <div class="top-r">${urlOf ? `<div class="langs">${langLinks(lang, urlOf)}</div>` : ""}${topPlay(lang)}</div>
   </div>
 </header>
 <main class="wrap page-main">
@@ -625,6 +637,7 @@ ${body}${noindex || noPromo ? "" : "\n" + appPromo(lang, "page")}
 </main>
 <footer class="foot"><div class="wrap foot-in"><span>© ${new Date().getUTCFullYear()} Qulay Kurs</span><a class="foot-tg" href="https://t.me/qulay_kurs" rel="noopener">Telegram @qulay_kurs</a><a href="/privacy">Privacy</a></div></footer>${calc ? `\n<script src="/calc.js?v=${VERSION}" defer></script>` : ""}
 <script src="/ev.js?v=${VERSION}" defer></script>
+<script src="/app-link.js?v=${VERSION}" defer></script>
 </body>
 </html>
 `;

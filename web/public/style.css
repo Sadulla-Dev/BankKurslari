@@ -308,6 +308,22 @@ p { margin: 0; }
 .store-play { background: #1F2328; color: #fff; height: 46px; font-size: 15px; transition: background .15s; }
 .store-play:hover { background: #000; }
 .page-main > .app-promo { margin-top: 24px; }
+/* Header Play button: on every page, next to the language switch. Icon only on phones (the label stays for screen readers). */
+.top-play { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; background: #1F2328; color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; transition: background .15s; }
+.top-play:hover { background: #000; }
+/* Dark theme: the near-black button would vanish into the header, so it turns light. */
+[data-theme="dark"] .top-play, [data-theme="dark"] .app-banner .store-play { background: #F2F3F5; color: #1F2328; }
+[data-theme="dark"] .top-play:hover, [data-theme="dark"] .app-banner .store-play:hover { background: #fff; }
+.top-play svg { flex: none; width: 16px; height: 16px; }
+/* Android visitors: a slim bar above the header (public/app-link.js). */
+.app-banner { display: flex; align-items: center; gap: 12px; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); background: var(--card); border-bottom: 1px solid var(--line); }
+.app-banner[hidden] { display: none; }
+.app-banner img { flex: none; border-radius: 10px; }
+.ab-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.ab-text b { font-size: 15px; }
+.ab-text small { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-banner .store-play { height: 36px; font-size: 14px; }
+.app-banner .ab-close { width: 36px; height: 36px; background: none; color: var(--ink-2); }
 .foot-tg { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); text-decoration: none; font-weight: 600; }
 .foot-tg svg { color: #229ED9; }
 .foot-tg:hover span { text-decoration: underline; }
@@ -492,6 +508,8 @@ body.v-map .foot { display: none; }
   .top-in { gap: 10px; }
   .top-r { gap: 8px; }
   .top-r .langs { display: none; }
+  .top-play { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+  .top-play span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .lang-pick { display: block; }
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
   .tabs-nav {
