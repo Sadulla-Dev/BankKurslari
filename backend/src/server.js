@@ -367,8 +367,10 @@ async function loadBankHistory(cur) {
 /**
  * Per day and bank: first/latest quote plus timestamped refresh samples for later analysis.
  * { "2026-10-17": { "Infinbank": { first: [buy, sell], last: [buy, sell], at: "12:31", samples: [{ at, buy, sell }] } } }
+ * [source] marks samples that did not come from bank.uz: "sites" = the banks' own websites (build.js fallback), which
+ * can differ from bank.uz by a few so'm, so an analysis can tell them apart.
  */
-async function recordBankHistory(cur, banks) {
+async function recordBankHistory(cur, banks, { source } = {}) {
   if (!banks.length) return;
   const data = await loadBankHistory(cur);
   const day = localDate();
@@ -378,7 +380,7 @@ async function recordBankHistory(cur, banks) {
     const pair = [Number.isFinite(b.buy) ? b.buy : null, Number.isFinite(b.sell) ? b.sell : null];
     const entry = (today[b.bank] ||= { first: pair, last: pair, at: time, samples: [] });
     entry.samples ||= [];
-    const sample = { at: time, buy: pair[0], sell: pair[1] };
+    const sample = { at: time, buy: pair[0], sell: pair[1], ...(source ? { src: source } : {}) };
     const previous = entry.samples[entry.samples.length - 1];
     if (!previous || previous.at !== time) entry.samples.push(sample);
     entry.last = pair;
@@ -1094,4 +1096,4 @@ function normalizeBankName(value) {
   return cleanText(value).toLowerCase().replace(/['‘’`]/g, "").replace(/\s+/g, " ");
 }
 
-export { getRatesPayload, buildRatesPayload, getCbuCurrent, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, SUPPORTED, EXTRA_RATES };
+export { getRatesPayload, buildRatesPayload, getCbuCurrent, getHistory, computeAnalytics, getBranches, getAtms, getGold, getCbuFull, loadBankHistory, recordBankHistory, SUPPORTED, EXTRA_RATES };

@@ -134,7 +134,11 @@ if (bankUzFailed.has("USD")) {
       if (!bankUzFailed.has(cur)) continue; // bank.uz still fine for this one
       const rows = banks.filter((b) => b.rates[cur]).map((b) => ({ bank: b.bank, buy: b.rates[cur].buy, sell: b.rates[cur].sell, sourceUrl: b.sourceUrl }));
       if (rows.length < (cur === "USD" ? 10 : 1)) continue; // too few to trust: keep the previous file
-      await put(`api/rates/${cur}.json`, api.buildRatesPayload(cur, map, rows, "bank websites", "bank-sites"));
+      const payload = api.buildRatesPayload(cur, map, rows, "bank websites", "bank-sites");
+      await put(`api/rates/${cur}.json`, payload);
+      // The day's rates go into the history too, or every bank.uz outage leaves a hole in it (23.10–06.11.2026 did:
+      // bank.uz and cbu.uz were unreachable from GitHub's runners for two weeks).
+      await api.recordBankHistory(cur, payload.banks, { source: "sites" }).catch((e) => console.error(`Bank history (${cur}):`, e.message));
       alerts.remove(`step:rates ${cur}`); // filled from the bank sites: the "fallback" alert below says so once
     }
     alerts.add("fallback", `bank.uz ishlamayapti: kurslar ${banks.length}/${BANK_SITE_COUNT} bank saytidan olindi (kuniga 4 marta)`
