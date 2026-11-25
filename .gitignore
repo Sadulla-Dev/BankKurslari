@@ -1,12 +1,11 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# Android Studio's own per-machine settings. The few .idea files already in git stay tracked.
+/.idea/*
+!/.idea/appInsightsSettings.xml
+!/.idea/artifacts/
+!/.idea/deploymentTargetSelector.xml
 .DS_Store
 /build
 /captures
@@ -16,7 +15,6 @@ local.properties
 
 # Backend deps
 backend/node_modules
-/.idea/deviceManager.xml
 build/
 .kotlin/
 
@@ -29,6 +27,7 @@ backend/data/official-branches.json
 backend/worker/public/
 backend/worker/.wrangler/
 web/.wrangler/
+/.wrangler/
 
 # Built site (web/build.mjs)
 web/dist/
