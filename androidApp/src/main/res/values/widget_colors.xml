@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget palette. Android 12+ overrides these with the system (Material You) colours in values-v31. -->
+<resources>
+    <color name="w_card">#FFFFFFFF</color>
+    <color name="w_ink">#FF1C1D22</color>
+    <color name="w_soft">#FF5F6370</color>
+    <color name="w_accent">#FF0B7A54</color>
+    <color name="w_on_accent">#FFFFFFFF</color>
+    <color name="w_tile">#FFEEF0F4</color>
+    <color name="w_accent_tint">#FFE3F5EC</color>
+</resources>

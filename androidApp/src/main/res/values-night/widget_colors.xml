@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="w_card">#FF1A1B20</color>
+    <color name="w_ink">#FFEDEEF2</color>
+    <color name="w_soft">#FFA3A6B1</color>
+    <color name="w_accent">#FF5FD3A0</color>
+    <color name="w_on_accent">#FF111215</color>
+    <color name="w_tile">#FF22242A</color>
+    <color name="w_accent_tint">#FF173A2C</color>
+</resources>
