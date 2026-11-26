@@ -609,7 +609,7 @@ function closeSheet() {
   $("scrim").classList.remove("on");
   $("sheet").classList.remove("on");
   document.body.style.overflow = "";
-  setTimeout(() => { if (!S.sheetBank) { $("scrim").hidden = true; $("sheet").hidden = true; } }, 300);
+  setTimeout(() => { if (!S.sheetBank) { if ($("repSheet").hidden) $("scrim").hidden = true; $("sheet").hidden = true; } }, 300);
 }
 function renderSheet(bank, list) {
   const t = L();
@@ -645,7 +645,7 @@ function renderSheet(bank, list) {
     box.innerHTML = brs.length
       ? brs.slice(0, 3).map((b) => {
           const [head, tail] = addrParts(b.address || bank.bank);
-          return `<a class="br" href="${directions(b.lat, b.lng)}" target="_blank" rel="noopener"><span><b>${esc(head)}</b>${tail ? `<small>${esc(tail)}</small>` : ""}</span><span>${b.km != null ? t.km(kmFmt(b.km)) : ""}</span></a>`;
+          return `<a class="br" href="${directions(b.lat, b.lng)}" target="_blank" rel="noopener"><span><b>${esc(head)}</b>${tail ? `<small>${esc(tail)}</small>` : ""}${b.phone ? `<small class="tel">${esc(t.tel(b.phone))}</small>` : ""}</span><span>${b.km != null ? t.km(kmFmt(b.km)) : ""}</span></a>`;
         }).join("") + (S.user ? "" : `<button class="ask" type="button" id="askLoc">${t.askLoc}</button>`)
       : `<p class="muted small">${t.noBranches}</p>`;
     const ask = $("askLoc");
@@ -655,6 +655,21 @@ function renderSheet(bank, list) {
     };
   }
   const target = nb || (bank.branch?.lat ? bank.branch : null);
+  // Call: the nearest branch's number, else any number this bank has (usually its short call-centre number).
+  const phone = nb?.phone || (S.branches ? branchesOf(bank.bank).find((b) => b.phone)?.phone : null);
+  const call = $("shCall");
+  call.hidden = !phone;
+  if (phone) {
+    call.href = telHref(phone);
+    call.setAttribute("aria-label", t.call(phone));
+    call.title = phone;
+    call.onclick = () => window.qkEvent?.("call");
+  }
+  $("shReport").onclick = () => {
+    const place = { bank: bank.bank, address: target?.address || null, phone: target?.phone || phone || null, lat: target?.lat ?? null, lng: target?.lng ?? null };
+    closeSheet();
+    openReport(place);
+  };
   $("shGo").hidden = !target;
   if (target) $("shGo").href = directions(target.lat, target.lng);
   $("shShowMap").onclick = (e) => {
@@ -670,6 +685,79 @@ function renderSheet(bank, list) {
       else { await navigator.clipboard.writeText(text + " https://qulaykurs.uz"); toast(t.copied); }
     } catch { /* dismissed */ }
   };
+}
+/* ---------- report a place / feedback (bot.qulaykurs.uz/report -> owner's Telegram) ---------- */
+
+const REPORT_URL = "https://bot.qulaykurs.uz/report";
+const REP = { place: null, kind: "", busy: false };
+const REP_KINDS = ["no_place", "wrong_address", "wrong_phone", "wrong_hours", "wrong_rate", "other"];
+
+/** place: {bank, address, phone, lat, lng} to report on it, or null for general feedback. */
+function openReport(place) {
+  const t = L();
+  REP.place = place; REP.kind = place ? "" : "feedback"; REP.busy = false;
+  setText("repTitle", place ? t.rep.title : t.rep.fbTitle);
+  setText("repSub", place ? [place.bank, cleanAddr(place.address)].filter(Boolean).join(" · ") : t.rep.fbSub);
+  const why = $("repWhy");
+  why.hidden = !place;
+  why.innerHTML = place ? REP_KINDS.map((k) => `<button type="button" class="chip-btn" data-k="${k}">${esc(t.rep.kinds[k])}</button>`).join("") : "";
+  const sheet = $("repSheet");
+  sheet.querySelector(".rep-done")?.remove();
+  for (const el of [why, $("repText"), $("repSend")]) el.style.display = "";
+  $("repText").value = "";
+  $("repErr").hidden = true;
+  repSync();
+  $("scrim").hidden = false;
+  sheet.hidden = false;
+  requestAnimationFrame(() => { $("scrim").classList.add("on"); sheet.classList.add("on"); });
+  document.body.style.overflow = "hidden";
+  (place ? $("repClose") : $("repText")).focus({ preventScroll: true });
+}
+function closeReport() {
+  const sheet = $("repSheet");
+  if (sheet.hidden) return;
+  sheet.classList.remove("on");
+  if (!S.sheetBank && !S.allOpen) { $("scrim").classList.remove("on"); document.body.style.overflow = ""; }
+  setTimeout(() => { sheet.hidden = true; if (!S.sheetBank && !S.allOpen) $("scrim").hidden = true; }, 300);
+}
+function repSync() {
+  const t = L();
+  const needText = REP.kind === "feedback" || REP.kind === "other";
+  $("repText").placeholder = needText ? t.rep.msg : t.rep.comment;
+  $("repWhy").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.k === REP.kind));
+  const send = $("repSend");
+  send.textContent = REP.busy ? t.rep.sending : t.rep.send;
+  send.disabled = REP.busy || !REP.kind || (needText && !$("repText").value.trim());
+}
+async function sendReport() {
+  if ($("repSend").disabled) return;
+  const t = L();
+  REP.busy = true; repSync();
+  const p = REP.place;
+  const body = { p: "web", kind: REP.kind, text: $("repText").value.trim(), lang: S.lang,
+    ...(p ? { place: { bank: p.bank, address: p.address || undefined, phone: p.phone || undefined, lat: p.lat, lng: p.lng } } : {}) };
+  let ok = false;
+  try { ok = (await fetch(REPORT_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).ok; } catch { /* offline */ }
+  REP.busy = false;
+  if (!ok) { $("repErr").textContent = t.rep.fail; $("repErr").hidden = false; repSync(); return; }
+  window.qkEvent?.(p ? "report_sent" : "feedback_sent");
+  for (const el of [$("repWhy"), $("repText"), $("repSend")]) el.style.display = "none";
+  $("repErr").hidden = true;
+  $("repSend").insertAdjacentHTML("afterend", `<p class="rep-done">${esc(t.rep.thanks)}</p>`);
+}
+function bindReport() {
+  $("repClose").addEventListener("click", closeReport);
+  $("repWhy").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b) { REP.kind = b.dataset.k; repSync(); } });
+  $("repText").addEventListener("input", repSync);
+  $("repSend").addEventListener("click", sendReport);
+  $("fbOpen").addEventListener("click", () => openReport(null));
+  $("fbFoot").addEventListener("click", () => openReport(null));
+}
+
+/** "1106, +998(71)210-20-02" -> "tel:1106": the first number, digits and a leading + only. */
+function telHref(phone) {
+  const first = String(phone).split(",")[0].trim();
+  return "tel:" + (first.startsWith("+") ? "+" : "") + first.replace(/\D/g, "");
 }
 function todayDelta(bankName) {
   const days = S.bankHist[S.cur];
@@ -1454,10 +1542,11 @@ function bind() {
     openSheet(it.dataset.bank);
   });
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
-  $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); });
+  $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); closeReport(); });
   $("shClose").addEventListener("click", closeSheet);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); closeReport(); } });
   bindAll();
+  bindReport();
   $("locateBtn").addEventListener("click", async () => {
     const btn = $("locateBtn");
     btn.classList.add("busy");
