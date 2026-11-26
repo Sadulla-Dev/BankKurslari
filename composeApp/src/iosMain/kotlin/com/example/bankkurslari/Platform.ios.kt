@@ -131,6 +131,9 @@ actual fun shareImage(png: ByteArray, text: String) {
 
 actual val usagePlatform: String = "ios"
 
+actual val appVersion: String
+    get() = (platform.Foundation.NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String).orEmpty()
+
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 actual fun isDebugBuild(): Boolean = kotlin.native.Platform.isDebugBinary
 

@@ -157,6 +157,9 @@ actual fun shareImage(png: ByteArray, text: String) {
 
 actual val usagePlatform: String = "android"
 
+actual val appVersion: String
+    get() = runCatching { AndroidPlatform.context.let { it.packageManager.getPackageInfo(it.packageName, 0).versionName } }.getOrNull().orEmpty()
+
 actual fun isDebugBuild(): Boolean = (AndroidPlatform.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
 /* ---------- PostHog ---------- */

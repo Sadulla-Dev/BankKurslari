@@ -596,6 +596,7 @@ private fun MapCityPill(label: String, onClick: () -> Unit) {
 @Composable
 private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
     val route = LocalRoute.current
+    var reporting by remember { mutableStateOf(false) }
     val dist = mapDistanceText(pin.rawKm)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -627,7 +628,9 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
                     VsSecondaryButton(Icons.Outlined.Call, tr("Qoʻngʻiroq: $phone", "Позвонить: $phone", "Call $phone"), { Usage.track("call"); dialPhone(phone) })
                 }
             }
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { ReportLink({ reporting = true }) }
         }
     }
+    if (reporting) ReportSheet(ReportPlace(pin.title, pin.address, pin.phone, pin.lat, pin.lng)) { reporting = false }
 }
 

@@ -108,6 +108,7 @@ fun SettingsScreen(
     var routeMenu by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
     var langSheet by remember { mutableStateOf(false) }
+    var feedbackSheet by remember { mutableStateOf(false) }
     var amountSheet by remember { mutableStateOf(false) }
     var locationOn by remember { mutableStateOf(hasLocationPermission()) }
     val askLocation = rememberLocationPermissionRequest { ok -> locationOn = ok; if (ok) onLocationGranted() }
@@ -270,13 +271,14 @@ fun SettingsScreen(
                 VsDivider()
                 ValueRow(
                     title = tr("Fikr yuborish", "Обратная связь", "Send feedback"), value = "",
-                    onClick = { openUri("mailto:?subject=Qulay%20Kurs") }
+                    onClick = { feedbackSheet = true }
                 )
             }
             Spacer(Modifier.height(32.dp))
         }
     }
 
+    if (feedbackSheet) ReportSheet(null) { feedbackSheet = false }
     if (langSheet) LanguageSheet(lang, onLang = { onLang(it); langSheet = false }, onDismiss = { langSheet = false })
     if (amountSheet) AmountSheet(
         initial = amount?.toString().orEmpty(),
