@@ -129,3 +129,33 @@ Telegram: @qulay_kurs · qulaykurs.uz
 Upload: `androidApp/build/outputs/bundle/release/androidApp-release.aab` (./gradlew :androidApp:bundleRelease).
 Store icon for this release: `store/upload-1.1/icon-512.png` (512×512, 32-bit PNG with alpha, as Play asks; the
 24-bit `store/icon-512.png` is the same picture). The live listing still showed the pre-rebrand icon (green chart line).
+
+## Release notes v1.2 (versionCode 4)
+- uz:
+```
+• Xaritada filial telefon raqamlari va qo‘ng‘iroq tugmasi
+• Xato haqida xabar berish: filial yo‘q, manzil yoki telefon noto‘g‘ri
+• Sozlamalarda fikr-taklif yuborish
+• Android 12+ da vidjetlar tizim ranglariga moslashadi
+• Kurs ro‘yxatini aylantirganda summa paneli yashirinadi
+```
+- ru:
+```
+• Телефоны отделений на карте и кнопка звонка
+• Сообщить об ошибке: нет отделения, неверный адрес или телефон
+• Отзывы и предложения в настройках
+• На Android 12+ виджеты подстраиваются под цвета системы
+• Панель суммы скрывается при прокрутке списка курсов
+```
+- en:
+```
+• Branch phone numbers and a call button on the map
+• Report a problem: no branch, wrong address or phone
+• Send feedback from Settings
+• Widgets follow the system colours on Android 12+
+• The amount bar hides while you scroll the rates
+```
+
+Upload: `androidApp/build/outputs/bundle/release/androidApp-release.aab` (./gradlew :androidApp:bundleRelease).
+Data safety (new in 1.2): PostHog analytics → "App activity: App interactions", collected, not shared, not linked to
+the user, purpose Analytics; problem reports / feedback → "Messages: Other in-app messages" (optional, App functionality).
