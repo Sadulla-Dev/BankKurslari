@@ -900,8 +900,8 @@ export function cleanPhones(raw) {
     const em = p.match(/^(.*\d.*?)\s*\((\d{2,4})\)\s*$/);
     if (em && /\d{6}/.test(em[1].replace(/\D/g, ""))) { p = em[1]; ext = ` (${em[2]})`; }
     let d = p.replace(/\D/g, "");
-    // 0 800 …: Uzbek toll-free (bank.uz sometimes writes it as "+0 (800) 1-200-200").
-    if (/^0800\d{7}$/.test(d)) { out.push(`0 800 ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9)}`); continue; }
+    // 0 800 …: Uzbek toll-free, grouped as the banks write it ("0 (800) 1 200 200"); bank.uz sometimes adds a "+".
+    if (/^0800\d{7}$/.test(d)) { out.push(`0 (800) ${d[4]} ${d.slice(5, 8)} ${d.slice(8)}`); continue; }
     if (/^\+\s*\(?\s*[0-8]/.test(p)) continue; // a country code that is not 998
     if (/^\d{3,5}$/.test(d) && !d.startsWith("0")) { out.push(d); continue; } // short call-centre number
     if (d.length === 11 && d.startsWith("83")) d = d.slice(2); // 8 (371) …: old trunk + area code
