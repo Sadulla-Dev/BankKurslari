@@ -616,7 +616,7 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
             pin.address?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             dist?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             pin.hours?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
-            pin.phone?.let { Text(tr("Tel: $it", "Тел.: $it", "Tel: $it"), style = VsType.Meta, color = VsInkSoft) }
+            pin.phone?.let { PhoneLines(it) }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 VsPrimaryButton(

@@ -199,7 +199,7 @@ fun BankSheet(
                             Text(street ?: item.rate.bank, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk)
                             val sub = listOfNotNull(addr?.second, schedule?.takeIf { item.open.known }).joinToString(", ")
                             if (sub.isNotEmpty()) Text(sub, style = VsType.Meta, color = VsInkSoft)
-                            item.phone?.let { Text(tr("Tel: $it", "Тел.: $it", "Tel: $it"), style = VsType.Meta, color = VsInkSoft) }
+                            item.phone?.let { PhoneLines(it) }
                         }
                         val km = item.distanceKm
                         if (km != null) {

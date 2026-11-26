@@ -884,17 +884,50 @@ const better = (a, b) => {
  * Branches without a number (official bank lists, manual entries) get their bank's most common bank.uz number,
  * which for most banks is the short call-centre number (e.g. 1326), so every branch on the map can be called.
  */
+/**
+ * One phone field ("+998(71)140-69-00, 8 (371) 244-09-69, 1296") -> Uzbek numbers in one shape, comma separated:
+ * "+998 71 140-69-00, +998 71 244-09-69, 1296". Old trunk prefixes (8 / 3xx area codes) are rewritten; a trailing
+ * "(342)" extension is kept; anything that is not an Uzbek number (e.g. "+0 (800) …") is dropped.
+ */
+export function cleanPhones(raw) {
+  if (!raw) return null;
+  const out = [];
+  for (const part of String(raw).split(/[,;\n]/)) {
+    let p = part.trim();
+    if (!p) continue;
+    let ext = "";
+    const em = p.match(/^(.*\d.*?)\s*\((\d{2,4})\)\s*$/);
+    if (em && /\d{6}/.test(em[1].replace(/\D/g, ""))) { p = em[1]; ext = ` (${em[2]})`; }
+    if (/^\+\s*\(?\s*[0-8]/.test(p)) continue; // a country code that is not 998
+    let d = p.replace(/\D/g, "");
+    if (/^\d{3,5}$/.test(d) && !d.startsWith("0")) { out.push(d); continue; } // short call-centre number
+    if (d.length === 11 && d.startsWith("83")) d = d.slice(2); // 8 (371) …: old trunk + area code
+    else if (d.length === 10 && d.startsWith("3")) d = d.slice(1); // (372) …: old area code
+    else if (d.length === 12 && d.startsWith("998")) d = d.slice(3);
+    else if (d.length === 11 && d.startsWith("998")) continue; // a digit short
+    if (d.length !== 9 || !/^[1-9]/.test(d)) continue;
+    out.push(`+998 ${d.slice(0, 2)} ${d.slice(2, 5)}-${d.slice(5, 7)}-${d.slice(7)}${ext}`);
+  }
+  const uniq = [...new Set(out)];
+  return uniq.length ? uniq.join(", ") : null;
+}
+
 function withBankPhones(list, source) {
   const counts = new Map();
   for (const b of source) {
-    if (!b.phone) continue;
+    const phone = cleanPhones(b.phone);
+    if (!phone) continue;
     const k = branchBankKey(b.bank);
     if (!counts.has(k)) counts.set(k, new Map());
     const m = counts.get(k);
-    m.set(b.phone, (m.get(b.phone) || 0) + 1);
+    m.set(phone, (m.get(phone) || 0) + 1);
   }
   const top = new Map([...counts].map(([k, m]) => [k, [...m].sort((a, b) => b[1] - a[1])[0][0]]));
-  return list.map((b) => (b.phone || !top.has(branchBankKey(b.bank)) ? b : { ...b, phone: top.get(branchBankKey(b.bank)) }));
+  return list.map((b) => {
+    const phone = cleanPhones(b.phone) || top.get(branchBankKey(b.bank)) || null;
+    const { phone: _drop, ...rest } = b;
+    return phone ? { ...rest, phone } : rest;
+  });
 }
 
 function dedupeBranches(list) {
