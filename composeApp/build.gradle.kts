@@ -58,6 +58,7 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
             implementation(libs.play.review)
+            implementation(libs.posthog.android)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

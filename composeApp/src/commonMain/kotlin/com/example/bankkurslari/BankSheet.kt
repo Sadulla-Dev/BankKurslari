@@ -94,6 +94,7 @@ fun BankSheet(
     var locationOn by remember { mutableStateOf(hasLocationPermission()) }
     val requestLocation = rememberLocationPermissionRequest { granted -> locationOn = granted }
     LaunchedEffect(Unit) { Usage.track("bank_sheet") }
+    var reporting by remember { mutableStateOf(false) }
     val shareCard = shareCardFor(item, currency, amount, sell, updatedAt, best != null && best.rate.bank == item.rate.bank)
 
     ModalBottomSheet(
@@ -238,10 +239,12 @@ fun BankSheet(
                     style = VsType.Meta, color = VsInkSoft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
                 )
             }
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { ReportLink({ reporting = true }) }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
     }
+    if (reporting) ReportSheet(ReportPlace(item.rate.bank, item.address, item.phone, item.lat, item.lng)) { reporting = false }
 }
 
 /**

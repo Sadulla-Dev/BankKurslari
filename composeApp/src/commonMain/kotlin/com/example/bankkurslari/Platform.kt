@@ -46,8 +46,14 @@ expect val usagePlatform: String
 /** Debug builds do not count as usage. */
 expect fun isDebugBuild(): Boolean
 
+/** Sends one product-analytics event (PostHog on Android; nothing on iOS yet). No-op until analytics is set up. */
+expect fun analyticsCapture(event: String)
+
 /** Opens a URL / mailto: link. Returns false if nothing could handle it. */
 expect fun openUri(uri: String): Boolean
+
+/** The app's version name ("1.1"), for reports. */
+expect val appVersion: String
 
 /**
  * Opens the dialer with [phone] filled in (does not call by itself). Of "1106, +998(71)210-20-02" it takes the first

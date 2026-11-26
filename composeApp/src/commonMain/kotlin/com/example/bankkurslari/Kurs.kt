@@ -47,6 +47,10 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -434,24 +438,22 @@ private fun WalletNudge(onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Mod
     }
 }
 
-/** Entry to the currency-to-currency calculator (ExchangeSheet). */
+/** Entry to the currency-to-currency calculator (ExchangeSheet): one quiet line at the end of the list. */
 @Composable
 private fun ExchangeEntry(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().vsCard(VsShape.Card).clip(VsShape.Card).clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier.fillMaxWidth().clip(VsShape.Button).clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 44.dp).padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(Icons.Outlined.SwapHoriz, null, tint = VsEmerald, modifier = Modifier.size(24.dp))
-        Column(Modifier.weight(1f)) {
-            Text(tr("Valyutani valyutaga almashtirish", "Обмен валюты на валюту", "Currency to currency"), style = VsType.BodyMedium, color = VsInk)
-            Text(
-                tr("Masalan, dollarni yevroga: eng foydali yoʻl", "Например, доллары на евро: самый выгодный путь", "E.g. dollars to euros: the cheapest route"),
-                style = VsType.Meta, color = VsInkSoft
-            )
-        }
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsInkSoft, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.SwapHoriz, null, tint = VsEmerald, modifier = Modifier.size(18.dp))
+        Text(
+            tr("Valyutani valyutaga almashtirish", "Обмен валюты на валюту", "Currency to currency"),
+            style = VsType.Body.copy(fontSize = 14.sp), color = VsEmerald, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = VsEmerald, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -613,6 +615,22 @@ fun KursScreen(
     }
     val fx = remember(measuring) { RefreshFx(pull = { pullState.distanceFraction }, measuring = measuring, settle = settle.asState()) }
 
+    // The amount dock slides away while scrolling down the list and comes back on any scroll up.
+    var dockShown by remember { mutableStateOf(true) }
+    val dockScroll = remember {
+        object : NestedScrollConnection {
+            private var acc = 0f
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                val dy = consumed.y
+                if (dy == 0f) { if (available.y > 0f) dockShown = true; return Offset.Zero }
+                acc = if ((acc < 0f) == (dy < 0f)) acc + dy else dy
+                if (acc < -24f) dockShown = false else if (acc > 24f) dockShown = true
+                return Offset.Zero
+            }
+        }
+    }
+    val dockHide by animateFloatAsState(if (dockShown) 0f else 1f, tween(220), label = "dock")
+
     PullToRefreshBox(
         isRefreshing = measuring,
         onRefresh = { user = true; kick++; before = ranked.associate { it.rate.bank to it.perUnit.toDouble() }; onRefresh() },
@@ -623,6 +641,7 @@ fun KursScreen(
     ) {
         LazyColumn(
             modifier = Modifier
+                .nestedScroll(dockScroll)
                 .graphicsLayer { translationY = pullState.distanceFraction.coerceIn(0f, 1.25f) * RefreshShift.toPx() }
                 .fillMaxWidth().vsWash(),
             contentPadding = PaddingValues(
@@ -764,10 +783,6 @@ fun KursScreen(
                             }
                         }
                     }
-                    // Currency to currency (e.g. USD -> EUR through so'm): a quiet entry that opens the calculator sheet.
-                    item(key = "xchg") {
-                        ExchangeEntry(onClick = { showXchg = true }, modifier = Modifier.animateItem().rise(entrance, 2))
-                    }
                     // Location prompt: one quiet card, never blocking. Disappears once a position is known.
                     if (!locChipDismissed && locMsg != null) {
                         item(key = "loc") {
@@ -865,6 +880,10 @@ fun KursScreen(
                             }
                         }
                     }
+                    // Currency to currency (e.g. USD -> EUR through so'm): a quiet line that opens the calculator sheet.
+                    item(key = "xchg") {
+                        ExchangeEntry(onClick = { showXchg = true }, modifier = Modifier.animateItem().rise(entrance, 5))
+                    }
                     item(key = "cbu") {
                         Text(
                             (pick(lang, "Markaziy bank: ", "ЦБ: ", "Central Bank: ")) + kRateFmt(cbu, ru) + " ${kSom(ru)} · " + (timeText ?: payload.cbu.date),
@@ -880,8 +899,15 @@ fun KursScreen(
             val quick = quickAmounts(currency)
             val density = LocalDensity.current
             val imeBottom = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+            val typing = imeBottom > 0.dp
+            val hide = if (typing) 0f else dockHide
+            val dockDrop = maxOf(innerPadding.calculateBottomPadding(), imeBottom) + 10.dp
             Column(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .graphicsLayer {
+                        translationY = hide * (size.height + dockDrop.toPx())
+                        alpha = 1f - hide
+                    }
                     .padding(start = 16.dp, end = 16.dp, bottom = maxOf(innerPadding.calculateBottomPadding(), imeBottom) + 10.dp)
                     .vsFloating(VsShape.Card).padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)

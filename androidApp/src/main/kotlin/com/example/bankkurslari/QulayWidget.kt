@@ -42,15 +42,18 @@ import androidx.glance.unit.ColorProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** App palette (ui/theme/Color.kt), day and night, so the widget follows the system theme like the app does. */
+/**
+ * Widget palette from res/values(-night)(-v31)/widget_colors.xml: on Android 12+ the system's Material You colours (they change
+ * with the wallpaper / "Style & colours"), below that the app palette. Day and night follow the system theme.
+ */
 internal object WidgetColors {
-    val card = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF1A1B20))
-    val ink = ColorProvider(day = Color(0xFF1C1D22), night = Color(0xFFEDEEF2))
-    val soft = ColorProvider(day = Color(0xFF5F6370), night = Color(0xFFA3A6B1))
-    val emerald = ColorProvider(day = Color(0xFF0B7A54), night = Color(0xFF5FD3A0))
-    val onEmerald = ColorProvider(day = Color(0xFFFFFFFF), night = Color(0xFF111215))
-    val tile = ColorProvider(day = Color(0xFFEEF0F4), night = Color(0xFF22242A))
-    val tealTint = ColorProvider(day = Color(0xFFE3F5EC), night = Color(0xFF173A2C))
+    val card = ColorProvider(R.color.w_card)
+    val ink = ColorProvider(R.color.w_ink)
+    val soft = ColorProvider(R.color.w_soft)
+    val emerald = ColorProvider(R.color.w_accent)
+    val onEmerald = ColorProvider(R.color.w_on_accent)
+    val tile = ColorProvider(R.color.w_tile)
+    val tealTint = ColorProvider(R.color.w_accent_tint)
     val rose = ColorProvider(day = Color(0xFFC2453A), night = Color(0xFFFF8A80))
     val gold = ColorProvider(day = Color(0xFFF2B01E), night = Color(0xFFF2B01E))
 }

@@ -2,6 +2,8 @@
 //
 //   POST /tg       Telegram webhook (header X-Telegram-Bot-Api-Secret-Token must equal WEBHOOK_SECRET)
 //   POST /e        usage counts from the app and the site: {"p":"android","e":["open","route"]}, no ids, no IPs kept
+//   POST /report   a user's report about a map place ("no branch here", wrong phone…) or general feedback, forwarded
+//                  to the owner's Telegram chat (OWNER_CHAT_ID); nothing stored
 //   GET  /health
 //   cron           rate alerts the bot users set, and a channel post when rates move far during the day
 //
@@ -25,6 +27,7 @@ export default {
       return new Response("ok");
     }
     if (url.pathname === "/e" && request.method === "POST") return countEvents(env, request);
+    if (url.pathname === "/report" && request.method === "POST") return forwardReport(env, request);
     return new Response("not found", { status: 404 });
   },
 
@@ -335,6 +338,63 @@ async function countEvents(env, request) {
   const day = L.tashkentDate();
   const stmt = env.DB.prepare("INSERT INTO events (day, name, platform, n) VALUES (?1, ?2, ?3, 1) ON CONFLICT(day, name, platform) DO UPDATE SET n = n + 1");
   await env.DB.batch(names.map((n) => stmt.bind(day, n, p)));
+  return new Response(null, { status: 204, headers: CORS });
+}
+
+/* ---------- reports and feedback ---------- */
+
+const REPORT_KINDS = {
+  no_place: "❌ Bu joyda filial yo‘q",
+  wrong_address: "📍 Manzil noto‘g‘ri",
+  wrong_phone: "📞 Telefon noto‘g‘ri",
+  wrong_hours: "🕘 Ish vaqti noto‘g‘ri",
+  wrong_rate: "💱 Kurs noto‘g‘ri",
+  other: "✏️ Boshqa",
+  feedback: "💬 Fikr-taklif"
+};
+const REPORTS_PER_DAY = 300; // all senders together: a flood can not bury the owner's chat
+const reportHits = new Map(); // per isolate: ip -> recent send times
+
+/**
+ * {"p":"android","kind":"no_place","text":"...","place":{"bank":"...","address":"...","phone":"...","lat":41.3,"lng":69.2},
+ *  "lang":"uz","v":"1.1"} -> one message to OWNER_CHAT_ID. Senders are anonymous; the IP is used only for the
+ * 5-per-10-minutes limit in memory and is never sent or stored.
+ */
+async function forwardReport(env, request) {
+  if (!env.OWNER_CHAT_ID) return new Response("off", { status: 503, headers: CORS });
+  const j = await request.json().catch(() => null);
+  const kind = REPORT_KINDS[j?.kind] ? j.kind : null;
+  const p = PLATFORMS.includes(j?.p) ? j.p : null;
+  const text = String(j?.text ?? "").trim().slice(0, 1500);
+  if (!kind || !p || (kind === "feedback" || kind === "other") && !text) return new Response("bad report", { status: 400, headers: CORS });
+
+  const ip = request.headers.get("cf-connecting-ip") || "";
+  const now = Date.now();
+  const recent = (reportHits.get(ip) || []).filter((t) => now - t < 10 * 60_000);
+  if (recent.length >= 5) return new Response("slow down", { status: 429, headers: CORS });
+  reportHits.set(ip, [...recent, now]);
+  if (reportHits.size > 5000) reportHits.clear();
+
+  const day = L.tashkentDate();
+  const sent = await env.DB.prepare("SELECT n FROM events WHERE day = ?1 AND name = 'report_sent' AND platform = ?2").bind(day, p).first().catch(() => null);
+  if ((sent?.n || 0) >= REPORTS_PER_DAY) return new Response("daily limit", { status: 429, headers: CORS });
+
+  const place = j.place && typeof j.place === "object" ? j.place : null;
+  const str = (v, n = 200) => (v == null ? "" : L.esc(String(v).slice(0, n)));
+  const lat = Number(place?.lat), lng = Number(place?.lng);
+  const lines = [`<b>${REPORT_KINDS[kind]}</b>`];
+  if (place) {
+    if (place.bank) lines.push(`🏦 ${str(place.bank)}`);
+    if (place.address) lines.push(`📍 ${str(place.address, 300)}`);
+    if (place.phone) lines.push(`📞 ${str(place.phone)}`);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) lines.push(`🗺 <a href="https://yandex.uz/maps/?pt=${lng},${lat}&z=18">${lat.toFixed(6)}, ${lng.toFixed(6)}</a>`);
+  }
+  if (text) lines.push("", L.esc(text));
+  lines.push("", `<i>${p}${j.v ? " " + str(j.v, 20) : ""}${j.lang ? " · " + str(j.lang, 5) : ""}</i>`);
+
+  const out = await tg(env, "sendMessage", { chat_id: env.OWNER_CHAT_ID, text: lines.join("\n"), parse_mode: "HTML", link_preview_options: { is_disabled: true } });
+  if (!out.ok) return new Response("send failed", { status: 502, headers: CORS });
+  await countDirect(env, "report_sent", p);
   return new Response(null, { status: 204, headers: CORS });
 }
 

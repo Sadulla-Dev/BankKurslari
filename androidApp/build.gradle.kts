@@ -26,6 +26,10 @@ android {
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // PostHog (gradle.properties): empty key leaves analytics off.
+        buildConfigField("String", "POSTHOG_API_KEY", "\"${providers.gradleProperty("posthog.apiKey").getOrElse("")}\"")
+        buildConfigField("String", "POSTHOG_HOST", "\"${providers.gradleProperty("posthog.host").getOrElse("https://us.i.posthog.com")}\"")
     }
 
     signingConfigs {
@@ -66,6 +70,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

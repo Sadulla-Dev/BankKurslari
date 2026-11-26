@@ -14,6 +14,9 @@ import kotlin.time.Clock
  * Each event is sent at most once per app session (a hundred taps on one button are one count), and "open" once a
  * day per install, so the numbers read as "sessions that used X" and "people who opened the app today".
  * Fire and forget: a failed send is dropped.
+ *
+ * Every [track] call also goes to PostHog ([analyticsCapture]), without the once-per-session cut, so PostHog counts
+ * each use. App opens reach PostHog as its own "Application Opened" lifecycle event.
  */
 object Usage {
     private const val URL = "https://bot.qulaykurs.uz/e"
@@ -34,6 +37,7 @@ object Usage {
     }
 
     fun track(event: String) {
+        analyticsCapture(event)
         val first = lock.withLock { sent.add(event) }
         if (first) send(event)
     }

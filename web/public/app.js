@@ -49,7 +49,7 @@ const S = {
   rates: {}, history: {}, bankHist: {},
   branches: null, user: null,
   range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null,
-  map: null, markers: [], meMarker: null, hl: null
+  map: null, markers: [], meMarker: null, hl: null, only: null
 };
 const L = () => T[S.lang];
 const $ = (id) => document.getElementById(id);
@@ -609,7 +609,7 @@ function closeSheet() {
   $("scrim").classList.remove("on");
   $("sheet").classList.remove("on");
   document.body.style.overflow = "";
-  setTimeout(() => { if (!S.sheetBank) { $("scrim").hidden = true; $("sheet").hidden = true; } }, 300);
+  setTimeout(() => { if (!S.sheetBank) { if ($("repSheet").hidden) $("scrim").hidden = true; $("sheet").hidden = true; } }, 300);
 }
 function renderSheet(bank, list) {
   const t = L();
@@ -638,16 +638,22 @@ function renderSheet(bank, list) {
   const box = $("shBranches");
   if (!S.branches) box.innerHTML = `<div class="skel"></div>`;
   else {
-    const ref = S.user || TASHKENT;
-    let brs = branchesOf(bank.bank).map((b) => ({ ...b, d: distKm(ref, [b.lat, b.lng]), km: S.user ? distKm(S.user, [b.lat, b.lng]) : null }));
-    brs.sort((a, b) => a.d - b.d);
-    if (!brs.length && bank.branch?.lat) brs = [{ ...bank.branch, km: S.user ? distKm(S.user, [bank.branch.lat, bank.branch.lng]) : null }];
-    box.innerHTML = brs.length
-      ? brs.slice(0, 3).map((b) => {
-          const [head, tail] = addrParts(b.address || bank.bank);
-          return `<a class="br" href="${directions(b.lat, b.lng)}" target="_blank" rel="noopener"><span><b>${esc(head)}</b>${tail ? `<small>${esc(tail)}</small>` : ""}</span><span>${b.km != null ? t.km(kmFmt(b.km)) : ""}</span></a>`;
-        }).join("") + (S.user ? "" : `<button class="ask" type="button" id="askLoc">${t.askLoc}</button>`)
-      : `<p class="muted small">${t.noBranches}</p>`;
+    const h = t.hrs;
+    // Hours of the branch shown in the subtitle; without them, what most of this bank's branches keep.
+    let sch = parseHours(nb?.hours), usual = false;
+    if (!sch) { sch = parseHours(usualHours(bank.bank)); usual = !!sch; }
+    const phone = nb?.phone || branchesOf(bank.bank).find((b) => b.phone)?.phone;
+    let html = "";
+    if (!sch) html += `<p class="hrs-status">${h.unknown}</p>`;
+    else {
+      const st = openState(sch);
+      html += `<p class="hrs-status ${st.open ? "open" : "closed"}">${st.open ? h.open(st.until) : st.next ? h.opens(st.next.day === 0 ? h.today : st.next.day === 1 ? h.tomorrow : h.days[st.next.dow], st.next.at) : h.closed}</p>`;
+      html += `<dl class="hrs">${hoursRows(sch, h).map(([d, v, off]) => `<div${off ? ` class="off"` : ""}><dt>${d}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
+      if (usual) html += `<p class="muted small">${h.usual}</p>`;
+    }
+    if (phone) html += `<a class="hrs-tel" href="${telHref(phone)}"><span>${h.phone}</span><b>${esc(phone)}</b></a>`;
+    if (!S.user) html += `<button class="ask" type="button" id="askLoc">${t.askLoc}</button>`;
+    box.innerHTML = html;
     const ask = $("askLoc");
     if (ask) ask.onclick = async () => {
       ask.disabled = true;
@@ -655,6 +661,21 @@ function renderSheet(bank, list) {
     };
   }
   const target = nb || (bank.branch?.lat ? bank.branch : null);
+  // Call: the nearest branch's number, else any number this bank has (usually its short call-centre number).
+  const phone = nb?.phone || (S.branches ? branchesOf(bank.bank).find((b) => b.phone)?.phone : null);
+  const call = $("shCall");
+  call.hidden = !phone;
+  if (phone) {
+    call.href = telHref(phone);
+    call.setAttribute("aria-label", t.call(phone));
+    call.title = phone;
+    call.onclick = () => window.qkEvent?.("call");
+  }
+  $("shReport").onclick = () => {
+    const place = { bank: bank.bank, address: target?.address || null, phone: target?.phone || phone || null, lat: target?.lat ?? null, lng: target?.lng ?? null };
+    closeSheet();
+    openReport(place);
+  };
   $("shGo").hidden = !target;
   if (target) $("shGo").href = directions(target.lat, target.lng);
   $("shShowMap").onclick = (e) => {
@@ -670,6 +691,133 @@ function renderSheet(bank, list) {
       else { await navigator.clipboard.writeText(text + " https://qulaykurs.uz"); toast(t.copied); }
     } catch { /* dismissed */ }
   };
+}
+/* ---------- opening hours ("Mo-Fr 09:00-18:00; Sa 09:00-16:00", "24/7") ---------- */
+
+const DOW = { Mo: 0, Tu: 1, We: 2, Th: 3, Fr: 4, Sa: 5, Su: 6 };
+/** -> {always} or {days: [[startMin, endMin] | null] x7, Monday first}; null when unparseable. */
+function parseHours(raw) {
+  if (!raw) return null;
+  if (/^\s*24\/7\s*$/.test(raw)) return { always: true };
+  const days = Array(7).fill(null);
+  let any = false;
+  for (const part of raw.split(";")) {
+    const m = part.trim().match(/^([A-Z][a-z](?:-[A-Z][a-z])?(?:,[A-Z][a-z](?:-[A-Z][a-z])?)*)\s+(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const span = [+m[2] * 60 + +m[3], +m[4] * 60 + +m[5]];
+    for (const r of m[1].split(",")) {
+      const [a, b = a] = r.split("-").map((d) => DOW[d]);
+      if (a == null || b == null) return null;
+      for (let i = a; ; i = (i + 1) % 7) { days[i] = span; any = true; if (i === b) break; }
+    }
+  }
+  return any ? { days } : null;
+}
+/** The hours most of [bank]'s branches keep. */
+function usualHours(bank) {
+  const n = new Map();
+  for (const b of branchesOf(bank)) if (b.hours) n.set(b.hours, (n.get(b.hours) || 0) + 1);
+  return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+}
+const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+/** Day groups with the same hours, closed days included: [label, value, isOff]. */
+function hoursRows(sch, h) {
+  if (sch.always) return [[h.days[0] + "–" + h.days[6], h.always, false]];
+  const key = (d) => (d ? hm(d[0]) + "–" + hm(d[1]) : "");
+  const rows = [];
+  for (let i = 0; i < 7;) {
+    let j = i;
+    while (j < 6 && key(sch.days[j + 1]) === key(sch.days[i])) j++;
+    rows.push([i === j ? h.days[i] : `${h.days[i]}–${h.days[j]}`, sch.days[i] ? key(sch.days[i]) : h.off, !sch.days[i]]);
+    i = j + 1;
+  }
+  return rows;
+}
+/** Open now in Tashkent (UTC+5)? Else when it opens next (day: 0 today, 1 tomorrow…). */
+function openState(sch) {
+  if (sch.always) return { open: true, until: "24:00" };
+  const now = new Date(Date.now() + 5 * 3600e3);
+  const dow = (now.getUTCDay() + 6) % 7, min = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const td = sch.days[dow];
+  if (td && min >= td[0] && min < td[1]) return { open: true, until: hm(td[1]) };
+  for (let k = 0; k < 7; k++) {
+    const d = sch.days[(dow + k) % 7];
+    if (d && (k > 0 || min < d[0])) return { open: false, next: { day: k, dow: (dow + k) % 7, at: hm(d[0]) } };
+  }
+  return { open: false };
+}
+/* ---------- report a place / feedback (bot.qulaykurs.uz/report -> owner's Telegram) ---------- */
+
+const REPORT_URL = "https://bot.qulaykurs.uz/report";
+const REP = { place: null, kind: "", busy: false };
+const REP_KINDS = ["no_place", "wrong_address", "wrong_phone", "wrong_hours", "wrong_rate", "other"];
+
+/** place: {bank, address, phone, lat, lng} to report on it, or null for general feedback. */
+function openReport(place) {
+  const t = L();
+  REP.place = place; REP.kind = place ? "" : "feedback"; REP.busy = false;
+  setText("repTitle", place ? t.rep.title : t.rep.fbTitle);
+  setText("repSub", place ? [place.bank, cleanAddr(place.address)].filter(Boolean).join(" · ") : t.rep.fbSub);
+  const why = $("repWhy");
+  why.hidden = !place;
+  why.innerHTML = place ? REP_KINDS.map((k) => `<button type="button" class="chip-btn" data-k="${k}">${esc(t.rep.kinds[k])}</button>`).join("") : "";
+  const sheet = $("repSheet");
+  sheet.querySelector(".rep-done")?.remove();
+  for (const el of [why, $("repText"), $("repSend")]) el.style.display = "";
+  $("repText").value = "";
+  $("repErr").hidden = true;
+  repSync();
+  $("scrim").hidden = false;
+  sheet.hidden = false;
+  requestAnimationFrame(() => { $("scrim").classList.add("on"); sheet.classList.add("on"); });
+  document.body.style.overflow = "hidden";
+  (place ? $("repClose") : $("repText")).focus({ preventScroll: true });
+}
+function closeReport() {
+  const sheet = $("repSheet");
+  if (sheet.hidden) return;
+  sheet.classList.remove("on");
+  if (!S.sheetBank && !S.allOpen) { $("scrim").classList.remove("on"); document.body.style.overflow = ""; }
+  setTimeout(() => { sheet.hidden = true; if (!S.sheetBank && !S.allOpen) $("scrim").hidden = true; }, 300);
+}
+function repSync() {
+  const t = L();
+  const needText = REP.kind === "feedback" || REP.kind === "other";
+  $("repText").placeholder = needText ? t.rep.msg : t.rep.comment;
+  $("repWhy").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.k === REP.kind));
+  const send = $("repSend");
+  send.textContent = REP.busy ? t.rep.sending : t.rep.send;
+  send.disabled = REP.busy || !REP.kind || (needText && !$("repText").value.trim());
+}
+async function sendReport() {
+  if ($("repSend").disabled) return;
+  const t = L();
+  REP.busy = true; repSync();
+  const p = REP.place;
+  const body = { p: "web", kind: REP.kind, text: $("repText").value.trim(), lang: S.lang,
+    ...(p ? { place: { bank: p.bank, address: p.address || undefined, phone: p.phone || undefined, lat: p.lat, lng: p.lng } } : {}) };
+  let ok = false;
+  try { ok = (await fetch(REPORT_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).ok; } catch { /* offline */ }
+  REP.busy = false;
+  if (!ok) { $("repErr").textContent = t.rep.fail; $("repErr").hidden = false; repSync(); return; }
+  window.qkEvent?.(p ? "report_sent" : "feedback_sent");
+  for (const el of [$("repWhy"), $("repText"), $("repSend")]) el.style.display = "none";
+  $("repErr").hidden = true;
+  $("repSend").insertAdjacentHTML("afterend", `<p class="rep-done">${esc(t.rep.thanks)}</p>`);
+}
+function bindReport() {
+  $("repClose").addEventListener("click", closeReport);
+  $("repWhy").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b) { REP.kind = b.dataset.k; repSync(); } });
+  $("repText").addEventListener("input", repSync);
+  $("repSend").addEventListener("click", sendReport);
+  $("fbOpen").addEventListener("click", () => openReport(null));
+  $("fbFoot").addEventListener("click", () => openReport(null));
+}
+
+/** "1106, +998(71)210-20-02" -> "tel:1106": the first number, digits and a leading + only. */
+function telHref(phone) {
+  const first = String(phone).split(",")[0].trim();
+  return "tel:" + (first.startsWith("+") ? "+" : "") + first.replace(/\D/g, "");
 }
 function todayDelta(bankName) {
   const days = S.bankHist[S.cur];
@@ -833,6 +981,17 @@ function ensureMap() {
   });
   return mapReady;
 }
+function setMapOnly(bank, at) {
+  S.only = bank;
+  S.hl = bank;
+  closeClusterPopup();
+  if (bank && at && S.map) {
+    S.map.flyTo({ center: [at[1], at[0]], zoom: Math.min(Math.max(S.map.getZoom(), 12), 14) });
+    // Narrow screens stack the list under the map: bring the map back into view.
+    if (matchMedia("(max-width: 860px)").matches) $("mapgl").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  }
+  renderMap();
+}
 function focusOnMap() {
   if (!S.map || !S.focus) return;
   S.hl = S.focus.bank;
@@ -937,6 +1096,7 @@ function renderMap() {
   const cands = [];
   bankLoop:
   for (const bank of list) {
+    if (S.only && bank.bank !== S.only) continue;
     let brs = branchesOf(bank.bank);
     if (!brs.length && bank.branch?.lat) brs = [bank.branch];
     for (const b of brs) {
@@ -985,12 +1145,16 @@ function renderMap() {
     const diff = Math.abs(bank.rate - best.rate);
     const isBest = diff < 0.005;
     const sub = [S.user && nb ? t.km(kmFmt(distKm(S.user, [nb.lat, nb.lng]))) : "", nb ? addrParts(nb.address)[0] : ""].filter(Boolean).join(" · ");
-    return `<button type="button" class="si${bank.bank === S.hl ? " on" : ""}" data-bank="${esc(bank.bank)}" data-lat="${nb?.lat ?? ""}" data-lng="${nb?.lng ?? ""}">
+    return `<button type="button" class="si${bank.bank === S.only ? " on sel" : ""}" aria-pressed="${bank.bank === S.only}" data-bank="${esc(bank.bank)}" data-lat="${nb?.lat ?? ""}" data-lng="${nb?.lng ?? ""}">
       ${badgeHTML(bank.bank, isBest ? "accent" : "")}
       <span><b>${esc(bank.bank)}</b><small>${esc(sub)}</small></span>
       <span class="r"><b>${rateFmt(bank.rate)}</b><small class="${isBest ? "best" : ""}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(rateFmt(diff))}</small></span>
     </button>`;
   }).join("");
+
+  const chip = $("mapOnly");
+  chip.hidden = !S.only;
+  if (S.only) setText("mapOnlyName", S.only);
 
   const inView = cands.map((x) => x.bank);
   const top = inView.length ? inView.reduce((a, b) => ((S.mode === "sell" ? b.rate > a.rate : b.rate < a.rate) ? b : a)) : null;
@@ -1448,16 +1612,17 @@ function bind() {
   $("sideList").addEventListener("click", (e) => {
     const it = e.target.closest(".si");
     if (!it) return;
-    S.hl = it.dataset.bank;
-    if (it.dataset.lat && S.map) S.map.flyTo({ center: [+it.dataset.lng, +it.dataset.lat], zoom: Math.max(S.map.getZoom(), 15) });
-    else renderMap();
-    openSheet(it.dataset.bank);
+    // Tap a bank: the map shows only its branches, around its nearest one. Tap it again: every bank.
+    if (S.only === it.dataset.bank) return setMapOnly(null);
+    setMapOnly(it.dataset.bank, it.dataset.lat ? [+it.dataset.lat, +it.dataset.lng] : null);
   });
+  $("mapOnlyClear").addEventListener("click", () => setMapOnly(null));
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
-  $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); });
+  $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); closeReport(); });
   $("shClose").addEventListener("click", closeSheet);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeAll(); closeReport(); } });
   bindAll();
+  bindReport();
   $("locateBtn").addEventListener("click", async () => {
     const btn = $("locateBtn");
     btn.classList.add("busy");

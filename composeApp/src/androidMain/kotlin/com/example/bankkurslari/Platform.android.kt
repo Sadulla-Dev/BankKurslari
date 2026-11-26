@@ -157,7 +157,41 @@ actual fun shareImage(png: ByteArray, text: String) {
 
 actual val usagePlatform: String = "android"
 
+actual val appVersion: String
+    get() = runCatching { AndroidPlatform.context.let { it.packageManager.getPackageInfo(it.packageName, 0).versionName } }.getOrNull().orEmpty()
+
 actual fun isDebugBuild(): Boolean = (AndroidPlatform.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
+/* ---------- PostHog ---------- */
+
+@Volatile
+private var analyticsOn = false
+
+/**
+ * PostHog, anonymous: a random install id (DAU, retention, funnels), no person profiles, no session replay, no
+ * screen/deep-link/push autocapture, no GeoIP. Off in debug builds and when [apiKey] is empty. Call after [initPlatform].
+ */
+fun initAnalytics(apiKey: String, host: String) {
+    if (analyticsOn || apiKey.isBlank() || isDebugBuild()) return
+    val config = com.posthog.android.PostHogAndroidConfig(projectToken = apiKey, host = host).apply {
+        captureApplicationLifecycleEvents = true
+        captureScreenViews = false
+        captureDeepLinks = false
+        capturePushNotificationSubscriptions = false
+        capturePushNotificationOpened = false
+        sessionReplay = false
+        surveys = false
+        preloadFeatureFlags = false
+        personProfiles = com.posthog.PersonProfiles.NEVER
+        disableGeoIp = true
+    }
+    runCatching { com.posthog.android.PostHogAndroid.setup(AndroidPlatform.context, config) }
+        .onSuccess { analyticsOn = true }
+}
+
+actual fun analyticsCapture(event: String) {
+    if (analyticsOn) runCatching { com.posthog.PostHog.capture(event) }
+}
 
 actual fun openUri(uri: String): Boolean {
     val action = if (uri.startsWith("mailto:")) Intent.ACTION_SENDTO else Intent.ACTION_VIEW
