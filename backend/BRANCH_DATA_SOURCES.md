@@ -3,10 +3,33 @@
 ## Tekshirilgan holat
 
 - `data/branches.json` bank.uz filial sahifalaridan yig‘ilgan keng asosiy ro‘yxat. Har bir nuqtada `source: "bank.uz"` saqlanadi.
-- `data/official-branches.json` banklarning o‘z filial xaritalari va ochiq JSON manbalaridan yig‘ilgan nuqtalar. Yig‘uvchi 20 ta bankning rasmiy sahifasini tekshiradi; manba domeni har bir yozuvda bor.
+- `data/official-branches.json` banklarning o‘z filial xaritalari va ochiq JSON manbalaridan yig‘ilgan nuqtalar. Yig‘uvchi 23 ta bankning rasmiy sahifasini tekshiradi; manba domeni har bir yozuvda bor.
 - API qurilganda rasmiy nuqtalar bank.uz yozuvlaridan ustun turadi. Avvalgi 250 m yaqinlik filtri bitta binoga yaqin turgan alohida filiallarni ham yo‘qotishi mumkin edi; endi faqat 75 m ichidagi ehtimoliy takror yozuvlar almashtiriladi.
 - Asosiy bazada aynan bir xil bank, filial nomi, manzil va koordinatali 620 takror yozuv bor edi. Ular olib tashlandi; turli nom/manzildagi yoki yaqin joylashgan filiallar saqlandi.
 - Aloqabank va MKBank rasmiy importlaridagi sahifa soni chegaralari olib tashlandi. Importer xatosi avvalgi ma’lumotni o‘chirib yubormaydi; hech bir rasmiy manba muvaffaqiyatli ishlamasa, keshning yangilangan vaqti ham o‘zgarmaydi.
+
+## Ish vaqti (hours) bo‘yicha holat — 2026-11 tekshiruvi
+
+Ish vaqti faqat bankning o‘z sahifasidan olinadi; bank e’lon qilmagan vaqt o‘ylab topilmaydi (`hours: null` → ilovada "Ish vaqti nomaʼlum").
+
+Qo‘shilgan yoki tuzatilgan manbalar:
+
+- **Tenge Bank** — ro‘yxat API-sidagi `works` maydoni doim bo‘sh. Vaqt har bir ofis sahifasida (`tengebank.uz/map/inner/{id}`, o‘zbekcha, til prefiksisiz) "Ish jadvali" blokida: uchta qator — ish kunlari / shanba / yakshanba (kun nomlari sahifada bo‘sh, tartib bo‘yicha o‘qiladi; "Вых" = dam olish).
+- **Ipak Yuli Bank** — xarita feedida vaqt yo‘q. Filiallar (17 ta): `ipakyulibank.uz/offices` jadvalidagi vaqt (Du–Ju). Shanba: bankning "yaxshilangan ish jadvali" yangiligida nomi keltirilgan filiallar va BXM/EM lar uchun (`IPAK_SATURDAY`, kodda). Boshqa BXM/EM lar uchun vaqt e’lon qilinmagan.
+- **Davr bank** — `abbdavr-bank.uz/api/product/api/atm-branch?type=BRANCH` (sayt xaritasi shu feedni o‘qiydi): `start_time`/`end_time`, `work_on_weekend`, `day_and_night`.
+- **Octobank** — `octobank.uz/kontaktlar`: bitta ofis (bosh ofis), xarita nuqtasi va Du..Ya jadvali.
+- **Mybank** — `my-bank.uz/uz/contact` (Next.js): sahifa ichidagi `dataList` (koordinata, manzil, "Ish vaqti").
+
+Ish vaqti olinmaydigan banklar (sabab):
+
+- **Uzum Bank** — saytda filial/ofis ro‘yxati yo‘q (raqamli bank); bank.uz dagi nuqtalarda vaqt yo‘q.
+- **O‘zbekiston Milliy banki** — `nbu.uz/bank-haqida/bank-tarmogi` ro‘yxati Cloudflare Turnstile tekshiruvidan keyin yuklanadi; serverdan oddiy fetch bilan olinmaydi (bot himoyasini chetlab o‘tish qilinmaydi).
+- **Kapitalbank** — `kapitalbank.uz/uz/branches` sahifasida har kunlik jadval bor (Nuxt payload: `schedule.days[].workHours`), ammo Node fetch Cloudflare 403 oladi. Ochiq API topilsa importer qo‘shish mumkin.
+- **Asakabank** — saytda manzillar bloki "ishlab chiqilmoqda"; ochiq ro‘yxat yo‘q.
+- **AVO bank** — saytda faqat kartomatlar (qurilmalar) xaritasi; ofislar yo‘q.
+- **Universal bank** — `universalbank.uz/api/locations` da va saytda vaqt yo‘q (faqat nom, manzil, telefon).
+- **Ziraat Bank, KDB Bank** — ofis sahifalarida vaqt bor (Ziraat: `ziraatbank.uz/uz/andijon-ofisi` kabi; KDB: `kdb.uz/uz/about-us/branches`), lekin koordinata yo‘q. Importer koordinatasiz yozuvni qabul qilmaydi; bank.uz nuqtalariga manzil bo‘yicha ulash alohida ish.
+- **Turkiston bank, Hi-Tech Bank** — rasmiy sayt domeni topilmadi / ochilmadi (`turkistonbank.uz`, `hitechbank.uz` DNS’da yo‘q; `htb.uz` da filial ro‘yxati topilmadi).
 
 ## Yandex API kalitisiz variant
 
