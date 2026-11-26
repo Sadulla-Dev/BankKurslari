@@ -157,9 +157,12 @@ function branchesOf(bank) {
   if (!S.branches) return [];
   if (branchCache.has(bank)) return branchCache.get(bank);
   const k = bankKey(bank);
+  // Same list as the app: every point the API returns (it already merges points within 60 m). bank.uz often gives
+  // several real service points one shared address, so the address is not a key; wrong points go to
+  // backend/data/removed-branches.json instead.
   const seen = new Set();
   const list = S.branches.filter((b) => keysMatch(bankKey(b.bank), k)).filter((b) => {
-    const id = (b.address || "").toLowerCase().replace(/\s+/g, " ") || `${b.lat.toFixed(4)},${b.lng.toFixed(4)}`;
+    const id = `${b.lat.toFixed(5)},${b.lng.toFixed(5)}`;
     if (seen.has(id)) return false;
     seen.add(id);
     return true;

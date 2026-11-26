@@ -1,0 +1,9 @@
+[
+  {
+    "bank": "O‘zbekiston Milliy banki",
+    "address": "100047, Toshkent shahri, Yashnobod tumani, Sodiq.Azimov 1-berk ko‘chasi, 2A uy",
+    "lat": 41.30212,
+    "lng": 69.319258,
+    "reason": "user report 2026-11-26: no branch at this spot (bank.uz lists the same address twice; the other point, 41.305887, 69.292001, stays)"
+  }
+]

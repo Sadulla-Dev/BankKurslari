@@ -842,7 +842,11 @@ async function getBranches({ force = false } = {}) {
     // Manually confirmed branches (user reports) that no official list contains.
     const manual = (await loadStatic("manual-branches.json")) || [];
     const centres = (await loadStatic("call-centres.json"))?.banks || {};
-    const merged = withBankPhones(dedupeBranches([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual]), staticBranches, centres);
+    // Points users reported as "no branch here": dropped by bank and position (within 75 m), so a fresh bank.uz
+    // scrape that brings them back does not undo the removal.
+    const removed = (await loadStatic("removed-branches.json")) || [];
+    const combined = withoutRemoved([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual], removed);
+    const merged = withBankPhones(dedupeBranches(combined), staticBranches, centres);
     cachedBranches = { cachedAt: Date.now(), branches: merged };
     return merged;
   }
@@ -864,6 +868,15 @@ async function getBranches({ force = false } = {}) {
 }
 
 const SAME_BRANCH_M = 60;
+
+function withoutRemoved(list, removed) {
+  if (!removed.length) return list;
+  return list.filter((b) => !removed.some((r) => {
+    if (branchBankKey(r.bank) !== branchBankKey(b.bank)) return false;
+    const m = Math.hypot((r.lat - b.lat) * 111320, (r.lng - b.lng) * 111320 * Math.cos((b.lat * Math.PI) / 180));
+    return m <= 75;
+  }));
+}
 const branchBankKey = (name) => String(name || "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 // Who knows a branch's position best: a user-confirmed point, then the bank's own list, then everything else.
 const sourceRank = (b) => (/^manual/i.test(b.source || "") ? 0 : b.source && !/bank\.uz|osm|yandex/i.test(b.source) ? 1 : 2);
