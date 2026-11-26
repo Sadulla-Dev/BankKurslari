@@ -483,7 +483,16 @@ body.v-map .foot { display: none; }
 .skel { height: 52px; border-radius: 12px; background: linear-gradient(90deg, transparent, var(--fill), transparent) 0 0 / 200% 100%; animation: sk 1.2s infinite; }
 /* The one action never scrolls away behind the branch list. */
 .sh-report { display: block; margin: 10px auto 0; border: 0; background: none; color: var(--accent); font-weight: 500; font-size: 14px; padding: 10px 6px; }
-.branches .br small.tel { display: block; }
+.hrs-status { margin: 6px 0 8px; font-weight: 600; font-size: 14px; color: var(--ink-2); }
+.hrs-status.open { color: var(--accent); }
+.hrs { margin: 0; }
+.hrs > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.hrs dt { color: var(--ink-2); }
+.hrs dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hrs > div.off dd { color: var(--ink-2); font-weight: 500; }
+.hrs-tel { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; text-decoration: none; color: inherit; border-bottom: 1px solid var(--line); }
+.hrs-tel span { color: var(--ink-2); }
+.hrs-tel b { color: var(--accent); font-weight: 600; }
 .foot-fb { border: 0; background: none; color: var(--accent); font-weight: 500; padding: 8px 0; }
 .rep-why { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
 .rep-text { width: 100%; box-sizing: border-box; resize: vertical; min-height: 96px; border: 1px solid var(--line); border-radius: 14px; background: var(--fill); color: var(--ink); font: inherit; padding: 12px 14px; }

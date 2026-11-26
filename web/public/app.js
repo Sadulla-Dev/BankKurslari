@@ -638,16 +638,22 @@ function renderSheet(bank, list) {
   const box = $("shBranches");
   if (!S.branches) box.innerHTML = `<div class="skel"></div>`;
   else {
-    const ref = S.user || TASHKENT;
-    let brs = branchesOf(bank.bank).map((b) => ({ ...b, d: distKm(ref, [b.lat, b.lng]), km: S.user ? distKm(S.user, [b.lat, b.lng]) : null }));
-    brs.sort((a, b) => a.d - b.d);
-    if (!brs.length && bank.branch?.lat) brs = [{ ...bank.branch, km: S.user ? distKm(S.user, [bank.branch.lat, bank.branch.lng]) : null }];
-    box.innerHTML = brs.length
-      ? brs.slice(0, 3).map((b) => {
-          const [head, tail] = addrParts(b.address || bank.bank);
-          return `<a class="br" href="${directions(b.lat, b.lng)}" target="_blank" rel="noopener"><span><b>${esc(head)}</b>${tail ? `<small>${esc(tail)}</small>` : ""}${b.phone ? `<small class="tel">${esc(t.tel(b.phone))}</small>` : ""}</span><span>${b.km != null ? t.km(kmFmt(b.km)) : ""}</span></a>`;
-        }).join("") + (S.user ? "" : `<button class="ask" type="button" id="askLoc">${t.askLoc}</button>`)
-      : `<p class="muted small">${t.noBranches}</p>`;
+    const h = t.hrs;
+    // Hours of the branch shown in the subtitle; without them, what most of this bank's branches keep.
+    let sch = parseHours(nb?.hours), usual = false;
+    if (!sch) { sch = parseHours(usualHours(bank.bank)); usual = !!sch; }
+    const phone = nb?.phone || branchesOf(bank.bank).find((b) => b.phone)?.phone;
+    let html = "";
+    if (!sch) html += `<p class="hrs-status">${h.unknown}</p>`;
+    else {
+      const st = openState(sch);
+      html += `<p class="hrs-status ${st.open ? "open" : "closed"}">${st.open ? h.open(st.until) : st.next ? h.opens(st.next.day === 0 ? h.today : st.next.day === 1 ? h.tomorrow : h.days[st.next.dow], st.next.at) : h.closed}</p>`;
+      html += `<dl class="hrs">${hoursRows(sch, h).map(([d, v, off]) => `<div${off ? ` class="off"` : ""}><dt>${d}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
+      if (usual) html += `<p class="muted small">${h.usual}</p>`;
+    }
+    if (phone) html += `<a class="hrs-tel" href="${telHref(phone)}"><span>${h.phone}</span><b>${esc(phone)}</b></a>`;
+    if (!S.user) html += `<button class="ask" type="button" id="askLoc">${t.askLoc}</button>`;
+    box.innerHTML = html;
     const ask = $("askLoc");
     if (ask) ask.onclick = async () => {
       ask.disabled = true;
@@ -685,6 +691,60 @@ function renderSheet(bank, list) {
       else { await navigator.clipboard.writeText(text + " https://qulaykurs.uz"); toast(t.copied); }
     } catch { /* dismissed */ }
   };
+}
+/* ---------- opening hours ("Mo-Fr 09:00-18:00; Sa 09:00-16:00", "24/7") ---------- */
+
+const DOW = { Mo: 0, Tu: 1, We: 2, Th: 3, Fr: 4, Sa: 5, Su: 6 };
+/** -> {always} or {days: [[startMin, endMin] | null] x7, Monday first}; null when unparseable. */
+function parseHours(raw) {
+  if (!raw) return null;
+  if (/^\s*24\/7\s*$/.test(raw)) return { always: true };
+  const days = Array(7).fill(null);
+  let any = false;
+  for (const part of raw.split(";")) {
+    const m = part.trim().match(/^([A-Z][a-z](?:-[A-Z][a-z])?(?:,[A-Z][a-z](?:-[A-Z][a-z])?)*)\s+(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const span = [+m[2] * 60 + +m[3], +m[4] * 60 + +m[5]];
+    for (const r of m[1].split(",")) {
+      const [a, b = a] = r.split("-").map((d) => DOW[d]);
+      if (a == null || b == null) return null;
+      for (let i = a; ; i = (i + 1) % 7) { days[i] = span; any = true; if (i === b) break; }
+    }
+  }
+  return any ? { days } : null;
+}
+/** The hours most of [bank]'s branches keep. */
+function usualHours(bank) {
+  const n = new Map();
+  for (const b of branchesOf(bank)) if (b.hours) n.set(b.hours, (n.get(b.hours) || 0) + 1);
+  return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+}
+const hm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+/** Day groups with the same hours, closed days included: [label, value, isOff]. */
+function hoursRows(sch, h) {
+  if (sch.always) return [[h.days[0] + "–" + h.days[6], h.always, false]];
+  const key = (d) => (d ? hm(d[0]) + "–" + hm(d[1]) : "");
+  const rows = [];
+  for (let i = 0; i < 7;) {
+    let j = i;
+    while (j < 6 && key(sch.days[j + 1]) === key(sch.days[i])) j++;
+    rows.push([i === j ? h.days[i] : `${h.days[i]}–${h.days[j]}`, sch.days[i] ? key(sch.days[i]) : h.off, !sch.days[i]]);
+    i = j + 1;
+  }
+  return rows;
+}
+/** Open now in Tashkent (UTC+5)? Else when it opens next (day: 0 today, 1 tomorrow…). */
+function openState(sch) {
+  if (sch.always) return { open: true, until: "24:00" };
+  const now = new Date(Date.now() + 5 * 3600e3);
+  const dow = (now.getUTCDay() + 6) % 7, min = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const td = sch.days[dow];
+  if (td && min >= td[0] && min < td[1]) return { open: true, until: hm(td[1]) };
+  for (let k = 0; k < 7; k++) {
+    const d = sch.days[(dow + k) % 7];
+    if (d && (k > 0 || min < d[0])) return { open: false, next: { day: k, dow: (dow + k) % 7, at: hm(d[0]) } };
+  }
+  return { open: false };
 }
 /* ---------- report a place / feedback (bot.qulaykurs.uz/report -> owner's Telegram) ---------- */
 
