@@ -13,6 +13,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -88,7 +89,6 @@ fun BankSheet(
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val buy = item.rate.buy
     val sellRate = item.rate.sell
-    val time = updatedAt?.formatUpdatedAt()
     val schedule = formatHours(item.hours, ru) ?: item.hours?.takeIf { it.isNotBlank() }
     val prev = rememberBankYesterday(item, currency)
     var locationOn by remember { mutableStateOf(hasLocationPermission()) }
@@ -125,6 +125,7 @@ fun BankSheet(
                         color = if (item.open.known && item.open.open) VsEmerald else VsInkSoft
                     )
                 }
+                VsIconButton(Icons.Outlined.Flag, tr("Xato haqida xabar berish", "Сообщить об ошибке", "Report a problem"), { reporting = true }, tint = VsInkSoft)
                 VsIconButton(
                     if (favorite) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                     if (favorite) tr("Sevimlilardan olib tashlash", "Убрать из избранного", "Remove from favourites") else tr("Sevimlilarga qoʻshish", "Добавить в избранное", "Add to favourites"),
@@ -233,13 +234,6 @@ fun BankSheet(
                 }
                 VsSecondaryButton(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share"), { ShareCards.share(shareCard) })
             }
-            if (time != null) {
-                Text(
-                    pick(lang, "Yangilandi: $time", "Обновлено: $time", "Updated: $time"),
-                    style = VsType.Meta, color = VsInkSoft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { ReportLink({ reporting = true }) }
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
     }
