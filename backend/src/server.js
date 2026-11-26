@@ -841,7 +841,8 @@ async function getBranches({ force = false } = {}) {
   if (staticBranches && staticBranches.length) {
     // Manually confirmed branches (user reports) that no official list contains.
     const manual = (await loadStatic("manual-branches.json")) || [];
-    const merged = withBankPhones(dedupeBranches([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual]), staticBranches);
+    const centres = (await loadStatic("call-centres.json"))?.banks || {};
+    const merged = withBankPhones(dedupeBranches([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual]), staticBranches, centres);
     cachedBranches = { cachedAt: Date.now(), branches: merged };
     return merged;
   }
@@ -887,7 +888,7 @@ const better = (a, b) => {
 /**
  * One phone field ("+998(71)140-69-00, 8 (371) 244-09-69, 1296") -> Uzbek numbers in one shape, comma separated:
  * "+998 71 140-69-00, +998 71 244-09-69, 1296". Old trunk prefixes (8 / 3xx area codes) are rewritten; a trailing
- * "(342)" extension is kept; anything that is not an Uzbek number (e.g. "+0 (800) …") is dropped.
+ * "(342)" extension is kept; 0 800 toll-free numbers are kept; anything else that is not an Uzbek number is dropped.
  */
 export function cleanPhones(raw) {
   if (!raw) return null;
@@ -898,8 +899,10 @@ export function cleanPhones(raw) {
     let ext = "";
     const em = p.match(/^(.*\d.*?)\s*\((\d{2,4})\)\s*$/);
     if (em && /\d{6}/.test(em[1].replace(/\D/g, ""))) { p = em[1]; ext = ` (${em[2]})`; }
-    if (/^\+\s*\(?\s*[0-8]/.test(p)) continue; // a country code that is not 998
     let d = p.replace(/\D/g, "");
+    // 0 800 …: Uzbek toll-free (bank.uz sometimes writes it as "+0 (800) 1-200-200").
+    if (/^0800\d{7}$/.test(d)) { out.push(`0 800 ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9)}`); continue; }
+    if (/^\+\s*\(?\s*[0-8]/.test(p)) continue; // a country code that is not 998
     if (/^\d{3,5}$/.test(d) && !d.startsWith("0")) { out.push(d); continue; } // short call-centre number
     if (d.length === 11 && d.startsWith("83")) d = d.slice(2); // 8 (371) …: old trunk + area code
     else if (d.length === 10 && d.startsWith("3")) d = d.slice(1); // (372) …: old area code
@@ -912,7 +915,10 @@ export function cleanPhones(raw) {
   return uniq.length ? uniq.join(", ") : null;
 }
 
-function withBankPhones(list, source) {
+/** Branches without a number of their own get the bank's official call centre (data/call-centres.json),
+ *  else the number bank.uz lists most often for that bank. */
+function withBankPhones(list, source, centres = {}) {
+  const official = new Map(Object.entries(centres).map(([bank, c]) => [branchBankKey(bank), cleanPhones([c.short, c.phone].filter(Boolean).join(", "))]));
   const counts = new Map();
   for (const b of source) {
     const phone = cleanPhones(b.phone);
@@ -924,7 +930,7 @@ function withBankPhones(list, source) {
   }
   const top = new Map([...counts].map(([k, m]) => [k, [...m].sort((a, b) => b[1] - a[1])[0][0]]));
   return list.map((b) => {
-    const phone = cleanPhones(b.phone) || top.get(branchBankKey(b.bank)) || null;
+    const phone = cleanPhones(b.phone) || official.get(branchBankKey(b.bank)) || top.get(branchBankKey(b.bank)) || null;
     const { phone: _drop, ...rest } = b;
     return phone ? { ...rest, phone } : rest;
   });
