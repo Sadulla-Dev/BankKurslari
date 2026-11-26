@@ -144,7 +144,8 @@ suspend fun fetchBranches(): List<OsmBranch> = withContext(Dispatchers.Default) 
             name = item.str("name")?.ifEmpty { null } ?: "Bank",
             address = item.str("address")?.ifEmpty { null },
             hours = item.str("hours")?.ifEmpty { null },
-            lat = lat, lng = lng
+            lat = lat, lng = lng,
+            phone = item.str("phone")?.ifBlank { null }
         )
     }
 }

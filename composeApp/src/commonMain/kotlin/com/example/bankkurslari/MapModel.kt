@@ -64,6 +64,7 @@ class MapPin(
     val title: String,
     val address: String?,
     val hours: String?,
+    val phone: String?,
     val bankKey: String,
     val rawKm: Double?,        // true distance from the user (only used for camera decisions, never displayed)
     val rb: RankedBank?,
@@ -147,16 +148,17 @@ fun mapBuildPins(
                 hours = hours,
                 open = st,
                 lat = br.lat,
-                lng = br.lng
+                lng = br.lng,
+                phone = br.phone ?: base.phone
             )
             out.add(
-                MapPin("p$i", MapPinKind.PRICED, br.lat, br.lng, base.rate.bank, rb.address, hours, key, raw, rb,
+                MapPin("p$i", MapPinKind.PRICED, br.lat, br.lng, base.rate.bank, rb.address, hours, rb.phone, key, raw, rb,
                     key == bestKey && best != null && abs(base.perUnit - best) <= mapBestTolerance(best), mapIsClosed(st))
             )
         } else {
             val st = openState(br.hours)
             out.add(
-                MapPin("d$i", MapPinKind.DOT, br.lat, br.lng, br.bank.ifBlank { br.name }, br.address, br.hours, key, raw,
+                MapPin("d$i", MapPinKind.DOT, br.lat, br.lng, br.bank.ifBlank { br.name }, br.address, br.hours, br.phone, key, raw,
                     null, false, mapIsClosed(st))
             )
         }
@@ -170,7 +172,7 @@ fun mapBuildPins(
             val raw = km(la, ln)
             val rb = r.copy(distanceKm = raw?.takeIf { it <= MAP_FAR_KM })
             out.add(
-                MapPin("r$key", MapPinKind.PRICED, la, ln, r.rate.bank, r.address, r.hours, key, raw, rb,
+                MapPin("r$key", MapPinKind.PRICED, la, ln, r.rate.bank, r.address, r.hours, r.phone, key, raw, rb,
                     key == bestKey && best != null && abs(r.perUnit - best) <= mapBestTolerance(best), mapIsClosed(r.open))
             )
         }

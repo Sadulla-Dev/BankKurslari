@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -197,6 +198,7 @@ fun BankSheet(
                             Text(street ?: item.rate.bank, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk)
                             val sub = listOfNotNull(addr?.second, schedule?.takeIf { item.open.known }).joinToString(", ")
                             if (sub.isNotEmpty()) Text(sub, style = VsType.Meta, color = VsInkSoft)
+                            item.phone?.let { Text(tr("Tel: $it", "Тел.: $it", "Tel: $it"), style = VsType.Meta, color = VsInkSoft) }
                         }
                         val km = item.distanceKm
                         if (km != null) {
@@ -225,6 +227,9 @@ fun BankSheet(
                     modifier = Modifier.weight(1f).alpha(if (canRoute) 1f else 0.4f),
                     icon = Icons.Outlined.Directions
                 )
+                item.phone?.let { phone ->
+                    VsSecondaryButton(Icons.Outlined.Call, tr("Qoʻngʻiroq: $phone", "Позвонить: $phone", "Call $phone"), { Usage.track("call"); dialPhone(phone) })
+                }
                 VsSecondaryButton(Icons.Outlined.Share, tr("Ulashish", "Поделиться", "Share"), { ShareCards.share(shareCard) })
             }
             if (time != null) {

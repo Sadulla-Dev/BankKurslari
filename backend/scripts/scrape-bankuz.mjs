@@ -62,7 +62,16 @@ function parsePage(url, html) {
   const slug = url.split("/").pop();
   const isAtm = /_atm\d+|bankomat|kartomat/i.test(slug) || /bankomat|bankomatlar/i.test(name);
 
-  return { bank, name, address, lat, lng, isAtm, source: "bank.uz", sourceUrl: url };
+  // bank.uz puts the branch (or the bank's call-centre) number in LocalBusiness.telephone, e.g. "1326" or "+998 71 200 00 00".
+  const phone = cleanPhone(biz.telephone);
+
+  return { bank, name, address, phone, lat, lng, isAtm, source: "bank.uz", sourceUrl: url };
+}
+
+// Several numbers come comma-separated ("1106,+998(71)210-20-02"): kept, as "1106, +998(71)210-20-02".
+function cleanPhone(raw) {
+  const s = String(raw ?? "").split(",").map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean).join(", ");
+  return /\d{3,}/.test(s.replace(/\D/g, "")) ? s : null;
 }
 
 function dedupeExactBranches(items) {
@@ -108,8 +117,8 @@ async function main() {
     for (const r of results) {
       if (!r) continue;
       (r.isAtm ? atms : branches).push({
-        bank: r.bank, name: r.name, address: r.address, lat: r.lat, lng: r.lng,
-        source: r.source, sourceUrl: r.sourceUrl
+        bank: r.bank, name: r.name, address: r.address, ...(r.phone && !r.isAtm ? { phone: r.phone } : {}), lat: r.lat, lng: r.lng,
+        source: r.source
       });
     }
     done += slice.length;

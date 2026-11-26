@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import com.example.bankkurslari.ui.theme.VsGround
+import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
@@ -145,7 +146,7 @@ fun MapScreen(
     }
     val atmPins = remember(atms, userLocation) {
         atms.mapIndexed { i, a ->
-            MapPin("a$i", MapPinKind.ATM, a.lat, a.lng, a.name.ifBlank { a.bank }, null, null, bankKey(a.bank),
+            MapPin("a$i", MapPinKind.ATM, a.lat, a.lng, a.name.ifBlank { a.bank }, null, null, null, bankKey(a.bank),
                 userLocation?.let { distanceMeters(it.first, it.second, a.lat, a.lng) / 1000.0 }, null, false, false)
         }
     }
@@ -614,12 +615,18 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
             pin.address?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             dist?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             pin.hours?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
+            pin.phone?.let { Text(tr("Tel: $it", "Тел.: $it", "Tel: $it"), style = VsType.Meta, color = VsInkSoft) }
             Spacer(Modifier.height(8.dp))
-            VsPrimaryButton(
-                tr("Yoʻnalish", "Маршрут", "Directions"),
-                onClick = { route(RouteTarget(pin.lat, pin.lng, pin.title)) },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                VsPrimaryButton(
+                    tr("Yoʻnalish", "Маршрут", "Directions"),
+                    onClick = { route(RouteTarget(pin.lat, pin.lng, pin.title)) },
+                    modifier = Modifier.weight(1f)
+                )
+                pin.phone?.let { phone ->
+                    VsSecondaryButton(Icons.Outlined.Call, tr("Qoʻngʻiroq: $phone", "Позвонить: $phone", "Call $phone"), { Usage.track("call"); dialPhone(phone) })
+                }
+            }
         }
     }
 }

@@ -24,7 +24,8 @@ data class RankedBank(
     val hours: String?,
     val open: OpenState,
     val lat: Double?,
-    val lng: Double?
+    val lng: Double?,
+    val phone: String? = null    // that branch's number (often the bank's short call-centre number, e.g. 1326)
 )
 
 /** Normalised key so "Asakabank" == "ASAKABANK" == "Asaka Bank" etc. */
@@ -56,7 +57,7 @@ private fun kmBetween(lat1: Double, lon1: Double, lat2: Double, lon2: Double): D
     return r * 2 * atan2(sqrt(a), sqrt(1 - a))
 }
 
-private class Cand(val lat: Double, val lng: Double, val address: String?, val hours: String?)
+private class Cand(val lat: Double, val lng: Double, val address: String?, val hours: String?, val phone: String? = null)
 
 /**
  * Branches grouped by normalised bank name. Matching a bank to its branches then compares against the few dozen
@@ -95,7 +96,7 @@ fun rankBanks(
         if (per <= 0) return@mapNotNull null
         val bk = bankKey(r.bank)
         val cands = ArrayList<Cand>()
-        for (ob in index.forBank(bk)) cands += Cand(ob.lat, ob.lng, ob.address, ob.hours)
+        for (ob in index.forBank(bk)) cands += Cand(ob.lat, ob.lng, ob.address, ob.hours, ob.phone)
         r.branch?.let { cands += Cand(it.lat, it.lng, it.address, null) }
 
         val chosen: Cand?
@@ -118,7 +119,8 @@ fun rankBanks(
             rate = r, perUnit = per, total = total, distanceKm = km,
             address = chosen?.address ?: r.branch?.address,
             hours = hours, open = openState(hours),
-            lat = chosen?.lat, lng = chosen?.lng
+            lat = chosen?.lat, lng = chosen?.lng,
+            phone = chosen?.phone ?: cands.firstNotNullOfOrNull { it.phone }
         )
         val base = per * orderAmount
         val pen = if (nearMode && km != null) kPerKm * km else 0.0

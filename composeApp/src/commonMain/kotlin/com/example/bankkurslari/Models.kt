@@ -26,7 +26,7 @@ data class RatesPayload(val cbu: CbuRate, val banks: List<BankRate>, val updated
 
 data class Atm(val bank: String, val name: String, val lat: Double, val lng: Double)
 
-data class OsmBranch(val bank: String, val name: String, val address: String?, val hours: String?, val lat: Double, val lng: Double)
+data class OsmBranch(val bank: String, val name: String, val address: String?, val hours: String?, val lat: Double, val lng: Double, val phone: String? = null)
 
 enum class MapFilter { ALL, BRANCHES, ATMS }
 
