@@ -6,7 +6,7 @@
 // localStorage (no cookies), no person profiles, no autocapture, no session recording, no surveys, no GeoIP.
 // PH_KEY is the project API key (phc_...), public by design; empty = PostHog is not loaded at all.
 (() => {
-  const PH_KEY = "";
+  const PH_KEY = "phc_DiJNwwWxFrpnUrKVqqp6Sqh48oH9U3LJHSXVCfiWJP54";
   const PH_HOST = "https://us.i.posthog.com"; // or https://eu.i.posthog.com, same region as the project
 
   let ph = null;
