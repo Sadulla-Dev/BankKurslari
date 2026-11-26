@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import com.example.bankkurslari.ui.theme.VsGround
 import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
@@ -608,7 +609,10 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(pin.title, style = VsType.Title, color = VsInk)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(pin.title, style = VsType.Title, color = VsInk, modifier = Modifier.weight(1f))
+                VsIconButton(Icons.Outlined.Flag, tr("Xato haqida xabar berish", "Сообщить об ошибке", "Report a problem"), { reporting = true }, tint = VsInkSoft)
+            }
             Text(
                 if (pin.kind == MapPinKind.ATM) tr("Bankomat", "Банкомат", "ATMs") else tr("Kurs maʼlumoti yoʻq", "Нет данных о курсе", "No rate data"),
                 style = VsType.Meta, color = VsInkSoft
@@ -628,7 +632,6 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
                     VsSecondaryButton(Icons.Outlined.Call, tr("Qoʻngʻiroq: $phone", "Позвонить: $phone", "Call $phone"), { Usage.track("call"); dialPhone(phone) })
                 }
             }
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { ReportLink({ reporting = true }) }
         }
     }
     if (reporting) ReportSheet(ReportPlace(pin.title, pin.address, pin.phone, pin.lat, pin.lng)) { reporting = false }

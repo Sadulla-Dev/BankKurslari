@@ -74,16 +74,6 @@ private suspend fun sendReport(kind: String, text: String, place: ReportPlace?, 
     httpPostJson(REPORT_URL, body.toString(), 10_000)
 }.isSuccess
 
-/** Small teal "Report a problem" link under a place's actions. */
-@Composable
-fun ReportLink(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Text(
-        tr("Xato haqida xabar berish", "Сообщить об ошибке", "Report a problem"),
-        style = VsType.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = VsEmerald,
-        modifier = modifier.clip(VsShape.Pill).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp, vertical = 10.dp)
-    )
-}
-
 /** A branch's numbers ("+998 71 …, 1296"), one per line; tapping one dials it. */
 @Composable
 fun PhoneLines(phone: String, modifier: Modifier = Modifier) {
