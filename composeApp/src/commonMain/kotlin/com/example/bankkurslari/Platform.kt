@@ -46,8 +46,17 @@ expect val usagePlatform: String
 /** Debug builds do not count as usage. */
 expect fun isDebugBuild(): Boolean
 
+/** Sends one product-analytics event (PostHog on Android; nothing on iOS yet). No-op until analytics is set up. */
+expect fun analyticsCapture(event: String)
+
 /** Opens a URL / mailto: link. Returns false if nothing could handle it. */
 expect fun openUri(uri: String): Boolean
+
+/** Opens the dialer with [phone] filled in (does not call by itself). Keeps digits and a leading +. */
+fun dialPhone(phone: String): Boolean {
+    val n = phone.trim().let { s -> (if (s.startsWith("+")) "+" else "") + s.filter { it.isDigit() } }
+    return n.any { it.isDigit() } && openUri("tel:$n")
+}
 
 /** Whether [app] is installed (Android: package lookup, iOS: URL scheme check). */
 expect fun isMapAppInstalled(app: MapApp): Boolean

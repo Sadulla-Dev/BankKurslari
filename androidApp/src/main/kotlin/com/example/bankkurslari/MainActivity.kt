@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initPlatform(this)
+        initAnalytics(BuildConfig.POSTHOG_API_KEY, BuildConfig.POSTHOG_HOST)
         openRequestedTab(intent)
         enableEdgeToEdge()
 

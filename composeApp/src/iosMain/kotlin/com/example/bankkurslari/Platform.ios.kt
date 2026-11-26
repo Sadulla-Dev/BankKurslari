@@ -134,6 +134,8 @@ actual val usagePlatform: String = "ios"
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 actual fun isDebugBuild(): Boolean = kotlin.native.Platform.isDebugBinary
 
+actual fun analyticsCapture(event: String) {}
+
 actual fun shareText(text: String) {
     val vc = topViewController() ?: return
     val sheet = UIActivityViewController(activityItems = listOf(text), applicationActivities = null)

@@ -13,6 +13,7 @@ maplibreNativeFfi = "0.202609.5"
 work = "2.9.1"
 glance = "1.1.1"
 playReview = "2.0.2"
+posthogAndroid = "4.0.3"
 
 composeMultiplatform = "1.11.1"
 composeMaterial3 = "1.9.0"
@@ -34,6 +35,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
+posthog-android = { module = "com.posthog:posthog-android", version.ref = "posthogAndroid" }
 play-review = { module = "com.google.android.play:review", version.ref = "playReview" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
