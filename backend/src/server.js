@@ -841,7 +841,7 @@ async function getBranches({ force = false } = {}) {
   if (staticBranches && staticBranches.length) {
     // Manually confirmed branches (user reports) that no official list contains.
     const manual = (await loadStatic("manual-branches.json")) || [];
-    const merged = dedupeBranches([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual]);
+    const merged = withBankPhones(dedupeBranches([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual]), staticBranches);
     cachedBranches = { cachedAt: Date.now(), branches: merged };
     return merged;
   }
@@ -880,6 +880,23 @@ const better = (a, b) => {
  * arrive two or three times a few dozen metres apart under differently spelled addresses. Same bank within
  * SAME_BRANCH_M metres is treated as one branch; the best-sourced record wins and borrows the other's hours if it has none.
  */
+/**
+ * Branches without a number (official bank lists, manual entries) get their bank's most common bank.uz number,
+ * which for most banks is the short call-centre number (e.g. 1326), so every branch on the map can be called.
+ */
+function withBankPhones(list, source) {
+  const counts = new Map();
+  for (const b of source) {
+    if (!b.phone) continue;
+    const k = branchBankKey(b.bank);
+    if (!counts.has(k)) counts.set(k, new Map());
+    const m = counts.get(k);
+    m.set(b.phone, (m.get(b.phone) || 0) + 1);
+  }
+  const top = new Map([...counts].map(([k, m]) => [k, [...m].sort((a, b) => b[1] - a[1])[0][0]]));
+  return list.map((b) => (b.phone || !top.has(branchBankKey(b.bank)) ? b : { ...b, phone: top.get(branchBankKey(b.bank)) }));
+}
+
 function dedupeBranches(list) {
   const cell = 0.001; // ~110 m of latitude: neighbours within 60 m are always in this or an adjacent cell
   const grid = new Map();
@@ -906,7 +923,8 @@ function dedupeBranches(list) {
     }
     const o = kept[hit];
     const win = better(o, b), lose = win === o ? b : o;
-    kept[hit] = win.hours || !lose.hours ? win : { ...win, hours: lose.hours };
+    const merged = win.hours || !lose.hours ? win : { ...win, hours: lose.hours };
+    kept[hit] = merged.phone || !lose.phone ? merged : { ...merged, phone: lose.phone };
   }
   return kept;
 }

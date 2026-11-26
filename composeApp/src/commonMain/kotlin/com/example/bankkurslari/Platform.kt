@@ -52,9 +52,13 @@ expect fun analyticsCapture(event: String)
 /** Opens a URL / mailto: link. Returns false if nothing could handle it. */
 expect fun openUri(uri: String): Boolean
 
-/** Opens the dialer with [phone] filled in (does not call by itself). Keeps digits and a leading +. */
+/**
+ * Opens the dialer with [phone] filled in (does not call by itself). Of "1106, +998(71)210-20-02" it takes the first
+ * number; keeps digits and a leading +.
+ */
 fun dialPhone(phone: String): Boolean {
-    val n = phone.trim().let { s -> (if (s.startsWith("+")) "+" else "") + s.filter { it.isDigit() } }
+    val first = phone.substringBefore(',').trim()
+    val n = (if (first.startsWith("+")) "+" else "") + first.filter { it.isDigit() }
     return n.any { it.isDigit() } && openUri("tel:$n")
 }
 
