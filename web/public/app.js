@@ -651,7 +651,10 @@ function renderSheet(bank, list) {
       html += `<dl class="hrs">${hoursRows(sch, h).map(([d, v, off]) => `<div${off ? ` class="off"` : ""}><dt>${d}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
       if (usual) html += `<p class="muted small">${h.usual}</p>`;
     }
-    if (phone) html += `<a class="hrs-tel" href="${telHref(phone)}"><span>${h.phone}</span><b>${esc(phone)}</b></a>`;
+    if (phone) {
+      const nums = String(phone).split(",").map((n) => n.trim()).filter(Boolean);
+      html += `<div class="hrs-tel"><span>${h.phone}</span><div>${nums.map((n) => `<a href="${telHref(n)}">${esc(n)}</a>`).join("")}</div></div>`;
+    }
     if (!S.user) html += `<button class="ask" type="button" id="askLoc">${t.askLoc}</button>`;
     box.innerHTML = html;
     const ask = $("askLoc");

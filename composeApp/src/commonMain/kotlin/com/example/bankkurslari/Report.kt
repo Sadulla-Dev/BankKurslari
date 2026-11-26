@@ -84,6 +84,21 @@ fun ReportLink(onClick: () -> Unit, modifier: Modifier = Modifier) {
     )
 }
 
+/** A branch's numbers ("+998 71 …, 1296"), one per line; tapping one dials it. */
+@Composable
+fun PhoneLines(phone: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        phone.split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { n ->
+            Text(
+                n, style = VsType.Meta.copy(fontWeight = FontWeight.Medium), color = VsEmerald,
+                modifier = Modifier.clip(VsShape.Pill)
+                    .clickable(role = Role.Button) { Usage.track("call"); dialPhone(n) }
+                    .padding(vertical = 4.dp)
+            )
+        }
+    }
+}
+
 /** [place] set: report on that place (reason chips + optional comment). Null: free-text feedback about the app. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

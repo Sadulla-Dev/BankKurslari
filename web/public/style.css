@@ -492,7 +492,8 @@ body.v-map .foot { display: none; }
 .hrs > div.off dd { color: var(--ink-2); font-weight: 500; }
 .hrs-tel { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; text-decoration: none; color: inherit; border-bottom: 1px solid var(--line); }
 .hrs-tel span { color: var(--ink-2); }
-.hrs-tel b { color: var(--accent); font-weight: 600; }
+.hrs-tel > div { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.hrs-tel a { color: var(--accent); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .foot-fb { border: 0; background: none; color: var(--accent); font-weight: 500; padding: 8px 0; }
 .rep-why { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
 .rep-text { width: 100%; box-sizing: border-box; resize: vertical; min-height: 96px; border: 1px solid var(--line); border-radius: 14px; background: var(--fill); color: var(--ink); font: inherit; padding: 12px 14px; }
