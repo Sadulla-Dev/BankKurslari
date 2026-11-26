@@ -49,7 +49,7 @@ const S = {
   rates: {}, history: {}, bankHist: {},
   branches: null, user: null,
   range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null,
-  map: null, markers: [], meMarker: null, hl: null
+  map: null, markers: [], meMarker: null, hl: null, only: null
 };
 const L = () => T[S.lang];
 const $ = (id) => document.getElementById(id);
@@ -981,6 +981,17 @@ function ensureMap() {
   });
   return mapReady;
 }
+function setMapOnly(bank, at) {
+  S.only = bank;
+  S.hl = bank;
+  closeClusterPopup();
+  if (bank && at && S.map) {
+    S.map.flyTo({ center: [at[1], at[0]], zoom: Math.min(Math.max(S.map.getZoom(), 12), 14) });
+    // Narrow screens stack the list under the map: bring the map back into view.
+    if (matchMedia("(max-width: 860px)").matches) $("mapgl").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  }
+  renderMap();
+}
 function focusOnMap() {
   if (!S.map || !S.focus) return;
   S.hl = S.focus.bank;
@@ -1085,6 +1096,7 @@ function renderMap() {
   const cands = [];
   bankLoop:
   for (const bank of list) {
+    if (S.only && bank.bank !== S.only) continue;
     let brs = branchesOf(bank.bank);
     if (!brs.length && bank.branch?.lat) brs = [bank.branch];
     for (const b of brs) {
@@ -1133,12 +1145,16 @@ function renderMap() {
     const diff = Math.abs(bank.rate - best.rate);
     const isBest = diff < 0.005;
     const sub = [S.user && nb ? t.km(kmFmt(distKm(S.user, [nb.lat, nb.lng]))) : "", nb ? addrParts(nb.address)[0] : ""].filter(Boolean).join(" · ");
-    return `<button type="button" class="si${bank.bank === S.hl ? " on" : ""}" data-bank="${esc(bank.bank)}" data-lat="${nb?.lat ?? ""}" data-lng="${nb?.lng ?? ""}">
+    return `<button type="button" class="si${bank.bank === S.only ? " on sel" : ""}" aria-pressed="${bank.bank === S.only}" data-bank="${esc(bank.bank)}" data-lat="${nb?.lat ?? ""}" data-lng="${nb?.lng ?? ""}">
       ${badgeHTML(bank.bank, isBest ? "accent" : "")}
       <span><b>${esc(bank.bank)}</b><small>${esc(sub)}</small></span>
       <span class="r"><b>${rateFmt(bank.rate)}</b><small class="${isBest ? "best" : ""}">${isBest ? t.best : (S.mode === "sell" ? t.less : t.more)(rateFmt(diff))}</small></span>
     </button>`;
   }).join("");
+
+  const chip = $("mapOnly");
+  chip.hidden = !S.only;
+  if (S.only) setText("mapOnlyName", S.only);
 
   const inView = cands.map((x) => x.bank);
   const top = inView.length ? inView.reduce((a, b) => ((S.mode === "sell" ? b.rate > a.rate : b.rate < a.rate) ? b : a)) : null;
@@ -1596,11 +1612,11 @@ function bind() {
   $("sideList").addEventListener("click", (e) => {
     const it = e.target.closest(".si");
     if (!it) return;
-    S.hl = it.dataset.bank;
-    if (it.dataset.lat && S.map) S.map.flyTo({ center: [+it.dataset.lng, +it.dataset.lat], zoom: Math.max(S.map.getZoom(), 15) });
-    else renderMap();
-    openSheet(it.dataset.bank);
+    // Tap a bank: the map shows only its branches, around its nearest one. Tap it again: every bank.
+    if (S.only === it.dataset.bank) return setMapOnly(null);
+    setMapOnly(it.dataset.bank, it.dataset.lat ? [+it.dataset.lat, +it.dataset.lng] : null);
   });
+  $("mapOnlyClear").addEventListener("click", () => setMapOnly(null));
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
   $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); closeReport(); });
   $("shClose").addEventListener("click", closeSheet);
