@@ -1731,12 +1731,30 @@ function bind() {
   $("mapOnlyClear").addEventListener("click", () => setMapOnly(null));
   $("mapWeekend").addEventListener("click", () => loadWeekend().catch(() => null).then(() => setWeekendOnly(!S.wkOnly)));
   $("wkMore").addEventListener("click", () => { S.wkAll = !S.wkAll; renderWeekend(); });
-  // "Ko'p so'raladigan summalar" (/100-dollar-necha-som, /ru/100-usd-v-sumah, /en/100-usd-to-uzs): on this page they
-  // fill the calculator at the top instead of opening the amount page (the links stay for search engines and other pages).
+  // Links of the page's footer block that this app can show itself (the pages stay for search engines and other pages):
+  // amounts (/100-dollar-necha-som ...) fill the calculator at the top, history opens #/tarix, gold shows the gold card.
   document.addEventListener("click", (e) => {
     const a = e.target.closest?.("a[href]");
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
-    const m = /^\/(?:uzc\/|ru\/|en\/)?(\d+)-(dollar|yevro|rubl|usd|eur|rub)-(?:necha-som|v-sumah|to-uzs)$/.exec(new URL(a.href, location.href).pathname);
+    const path = new URL(a.href, location.href).pathname;
+    // "Dollar kursi tarixi" and the like: this app's own history view for that currency.
+    const h = /^\/(?:uzc\/|ru\/|en\/)?(?:(dollar|yevro|rubl)-kursi-tarixi|kurs-(dollara|evro|rublya)-istoriya|(usd|eur|rub)-rate-history)$/.exec(path);
+    if (h) {
+      e.preventDefault();
+      setCur({ dollar: "USD", dollara: "USD", usd: "USD", yevro: "EUR", evro: "EUR", eur: "EUR", rubl: "RUB", rublya: "RUB", rub: "RUB" }[h[1] || h[2] || h[3]]);
+      location.hash = "#/tarix";
+      window.qkEvent?.("history_link");
+      return;
+    }
+    // "Oltin quyma narxi": the gold bar card on this page.
+    if (/^\/(?:uzc\/|ru\/|en\/)?(?:oltin-narxi|cena-zolota|gold-price)$/.test(path) && !$("goldCard").hidden) {
+      e.preventDefault();
+      if (S.view !== "rates") location.hash = "#/";
+      requestAnimationFrame(() => $("goldCard").scrollIntoView({ block: "start" }));
+      window.qkEvent?.("gold_link");
+      return;
+    }
+    const m = /^\/(?:uzc\/|ru\/|en\/)?(\d+)-(dollar|yevro|rubl|usd|eur|rub)-(?:necha-som|v-sumah|to-uzs)$/.exec(path);
     if (!m) return;
     e.preventDefault();
     const cur = { dollar: "USD", usd: "USD", yevro: "EUR", eur: "EUR", rubl: "RUB", rub: "RUB" }[m[2]];
