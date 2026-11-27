@@ -67,6 +67,7 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Directions
 import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.DropdownMenu
@@ -480,7 +481,9 @@ fun KursScreen(
     onRefresh: () -> Unit,
     onRequestLocation: () -> Unit = {},
     onShowOnMap: () -> Unit = {},
-    onOpenWallet: () -> Unit = {}
+    onOpenWallet: () -> Unit = {},
+    weekend: WeekendIndex? = null,
+    onShowWeekendOnMap: () -> Unit = {}
 ) {
     // Hamyon nudge: shown until the wallet has something in it or the user closes it once.
     var walletNudge by remember { mutableStateOf(WALLET_ENABLED && WalletStore.load().isEmpty() && appStore().getString("wallet_nudge_off") == null) }
@@ -801,6 +804,17 @@ fun KursScreen(
                                 onOpen = onOpenWallet,
                                 onDismiss = { walletNudge = false; appStore().putString("wallet_nudge_off", "1") },
                                 modifier = Modifier.animateItem().rise(entrance, 2)
+                            )
+                        }
+                    }
+                    // Banks open this weekend (Thursday to Sunday), in the same order as the list below.
+                    if (weekend != null) {
+                        item(key = "weekend") {
+                            WeekendCard(
+                                weekend = weekend, ranked = ranked, ru = ru,
+                                onBank = { sheetBank = it },
+                                onShowOnMap = onShowWeekendOnMap,
+                                modifier = Modifier.animateItem().rise(entrance, 3)
                             )
                         }
                     }
@@ -1317,5 +1331,76 @@ fun KursBootSkeleton(innerPadding: PaddingValues) {
         }
         SkeletonSlip()
         SkeletonList()
+    }
+}
+
+/** How many weekend banks the Kurs card shows before "show all". */
+private const val WEEKEND_PREVIEW = 5
+
+/**
+ * "Dam olish kunlari ochiq banklar": the banks that open offices this weekend (their own lists, or the usual hours of
+ * the banks checked against those lists), best rate first as in the list, and a button to the map with only those
+ * branches. Banks with no rate for this currency come last, without a number.
+ */
+@Composable
+private fun WeekendCard(
+    weekend: WeekendIndex, ranked: List<RankedBank>, ru: Boolean,
+    onBank: (String) -> Unit, onShowOnMap: () -> Unit, modifier: Modifier = Modifier
+) {
+    var all by rememberSaveable { mutableStateOf(false) }
+    val rows = remember(weekend, ranked) {
+        val seen = HashSet<String>()
+        val withRate = ranked.mapNotNull { rb -> weekend.bankFor(rb.rate.bank)?.takeIf { seen.add(bankKey(it.bank)) }?.let { rb.rate.bank to (it to rb) } }
+        val noRate = weekend.banks.values.filter { bankKey(it.bank) !in seen }.sortedBy { it.bank }.map { it.bank to (it to null) }
+        withRate + noRate
+    }
+    val shown = if (all || rows.size <= WEEKEND_PREVIEW + 1) rows else rows.take(WEEKEND_PREVIEW)
+    val days = weekend.days
+    VsCardBox(modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(tr("Dam olish kunlari ochiq banklar", "Банки, открытые в выходные", "Banks open this weekend"), style = VsType.Title, color = VsInk)
+            Text(
+                if (days != null) tr("Shanba va yakshanba", "Суббота и воскресенье", "Saturday and Sunday") + ", " + weekendRangeText(days, LocalLang.current) + " · " +
+                    tr("banklarning oʻz roʻyxatlari", "списки самих банков", "the banks' own lists")
+                else tr("Filiallarning odatiy ish vaqti boʻyicha", "По обычному графику отделений", "By the branches' usual hours"),
+                style = VsType.Meta, color = VsInkSoft
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        shown.forEachIndexed { i, (name, pair) ->
+            val (wb, rb) = pair
+            val count = when {
+                wb.all -> tr("barcha filiallari", "все отделения", "all branches")
+                else -> pick(LocalLang.current, "${wb.offices} ta filial ochiq", "открыто отделений: ${wb.offices}", "${wb.offices} open")
+            }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = rb != null, role = Role.Button) { onBank(name) }.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                BankTile(name, size = 32.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(name, style = VsType.BodyMedium, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(count, style = VsType.Meta, color = VsInkSoft, maxLines = 1)
+                }
+                Text(
+                    rb?.let { kRateFmt(it.perUnit, ru) + " " + kSom(ru) } ?: "—",
+                    style = VsType.BodyMedium, color = if (i == 0 && rb != null) VsEmerald else VsInk, maxLines = 1
+                )
+            }
+        }
+        if (rows.size > WEEKEND_PREVIEW + 1) {
+            Text(
+                if (all) tr("Kamroq koʻrsatish", "Свернуть", "Show fewer")
+                else pick(LocalLang.current, "Barcha ${rows.size} bank", "Все ${rows.size} банков", "All ${rows.size} banks"),
+                style = VsType.BodyMedium, color = VsEmerald,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { all = !all }.padding(vertical = 12.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        VsPrimaryButton(
+            tr("Xaritada koʻrsatish", "Показать на карте", "Show on the map"), onClick = onShowOnMap,
+            modifier = Modifier.fillMaxWidth(), icon = Icons.Outlined.Map
+        )
     }
 }

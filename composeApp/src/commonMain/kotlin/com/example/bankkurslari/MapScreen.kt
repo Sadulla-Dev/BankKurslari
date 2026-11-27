@@ -40,6 +40,7 @@ import com.example.bankkurslari.ui.theme.VsGround
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.MyLocation
@@ -108,6 +109,8 @@ fun MapScreen(
     amountText: String,
     direction: ConvertMode,
     userLocation: Pair<Double, Double>?,
+    /** Branches open this weekend (Weekend.kt); null outside Thursday–Sunday or without data. */
+    weekend: WeekendIndex? = null,
     /** False while the screen is kept alive behind other tabs: it keeps its map and state but must not ask for anything. */
     active: Boolean = true
 ) {
@@ -116,6 +119,9 @@ fun MapScreen(
     var bestOnly by remember { mutableStateOf(false) }
     var atmOn by remember { mutableStateOf(false) }
     var listMode by remember { mutableStateOf(false) }
+    // "Dam olish kuni": only the branches open on Saturday or Sunday. Turned on by the Kurs card's map button too.
+    var weekendOnly by remember { mutableStateOf(false) }
+    LaunchedEffect(weekend) { if (weekend == null) weekendOnly = false }
     var labelMode by remember {
         // Every visit starts with bank name + rate; the switch only changes the current visit.
         mutableStateOf(MapLabel.BOTH)
@@ -162,10 +168,12 @@ fun MapScreen(
     val locationBad = userLocation == null || (nearestKm != null && nearestKm > MAP_FAR_KM)
 
     // ----- filters -----
-    val visiblePins = remember(allPins, atmPins, openNow, bestOnly, atmOn, bankSel) {
+    val wk = weekend.takeIf { weekendOnly }
+    val visiblePins = remember(allPins, atmPins, openNow, bestOnly, atmOn, bankSel, wk) {
         val sel = bankSel
         buildList {
             allPins.forEach { p ->
+                if (wk != null && wk.atKey(p.bankKey, p.lat, p.lng) == null) return@forEach
                 if (openNow && p.closed) return@forEach
                 if (sel != null && p.bankKey != sel) return@forEach
                 when (p.kind) {
@@ -174,14 +182,14 @@ fun MapScreen(
                     MapPinKind.ATM -> {}
                 }
             }
-            if (atmOn && !bestOnly) atmPins.forEach { if (bankSel == null || it.bankKey == bankSel) add(it) }
+            if (atmOn && !bestOnly && wk == null) atmPins.forEach { if (bankSel == null || it.bankKey == bankSel) add(it) }
         }
     }
-    val listItems = remember(ranked, openNow, bestOnly, bankSel, best) {
+    val listItems = remember(ranked, openNow, bestOnly, bankSel, best, wk) {
         ranked.mapIndexedNotNull { i, rb ->
             val good = best != null && abs(rb.perUnit - best) <= mapBestTolerance(best)
             val ok = !(openNow && mapIsClosed(rb.open)) && (!bestOnly || good) &&
-                (bankSel == null || bankKey(rb.rate.bank) == bankSel)
+                (bankSel == null || bankKey(rb.rate.bank) == bankSel) && (wk == null || wk.bankFor(rb.rate.bank) != null)
             if (ok) Triple(i + 1, rb, good) else null
         }
     }
@@ -220,14 +228,38 @@ fun MapScreen(
     }
 
     // Peek card: the tapped bank, else the nearest best-priced branch. Hidden while the list is open.
-    val peekPin = remember(selectedId, pricedPins, bankSel, openNow) {
+    val peekPin = remember(selectedId, pricedPins, bankSel, openNow, wk) {
         pricedPins.firstOrNull { it.id == selectedId }
-            ?: pricedPins.filter { it.good && !it.closed && (bankSel == null || it.bankKey == bankSel) && !(openNow && it.closed) }
-                .minByOrNull { it.rawKm ?: Double.MAX_VALUE }
+            ?: pricedPins.filter {
+                (wk != null || it.good) && !it.closed && (bankSel == null || it.bankKey == bankSel) && !(openNow && it.closed) &&
+                    (wk == null || wk.atKey(it.bankKey, it.lat, it.lng) != null)
+            }.minByOrNull { it.rawKm ?: Double.MAX_VALUE }
+    }
+    // The Kurs card's "show on the map": this filter on, the others off, the nearest open branches in view.
+    val wkRequest = WeekendRequests.showOnMap
+    LaunchedEffect(wkRequest, active, weekend) {
+        if (!wkRequest || !active || weekend == null) return@LaunchedEffect
+        WeekendRequests.showOnMap = false
+        weekendOnly = true; openNow = false; bestOnly = false; bankSel = null; listMode = false; selectedId = null
+    }
+    LaunchedEffect(weekendOnly, map, allPins) {
+        val mv = map ?: return@LaunchedEffect
+        val w = weekend ?: return@LaunchedEffect
+        if (!weekendOnly) return@LaunchedEffect
+        val open = allPins.filter { it.kind != MapPinKind.ATM && w.atKey(it.bankKey, it.lat, it.lng) != null }
+        val u = userLocation?.takeIf { !locationBad }
+        if (open.isEmpty()) return@LaunchedEffect
+        // Without a usable location: Tashkent, where most of them are (the whole country would show only clusters).
+        if (u == null) { mapCities.first().let { mv.animateTo(it.lat, it.lng, 11.0) }; return@LaunchedEffect }
+        val near = open.sortedBy { distanceMeters(u.first, u.second, it.lat, it.lng) }.take(5)
+        val lats = near.map { it.lat } + listOfNotNull(u?.first)
+        val lngs = near.map { it.lng } + listOfNotNull(u?.second)
+        mv.fitBounds(lats.max() + 0.005, lngs.max() + 0.005, lats.min() - 0.005, lngs.min() - 0.005, 64, true)
     }
     val route = LocalRoute.current
     var filtersOpen by remember { mutableStateOf(false) }
-    val showPeek = peekPin?.rb != null && !listMode
+    // With the weekend filter the peek card (a whole bank: its rate, all its branches) waits for a tapped pin.
+    val showPeek = peekPin?.rb != null && !listMode && (!weekendOnly || selectedId != null)
     val peekGap = if (showPeek) 112.dp else 16.dp
 
     Box(modifier = Modifier.fillMaxSize().background(VsBg)) {
@@ -283,7 +315,7 @@ fun MapScreen(
                 VsIconButton(
                     Icons.Outlined.Tune, tr("Filtrlar", "Фильтры", "Filters"),
                     onClick = { filtersOpen = !filtersOpen }, floating = true,
-                    tint = if (filtersOpen || openNow || bestOnly || bankSel != null || atmOn || listMode) VsEmerald else VsInk
+                    tint = if (filtersOpen || openNow || bestOnly || bankSel != null || atmOn || listMode || weekendOnly) VsEmerald else VsInk
                 )
             }
             // City pill (replaces the wide "location not found" banner): the city around you, or the one you picked.
@@ -325,6 +357,7 @@ fun MapScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (weekend != null) MapChip(tr("Dam olish kuni", "Выходные", "Weekend"), weekendOnly, { weekendOnly = !weekendOnly })
                         MapChip(tr("Ochiq hozir", "Открыто сейчас", "Open now"), openNow, { openNow = !openNow })
                         MapChip(tr("Eng yaxshi", "Лучшие", "Best"), bestOnly, { bestOnly = !bestOnly })
                         Box {
@@ -369,6 +402,23 @@ fun MapScreen(
                         LegendSwatch(fill = VsTile, stroke = VsHair, dashed = true)
                         Text(tr("yopiq", "закрыто", "closed"), style = VsType.Meta, color = VsInkSoft, maxLines = 1)
                     }
+                }
+            }
+            // While the weekend filter is on: what is shown, and a way out without opening the filters.
+            MapReveal(visible = weekendOnly && weekend != null, fromTop = true) {
+                val w = weekend
+                if (w != null) Row(
+                    Modifier.vsFloating(VsShape.Pill).padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val n = remember(visiblePins) { visiblePins.size }
+                    Text(
+                        (w.days?.let { tr("Dam olish kuni ochiq", "Открыты в выходные", "Open this weekend") + ", " + weekendRangeText(it, LocalLang.current) }
+                            ?: tr("Dam olish kuni ochiq", "Открыты в выходные", "Open on weekends")) + " · " +
+                            pick(LocalLang.current, "$n ta filial", "отделений: $n", "$n branches"),
+                        style = VsType.Meta, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
+                    )
+                    VsIconButton(Icons.Outlined.Close, tr("Filtrni olib tashlash", "Снять фильтр", "Clear filter"), onClick = { weekendOnly = false }, tint = VsInkSoft)
                 }
             }
             MapReveal(visible = tileFailed, fromTop = true) {
@@ -459,10 +509,12 @@ fun MapScreen(
             favorite = favorites.contains(rb.rate.bank),
             onToggleFavorite = { onToggleFavorite(rb.rate.bank) },
             onDismiss = { sheetBank = null; selectedId = null },
-            best = ranked.firstOrNull()
+            best = ranked.firstOrNull(),
+            // The tapped pin's own weekend hours (the pin knows the branch's bank as /api/branches names it).
+            weekend = allPins.firstOrNull { it.id == selectedId }?.let { weekend?.atKey(it.bankKey, it.lat, it.lng) }
         )
     }
-    infoPin?.let { p -> MapInfoSheet(p) { infoPin = null; selectedId = null } }
+    infoPin?.let { p -> MapInfoSheet(p, weekend?.atKey(p.bankKey, p.lat, p.lng)) { infoPin = null; selectedId = null } }
 }
 
 /* ---------- Pieces ---------- */
@@ -595,7 +647,7 @@ private fun MapCityPill(label: String, onClick: () -> Unit) {
 /** Simple info sheet for pins without a rate (ATMs, branches of banks missing from the rate table). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
+private fun MapInfoSheet(pin: MapPin, weekend: WeekendOpen?, onDismiss: () -> Unit) {
     val route = LocalRoute.current
     var reporting by remember { mutableStateOf(false) }
     val dist = mapDistanceText(pin.rawKm)
@@ -620,6 +672,7 @@ private fun MapInfoSheet(pin: MapPin, onDismiss: () -> Unit) {
             pin.address?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             dist?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
             pin.hours?.let { Text(it, style = VsType.Meta, color = VsInkSoft) }
+            weekend?.let { Text(weekendOpenText(it, LocalLang.current), style = VsType.Meta, color = VsEmerald) }
             pin.phone?.let { PhoneLines(it) }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

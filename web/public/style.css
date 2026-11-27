@@ -769,3 +769,25 @@ body.v-map .foot { display: none; }
 .map-only span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .map-only button { flex: none; border: 0; border-radius: 999px; padding: 8px 12px; background: var(--fill); color: var(--accent); font-weight: 600; font-size: 13px; }
 .si.sel { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+/* Home: banks open this weekend (app.js renderWeekend). */
+.wk-card { margin-bottom: 16px; padding: 18px 20px 14px; }
+.wk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.wk-head h2 { margin: 0; font-size: 18px; line-height: 1.3; }
+.wk-head p { margin: 2px 0 0; font-size: 13px; }
+.wk-head .chip-btn { text-decoration: none; }
+.wk-rows { list-style: none; margin: 10px 0 0; padding: 0; }
+.wk-rows li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.wk-rows li:first-child { border-top: 0; }
+.wk-rows li[data-bank] { cursor: pointer; }
+.wk-rows .badge { width: 34px; height: 34px; border-radius: 10px; font-size: 12px; }
+.wk-n { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wk-n b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-n small { color: var(--ink-2); font-size: 13px; }
+.wk-r { font-weight: 600; font-feature-settings: "tnum"; white-space: nowrap; }
+.wk-r small { font-weight: 400; color: var(--ink-2); }
+.wk-r.hi { color: var(--accent); }
+.wk-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: 14px; }
+.wk-more { border: 0; background: none; padding: 8px 0; color: var(--accent); font-weight: 500; font-size: 14px; }
+.wk-more[hidden] + .wk-page { margin-left: 0; }
+.wk-page { margin-left: auto; color: var(--ink-2); }

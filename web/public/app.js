@@ -161,17 +161,26 @@ const loadBranches = () => S.branches ? Promise.resolve(S.branches) : once("br",
 const wkKey = (bank, lat, lng) => `${bankKey(bank)}|${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
 const loadWeekend = () => S.wk ? Promise.resolve(S.wk) : once("wk", async () => {
   const d = await getJSON("/api/weekend");
-  const today = new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);
-  const listed = new Map();
-  if (d.branchesListUrl === d.listUrl && d.days?.[1] >= today) {
+  const now = new Date(Date.now() + 5 * 3600e3), today = now.toISOString().slice(0, 10);
+  const listed = new Map(), listedBanks = new Map(), allBanks = new Map();
+  const fresh = d.branchesListUrl === d.listUrl && d.days?.[1] >= today;
+  if (fresh) {
     for (const e of d.weekendBranches || []) if (e.point) listed.set(wkKey(e.bank, e.point.lat, e.point.lng), e.open || {});
+    // A bank whose own list was read this weekend: that list alone says which of its branches open.
+    for (const l of d.branchLists || []) {
+      if (l.status === "ok" && l.count > 0) listedBanks.set(bankKey(l.bank), l);
+      if (l.status === "all") allBanks.set(bankKey(l.bank), l);
+    }
   }
-  return (S.wk = { listed });
+  // Thursday (once the list is out) to Sunday: the home card; on Saturday and Sunday also without a list.
+  const weekendNow = now.getUTCDay() === 6 || now.getUTCDay() === 0;
+  return (S.wk = { listed, listedBanks, allBanks, days: fresh ? d.days : null, show: fresh || weekendNow });
 });
 /** This weekend's hours on the bank's list ({ Sa?, Su? }, "" = hours not given), or null. */
 const wkListed = (b) => S.wk?.listed.get(wkKey(b.bank, b.lat, b.lng)) || null;
 function wkOpen(b) {
   if (wkListed(b)) return true;
+  if (S.wk?.listedBanks.has(bankKey(b.bank))) return false;
   if (!WEEKEND_HOURS_CHECKED.has(logoSlug(b.bank))) return false;
   const sch = parseHours(b.hours);
   return !!sch && (sch.always || !!sch.days[5] || !!sch.days[6]);
@@ -183,6 +192,58 @@ function setWeekendOnly(on) {
   chip.setAttribute("aria-pressed", String(on));
   closeClusterPopup();
   renderMap();
+}
+
+/** Banks open this weekend: { bank, n (offices), all } by bankKey, from the lists and the checked banks' usual hours. */
+function weekendBanks() {
+  const out = new Map();
+  if (!S.wk?.show) return out;
+  for (const [k, l] of S.wk.listedBanks) out.set(k, { bank: l.bank, n: l.count, all: false });
+  for (const [k, l] of S.wk.allBanks) out.set(k, { bank: l.bank, n: 0, all: true });
+  const usual = new Map();
+  for (const b of S.branches || []) {
+    const k = bankKey(b.bank);
+    if (S.wk.listedBanks.has(k) || !wkOpen(b)) continue;
+    usual.set(k, { bank: b.bank, n: (usual.get(k)?.n || 0) + 1 });
+  }
+  for (const [k, u] of usual) { const o = out.get(k); out.set(k, { bank: o?.bank || u.bank, n: Math.max(o?.n || 0, u.n), all: !!o?.all }); }
+  return out;
+}
+const WK_PAGE = { uz: "/dam-olish-kunlari-ishlaydigan-banklar", uzc: "/uzc/dam-olish-kunlari-ishlaydigan-banklar", ru: "/ru/banki-rabotayushchie-v-vykhodnye", en: "/en/banks-open-on-weekends" };
+const WK_PREVIEW = 5;
+/** "28–29-noyabr" / "28–29 ноября" / "Nov 28–29". */
+function wkRange([a, b]) {
+  const [, m1, d1] = a.split("-").map(Number), [, m2, d2] = b.split("-").map(Number), M = MONTHS[S.lang];
+  if (S.lang === "en") return m1 === m2 ? `${M[m1 - 1]} ${d1}–${d2}` : `${M[m1 - 1]} ${d1} – ${M[m2 - 1]} ${d2}`;
+  if (S.lang === "ru") return m1 === m2 ? `${d1}–${d2} ${M[m1 - 1]}` : `${d1} ${M[m1 - 1]} – ${d2} ${M[m2 - 1]}`;
+  const sep = S.lang === "uzc" ? " " : "-";
+  return m1 === m2 ? `${d1}–${d2}${sep}${M[m1 - 1]}` : `${d1}${sep}${M[m1 - 1]} – ${d2}${sep}${M[m2 - 1]}`;
+}
+/** The home card: banks open this weekend in the table's order (best rate first), then those without a rate. */
+function renderWeekend() {
+  const card = $("wkCard");
+  const banks = weekendBanks();
+  if (!banks.size || !S.rates[S.cur]) { card.hidden = true; return; }
+  const t = L().wkCard;
+  const list = ranked(S.rates[S.cur]);
+  const used = new Set(), rows = [];
+  for (const r of list) {
+    const k = [...banks.keys()].find((bk) => !used.has(bk) && keysMatch(bk, bankKey(r.bank)));
+    if (k) { used.add(k); rows.push({ name: r.bank, w: banks.get(k), rate: r.rate }); }
+  }
+  for (const [k, w] of banks) if (!used.has(k)) rows.push({ name: w.bank, w, rate: null });
+  const shown = S.wkAll || rows.length <= WK_PREVIEW + 1 ? rows : rows.slice(0, WK_PREVIEW);
+  setText("wkTitle", t.title);
+  setText("wkSub", S.wk.days ? t.sub(wkRange(S.wk.days)) : t.usual);
+  setText("wkMapL", t.map);
+  $("wkRows").innerHTML = shown.map((r, i) => `<li${r.rate != null ? ` data-bank="${esc(r.name)}"` : ""}>${badgeHTML(r.name, i === 0 && r.rate != null ? "accent" : "")}<span class="wk-n"><b>${esc(r.name)}</b><small>${esc(r.w.all ? t.all : t.count(r.w.n))}</small></span><span class="wk-r${i === 0 && r.rate != null ? " hi" : ""}">${r.rate != null ? `${rateFmt(r.rate)} <small>${esc(L().som)}</small>` : "—"}</span></li>`).join("");
+  const more = $("wkMore");
+  more.hidden = rows.length <= WK_PREVIEW + 1;
+  more.textContent = S.wkAll ? t.less : t.more(rows.length);
+  const page = $("wkPage");
+  page.href = WK_PAGE[S.lang] || WK_PAGE.uz;
+  page.textContent = t.page;
+  card.hidden = false;
 }
 
 const branchCache = new Map();
@@ -285,6 +346,7 @@ function renderAll() {
   renderConv();
   renderCbu();
   renderTable();
+  renderWeekend();
   renderGold();
   if (S.view === "map") renderMap();
   if (S.view === "history") renderHistory();
@@ -1664,6 +1726,9 @@ function bind() {
   });
   $("mapOnlyClear").addEventListener("click", () => setMapOnly(null));
   $("mapWeekend").addEventListener("click", () => loadWeekend().catch(() => null).then(() => setWeekendOnly(!S.wkOnly)));
+  $("wkMore").addEventListener("click", () => { S.wkAll = !S.wkAll; renderWeekend(); });
+  $("wkRows").addEventListener("click", (e) => { const li = e.target.closest("li[data-bank]"); if (li) openSheet(li.dataset.bank); });
+  $("wkMap").addEventListener("click", () => window.qkEvent?.("weekend_map"));
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
   $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); closeReport(); });
   $("shClose").addEventListener("click", closeSheet);
@@ -1711,6 +1776,7 @@ async function init() {
   loadGold().then(renderGold).catch(() => {});
   loadCbuAll().then(renderAllBtn).catch(() => {});
   loadBranches().then(() => { renderConv(); renderTable(); if (S.view === "map") renderMapWhenReady(); }).catch(() => {});
+  Promise.allSettled([loadWeekend(), loadBranches()]).then(renderWeekend);
   setInterval(async () => {
     S.rates = {}; S.bankHist = {}; S.gold = null; AC.list = null; delete inflight.cbuall;
     for (const k of Object.keys(inflight)) if (k[0] === "r" || k[0] === "b" || k === "gold") delete inflight[k];

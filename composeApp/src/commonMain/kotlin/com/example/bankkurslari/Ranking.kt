@@ -31,7 +31,7 @@ data class RankedBank(
 /** Normalised key so "Asakabank" == "ASAKABANK" == "Asaka Bank" etc. */
 fun bankKey(name: String): String = name.lowercase().filter { it.isLetterOrDigit() }
 
-private fun keysMatch(ka: String, kb: String): Boolean {
+internal fun keysMatch(ka: String, kb: String): Boolean {
     if (ka.isEmpty() || kb.isEmpty()) return false
     if (ka == kb) return true
     val (s, l) = if (ka.length <= kb.length) ka to kb else kb to ka

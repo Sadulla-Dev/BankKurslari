@@ -80,7 +80,9 @@ fun BankSheet(
     onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit,
     best: RankedBank? = null,
-    onShowOnMap: (() -> Unit)? = null
+    onShowOnMap: (() -> Unit)? = null,
+    /** This branch's hours this weekend, from its bank's list (map pins with the weekend filter's data). */
+    weekend: WeekendOpen? = null
 ) {
     val route = LocalRoute.current
     val ru = kursIsRu()
@@ -200,6 +202,7 @@ fun BankSheet(
                             Text(street ?: item.rate.bank, style = VsType.Body.copy(fontWeight = FontWeight.SemiBold), color = VsInk)
                             val sub = listOfNotNull(addr?.second, schedule?.takeIf { item.open.known }).joinToString(", ")
                             if (sub.isNotEmpty()) Text(sub, style = VsType.Meta, color = VsInkSoft)
+                            weekend?.let { Text(weekendOpenText(it, LocalLang.current), style = VsType.Meta, color = VsEmerald) }
                             item.phone?.let { PhoneLines(it) }
                         }
                         val km = item.distanceKm

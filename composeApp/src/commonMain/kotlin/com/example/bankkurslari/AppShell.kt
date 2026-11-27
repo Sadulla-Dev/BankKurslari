@@ -180,6 +180,16 @@ fun CurrencyTrackerApp(
         osmBranches = runCatching { fetchBranches() }.getOrDefault(emptyList())
     }
 
+    // Banks open this weekend (Weekend.kt): cache first, then the network; the index is built off the main thread.
+    var weekendData by remember { mutableStateOf<WeekendData?>(null) }
+    LaunchedEffect(Unit) {
+        cachedWeekend()?.let { weekendData = it }
+        runCatching { fetchWeekend() }.getOrNull()?.let { weekendData = it }
+    }
+    val weekend by androidx.compose.runtime.produceState<WeekendIndex?>(null, weekendData, osmBranches) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { buildWeekendIndex(weekendData, osmBranches) }
+    }
+
     // ATMs only matter for the map.
     LaunchedEffect(tab) {
         if (tab == HomeTab.MAP && atms.isEmpty() && !atmsLoading) {
@@ -247,6 +257,7 @@ fun CurrencyTrackerApp(
                             amountText = amountText,
                             direction = direction,
                             userLocation = userLocation,
+                            weekend = weekend,
                             active = tab == HomeTab.MAP
                         )
                     }
@@ -287,6 +298,8 @@ fun CurrencyTrackerApp(
                             tickers = tickersView,
                             onOpenSettings = { showSettings = true },
                             onShowOnMap = { tab = HomeTab.MAP },
+                            weekend = weekend,
+                            onShowWeekendOnMap = { WeekendRequests.showOnMap = true; Usage.track("weekend_map"); tab = HomeTab.MAP },
                             onOpenWallet = { tab = HomeTab.WALLET },
                             onRefresh = { refresh() },
                             onRequestLocation = { locationLauncher() }
