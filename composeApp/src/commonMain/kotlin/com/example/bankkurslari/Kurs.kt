@@ -807,17 +807,6 @@ fun KursScreen(
                             )
                         }
                     }
-                    // Banks open this weekend (Thursday to Sunday), in the same order as the list below.
-                    if (weekend != null) {
-                        item(key = "weekend") {
-                            WeekendCard(
-                                weekend = weekend, ranked = ranked, ru = ru, best = ranked.firstOrNull(), hasAmount = hasAmount, sell = sell,
-                                onBank = { sheetBank = it },
-                                onShowOnMap = onShowWeekendOnMap,
-                                modifier = Modifier.animateItem().rise(entrance, 3)
-                            )
-                        }
-                    }
                     // Section head + sort / filters
                     item(key = "header") {
                         Column(Modifier.fillMaxWidth().rise(entrance, 3).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -892,6 +881,17 @@ fun KursScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                    // Banks open this weekend (Thursday to Sunday), under the bank list and in its order.
+                    if (weekend != null) {
+                        item(key = "weekend") {
+                            WeekendCard(
+                                weekend = weekend, ranked = ranked, ru = ru, best = ranked.firstOrNull(), hasAmount = hasAmount, sell = sell,
+                                onBank = { sheetBank = it },
+                                onShowOnMap = onShowWeekendOnMap,
+                                modifier = Modifier.animateItem().rise(entrance, 5)
+                            )
                         }
                     }
                     // Currency to currency (e.g. USD -> EUR through so'm): a quiet line that opens the calculator sheet.

@@ -126,16 +126,6 @@
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 4l5 5-5 5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
 
-      <!-- Banks open this weekend (app.js renderWeekend): Thursday to Sunday, best rate first, and the map with only them. -->
-      <section class="card wk-card" id="wkCard" aria-labelledby="wkTitle" hidden>
-        <div class="wk-head">
-          <div><h2 id="wkTitle">Dam olish kunlari ochiq banklar</h2><p class="muted" id="wkSub"></p></div>
-          <a class="chip-btn on" id="wkMap" href="#/xarita?dam-olish"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14.5s4.5-4.2 4.5-7.7A4.5 4.5 0 0 0 3.5 6.8c0 3.5 4.5 7.7 4.5 7.7z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="6.8" r="1.6" fill="currentColor"/></svg><span id="wkMapL">Xaritada ko‘rsatish</span></a>
-        </div>
-        <ol class="wk-rows" id="wkRows"></ol>
-        <div class="wk-foot"><button type="button" class="wk-more" id="wkMore" hidden></button><a class="wk-page" id="wkPage" href="/dam-olish-kunlari-ishlaydigan-banklar"></a></div>
-      </section>
-
       <div class="card tbl-card">
         <div class="tbl-head">
           <div class="tbl-title">
@@ -167,6 +157,16 @@
           </table>
         </div>
       </div>
+
+      <!-- Banks open this weekend (app.js renderWeekend), under the bank table: Thursday to Sunday, best rate first, and the map with only them. -->
+      <section class="card wk-card" id="wkCard" aria-labelledby="wkTitle" hidden>
+        <div class="wk-head">
+          <div><h2 id="wkTitle">Dam olish kunlari ochiq banklar</h2><p class="muted" id="wkSub"></p></div>
+          <a class="chip-btn on" id="wkMap" href="#/xarita?dam-olish"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14.5s4.5-4.2 4.5-7.7A4.5 4.5 0 0 0 3.5 6.8c0 3.5 4.5 7.7 4.5 7.7z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="6.8" r="1.6" fill="currentColor"/></svg><span id="wkMapL">Xaritada ko‘rsatish</span></a>
+        </div>
+        <ol class="wk-rows" id="wkRows"></ol>
+        <div class="wk-foot"><button type="button" class="wk-more" id="wkMore" hidden></button><a class="wk-page" id="wkPage" href="/dam-olish-kunlari-ishlaydigan-banklar"></a></div>
+      </section>
     </div>
   </div>
 
