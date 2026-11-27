@@ -684,7 +684,8 @@ export async function entriesOf(doc, days, conf = {}) {
     return { kind, entries, stale: stale || (!entries.length && ctx.stale), text };
   }
   if (kind === "xlsx") {
-    const grid = readXlsx(doc.buf);
+    // Cells as typed in Excel: Ipoteka's addresses come with non-breaking spaces ("Тошкент\u00a0вилояти,\u00a0...").
+    const grid = readXlsx(doc.buf).map((r) => r.map((v) => clean(v)));
     const text = grid.map((r) => [...new Set(r)].join(" ")).join("\n");
     // Defaults from the title lines (one text per row), not from the table's own cells.
     const ctx = pageContext(grid.filter((r) => new Set(r.filter((v) => v.trim())).size === 1).map((r) => r.find((v) => v.trim())).join("\n"), days);

@@ -80,10 +80,16 @@ body.page .seo-copy { padding-top: 12px; }
 .wk-tbl td { white-space: normal; font-size: 14px; overflow-wrap: anywhere; }
 .wk-tbl td.num { white-space: nowrap; font-weight: 500; }
 .wk-tbl td:first-child { white-space: nowrap; font-weight: 600; }
-.wk-open td:nth-child(2) { min-width: 150px; }
-.wk-open td:nth-child(3) { min-width: 240px; }
-.wk-open small { font-weight: 400; }
+.wk-open td:first-child { white-space: normal; font-weight: 400; width: 70%; }
+.wk-open td:first-child b { display: block; font-weight: 600; }
+.wk-open .wk-name, .wk-open small { display: block; }
+.wk-open small { font-size: 13px; margin-top: 2px; }
+.wk-open td.num { white-space: nowrap; }
+/* The bank table's last column: how many offices the bank's list opens, then the link to that list. */
+.wk-list span { display: block; font-size: 13px; color: var(--ink-2); }
+.wk-list span:empty { display: none; }
 @media (max-width: 720px) {
   .wk-tbl th, .wk-tbl td { padding: 8px 8px !important; font-size: 13px; }
   .wk-tbl td:first-child { white-space: normal; overflow-wrap: normal; word-break: normal; }
+  .wk-open td.num { white-space: normal; }
 }

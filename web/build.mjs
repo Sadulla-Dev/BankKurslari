@@ -392,7 +392,7 @@ const W = {
     colAddr: "Manzil", colSat: "Shanba", colSun: "Yakshanba", closed: "yopiq",
     openH: "Shu dam olish kunlari ochiq filiallar",
     openLead: (n, nb) => `Banklarning o‘z ro‘yxatlariga ko‘ra shu shanba yoki yakshanba ${nb} ta bankning ${n} ta filiali ochiq. Ish vaqti ro‘yxatda yozilmagan bo‘lsa, “ochiq” deb ko‘rsatilgan.`,
-    colOffice: "Filial", open: "ochiq", colCount: "Ochiq filiallar", mapLink: "Xaritada ko‘rish",
+    colOffice: "Filial", open: "ochiq", colCount: "Ochiq filiallar", offices: "ta ochiq", mapLink: "Xaritada ko‘rish",
     status: { image: "ro‘yxat rasmda", all: "barcha filiallari", regular: "odatdagi ish vaqti", stale: "boshqa sana uchun", none: "o‘qib bo‘lmadi", error: "o‘qib bo‘lmadi", blocked: "o‘qib bo‘lmadi" },
     unread: (names) => `Bu banklarning ro‘yxatini o‘qib bo‘lmadi, bankning o‘z ro‘yxatidan ko‘ring: ${names}.`,
     faq: (n, names) => [
@@ -418,7 +418,7 @@ const W = {
     colAddr: "Адрес", colSat: "Суббота", colSun: "Воскресенье", closed: "выходной",
     openH: "Отделения, открытые в эти выходные",
     openLead: (n, nb) => `По спискам самих банков в эту субботу или воскресенье открыты ${n} ${ruPlural(n, "отделение", "отделения", "отделений")} ${nb} ${ruPlural(nb, "банка", "банков", "банков")}. Если часы работы в списке не указаны, написано «открыто».`,
-    colOffice: "Отделение", open: "открыто", colCount: "Открытые отделения", mapLink: "Показать на карте",
+    colOffice: "Отделение", open: "открыто", colCount: "Открытые отделения", offices: "открыто", mapLink: "Показать на карте",
     status: { image: "список картинкой", all: "все отделения", regular: "обычный график", stale: "на другую дату", none: "не удалось прочитать", error: "не удалось прочитать", blocked: "не удалось прочитать" },
     unread: (names) => `Списки этих банков прочитать не удалось, смотрите список самого банка: ${names}.`,
     faq: (n, names) => [
@@ -444,7 +444,7 @@ const W = {
     colAddr: "Address", colSat: "Saturday", colSun: "Sunday", closed: "closed",
     openH: "Branches open this weekend",
     openLead: (n, nb) => `According to the banks' own lists, ${n} branches of ${nb} banks are open this Saturday or Sunday. Where a list gives no hours, it says “open”.`,
-    colOffice: "Branch", open: "open", colCount: "Open branches", mapLink: "Show on the map",
+    colOffice: "Branch", open: "open", colCount: "Open branches", offices: "open", mapLink: "Show on the map",
     status: { image: "list is a picture", all: "all branches", regular: "usual hours", stale: "for another date", none: "could not be read", error: "could not be read", blocked: "could not be read" },
     unread: (names) => `These banks' lists could not be read; see the bank's own list: ${names}.`,
     faq: (n, names) => [
@@ -609,7 +609,8 @@ const weekendOpen = (() => {
     } else key = cityOfText(`${e.address} ${e.region || ""}`);
     const day = (d) => (e.open?.[d] == null ? null : e.open[d]);
     // No address on the list (BRB's xlsx has names only): the matched point's own address.
-    const address = e.address || (e.point ? pointAddress.get(pointKey(e.bank, e.point)) : "") || "";
+    // Any kind of space (lists come with non-breaking ones) as a plain one, or a phone cannot wrap the address.
+    const address = (e.address || (e.point ? pointAddress.get(pointKey(e.bank, e.point)) : "") || "").replace(/\s+/g, " ").trim();
     (out.get(key) || out.set(key, []).get(key)).push({ bank: e.bank, name: e.name || "", parent: e.parent || "", address, sat: day("Sa"), sun: day("Su"), point: e.point || null });
   }
   for (const list of out.values()) list.sort((a, b) => a.bank.localeCompare(b.bank) || a.name.localeCompare(b.name) || a.address.localeCompare(b.address));
@@ -894,10 +895,12 @@ function weekendPage(lang, allNames) {
   const openAll = open.flatMap(([, list]) => list);
   const lists = new Map((fresh && weekend.branchesListUrl === weekend.listUrl ? weekend.branchLists || [] : []).map((l) => [l.url, l]));
   const siteName = (bank) => known.get(bankSlug(bank)) || bank;
-  const dayCell = (v) => (v == null ? `<span class="muted">${esc(w.closed)}</span>` : v ? esc(v) : esc(w.open));
+  const dayCell = (v) => (v == null ? `<span class="muted">${esc(w.closed)}</span>` : v ? esc(v).replace(/–/g, "–<wbr>") : esc(w.open));
+  // Three columns, the office stacked in the first (bank, office, address), so Saturday and Sunday stay in view on a
+  // phone too; times may break after the dash.
   const openTable = (list) => `<div class="tbl-scroll"><table class="tbl page-tbl wk-tbl wk-open">
-    <thead><tr><th>${esc(w.colBank)}</th><th>${esc(w.colOffice)}</th><th>${esc(w.colAddr)}</th><th>${esc(w.colSat)}</th><th>${esc(w.colSun)}</th></tr></thead>
-    <tbody>${list.map((b) => `<tr><td>${esc(siteName(b.bank))}</td><td>${esc(b.name || b.parent || "—")}${b.parent && b.name ? `<br><small class="muted">${esc(b.parent)}</small>` : ""}</td><td>${esc(b.address || "—")}</td><td class="num">${dayCell(b.sat)}</td><td class="num">${dayCell(b.sun)}</td></tr>`).join("")}</tbody>
+    <thead><tr><th>${esc(w.colOffice)}</th><th>${esc(w.colSat)}</th><th>${esc(w.colSun)}</th></tr></thead>
+    <tbody>${list.map((b) => `<tr><td><b>${esc(siteName(b.bank))}</b><span class="wk-name">${esc(b.name || b.parent || "")}${b.parent && b.name ? ` <span class="muted">(${esc(b.parent)})</span>` : ""}</span>${b.address ? `<small class="muted">${esc(b.address)}</small>` : ""}</td><td class="num">${dayCell(b.sat)}</td><td class="num">${dayCell(b.sun)}</td></tr>`).join("")}</tbody>
   </table></div>`;
   const countCell = (b) => {
     const l = lists.get(b.url);
@@ -919,9 +922,10 @@ function weekendPage(lang, allNames) {
     ${fresh || !range ? "" : `<p><b>${esc(w.stale(range))}</b></p>`}
     <p>${esc(w.lead(rows.length, fresh))}</p>
   </div>
+  <!-- The list link before the rates: on a phone the rates are the part that scrolls. -->
   <div class="tbl-scroll"><table class="tbl page-tbl">
-    <thead><tr><th>${esc(w.colBank)}</th><th class="num">${esc(x.colBuy)}</th><th class="num">${esc(x.colSell)}</th>${lists.size ? `<th class="num">${esc(w.colCount)}</th>` : ""}<th>${esc(w.colList)}</th></tr></thead>
-    <tbody>${rows.map((b) => `<tr><td>${nameCell(b)}</td><td class="num">${cell(b.r?.buy)}</td><td class="num">${cell(b.r?.sell)}</td>${lists.size ? `<td class="num">${countCell(b)}</td>` : ""}<td><a href="${esc(b.url)}" rel="noopener nofollow" target="_blank">${esc(w.listLink)}</a></td></tr>`).join("")}</tbody>
+    <thead><tr><th>${esc(w.colBank)}</th><th>${esc(w.colList)}</th><th class="num">${esc(x.colBuy)}</th><th class="num">${esc(x.colSell)}</th></tr></thead>
+    <tbody>${rows.map((b) => `<tr><td>${nameCell(b)}</td><td class="wk-list">${lists.size ? `<span>${countCell(b) === "—" ? "" : `${countCell(b)}${lists.get(b.url)?.count ? ` ${esc(w.offices)}` : ""}`}</span>` : ""}<a href="${esc(b.url)}" rel="noopener nofollow" target="_blank">${esc(w.listLink)}</a></td><td class="num">${cell(b.r?.buy)}</td><td class="num">${cell(b.r?.sell)}</td></tr>`).join("")}</tbody>
   </table></div>
   <div class="page-text">
     <p class="muted">${esc(w.callNote)} ${esc(w.atmNote)}</p>
