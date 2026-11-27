@@ -50,7 +50,7 @@ import kotlinx.serialization.json.put
 /**
  * Reports about a map place ("no branch here", wrong phone…) and general feedback. Sent to bot.qulaykurs.uz/report
  * (backend/bot/worker.js), which forwards each one to the owner's Telegram chat. Anonymous: only what the user typed,
- * the place they report on, the platform, app version and language.
+ * the place they report on, the platform, app version, language and phone model.
  */
 data class ReportPlace(val bank: String, val address: String?, val phone: String?, val lat: Double?, val lng: Double?)
 
@@ -63,6 +63,7 @@ private suspend fun sendReport(kind: String, text: String, place: ReportPlace?, 
         put("text", text.trim())
         put("lang", lang.code)
         put("v", appVersion)
+        deviceName.takeIf { it.isNotBlank() }?.let { put("d", it) }
         if (place != null) put("place", buildJsonObject {
             put("bank", place.bank)
             place.address?.let { put("address", it) }

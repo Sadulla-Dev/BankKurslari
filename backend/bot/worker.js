@@ -357,7 +357,7 @@ const reportHits = new Map(); // per isolate: ip -> recent send times
 
 /**
  * {"p":"android","kind":"no_place","text":"...","place":{"bank":"...","address":"...","phone":"...","lat":41.3,"lng":69.2},
- *  "lang":"uz","v":"1.1"} -> one message to OWNER_CHAT_ID. Senders are anonymous; the IP is used only for the
+ *  "lang":"uz","v":"1.1","d":"Samsung SM-A546E · Android 14"} -> one message to OWNER_CHAT_ID. Senders are anonymous; the IP is used only for the
  * 5-per-10-minutes limit in memory and is never sent or stored.
  */
 async function forwardReport(env, request) {
@@ -391,6 +391,7 @@ async function forwardReport(env, request) {
   }
   if (text) lines.push("", L.esc(text));
   lines.push("", `<i>${p}${j.v ? " " + str(j.v, 20) : ""}${j.lang ? " · " + str(j.lang, 5) : ""}</i>`);
+  if (j.d) lines.push(`<i>📱 ${str(j.d, 80)}</i>`);
 
   const out = await tg(env, "sendMessage", { chat_id: env.OWNER_CHAT_ID, text: lines.join("\n"), parse_mode: "HTML", link_preview_options: { is_disabled: true } });
   if (!out.ok) return new Response("send failed", { status: 502, headers: CORS });

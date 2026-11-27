@@ -160,6 +160,14 @@ actual val usagePlatform: String = "android"
 actual val appVersion: String
     get() = runCatching { AndroidPlatform.context.let { it.packageManager.getPackageInfo(it.packageName, 0).versionName } }.getOrNull().orEmpty()
 
+actual val deviceName: String
+    get() = runCatching {
+        val maker = android.os.Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }
+        val model = android.os.Build.MODEL.orEmpty()
+        val name = if (model.startsWith(maker, ignoreCase = true)) model else "$maker $model".trim()
+        "$name · Android ${android.os.Build.VERSION.RELEASE}"
+    }.getOrDefault("")
+
 actual fun isDebugBuild(): Boolean = (AndroidPlatform.context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
 /* ---------- PostHog ---------- */

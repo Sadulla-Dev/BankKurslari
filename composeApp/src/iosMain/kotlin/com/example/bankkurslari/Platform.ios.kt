@@ -3,6 +3,10 @@ package com.example.bankkurslari
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.toKString
 import kotlinx.cinterop.useContents
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
@@ -133,6 +137,17 @@ actual val usagePlatform: String = "ios"
 
 actual val appVersion: String
     get() = (platform.Foundation.NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String).orEmpty()
+
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+actual val deviceName: String
+    get() = runCatching {
+        val machine = memScoped {
+            val u = alloc<platform.posix.utsname>()
+            platform.posix.uname(u.ptr)
+            u.machine.toKString()
+        }
+        "$machine · iOS ${platform.UIKit.UIDevice.currentDevice.systemVersion}"
+    }.getOrDefault("")
 
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 actual fun isDebugBuild(): Boolean = kotlin.native.Platform.isDebugBinary
