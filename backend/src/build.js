@@ -12,6 +12,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAlerts, flushAlerts } from "./alerts.js";
 import { fetchBankSites, SITE_CURRENCIES, BANK_SITE_COUNT } from "./bankSites.js";
+import { getWeekendBanks } from "./weekend.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.SITE_DIR || join(ROOT, "worker", "public");
@@ -195,6 +196,9 @@ await step("bank watch", async () => {
   if (ageH > (usd?.source === "bank-sites" ? 8 : 3)) alerts.add("stale:USD", `Kurslar ${Number.isFinite(ageH) ? Math.round(ageH) + " soat" : "uzoq vaqt"}dan beri yangilanmadi (bank.uz javob bermayapti yoki bloklagan bo'lishi mumkin)`);
 });
 await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()));
+// Every run, not only the full ones: the Central Bank posts the list on Thursday or Friday evening, and the site should
+// have it within the hour. On failure the previous file stays (it carries its own dates).
+await step("weekend banks", async () => put("api/weekend.json", { updatedAt: now(), ...(await getWeekendBanks()) }));
 await step("gold", async () => put("api/gold.json", await api.getGold({ force: true })));
 
 if (mode === "full") {
@@ -225,7 +229,7 @@ await put("_manifest.json", { builtAt: now(), files });
 // Copies at the exact paths the apps request (lowercase, no .json), so Cloudflare serves them as static assets:
 // asset hits are free and unlimited, while every Worker run counts toward the free plan's 100k requests a day.
 // Not in the manifest: they are rebuilt from the .json files every time. _headers gives them the JSON type and CORS.
-const aliases = [["api/atms.json", "api/atms"], ["api/cbu/all.json", "api/cbu/all"], ["api/gold.json", "api/gold"]];
+const aliases = [["api/atms.json", "api/atms"], ["api/cbu/all.json", "api/cbu/all"], ["api/gold.json", "api/gold"], ["api/weekend.json", "api/weekend"]];
 for (const cur of api.SUPPORTED) {
   for (const kind of ["rates", "history", "analytics"]) aliases.push([`api/${kind}/${cur}.json`, `api/${kind}/${cur.toLowerCase()}`]);
 }

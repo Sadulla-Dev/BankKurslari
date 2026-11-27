@@ -7,7 +7,8 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "build": "node src/build.js",
-    "import:yandex-branches": "node scripts/import-yandex-branches.mjs"
+    "import:yandex-branches": "node scripts/import-yandex-branches.mjs",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "cheerio": "^1.1.2",

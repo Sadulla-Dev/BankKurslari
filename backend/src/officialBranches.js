@@ -53,7 +53,7 @@ const DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const DAY_WORDS = [
   ["dushanba", 0], ["dush", 0], ["du", 0], ["seshanba", 1], ["sesh", 1], ["se", 1], ["chorshanba", 2], ["chor", 2], ["ch", 2],
   ["payshanba", 3], ["pay", 3], ["pa", 3], ["juma", 4], ["jum", 4], ["ju", 4], ["shanba", 5], ["shan", 5], ["sh", 5],
-  ["yakshanba", 6], ["yak", 6], ["ya", 6],
+  ["yakshanba", 6], ["yaskhanba", 6], ["yak", 6], ["ya", 6], // "yaskhanba": a typo on Trastbank's site
   ["понедельник", 0], ["пон", 0], ["пн", 0], ["вторник", 1], ["вт", 1], ["среда", 2], ["ср", 2], ["четверг", 3], ["чт", 3],
   ["пятница", 4], ["пятн", 4], ["пят", 4], ["пт", 4], ["суббота", 5], ["суб", 5], ["сб", 5], ["воскресенье", 6], ["вос", 6], ["вс", 6]
 ];
@@ -96,22 +96,35 @@ function rangeLabel(days) {
 /** Best effort; returns null when days or times cannot be read (the app then shows "hours unknown"). */
 export function normalizeHours(raw) {
   if (raw == null) return null;
-  // Cyrillic "а" typed inside Latin words ("Jumа") breaks day matching.
-  const text = (Array.isArray(raw) ? raw.join("; ") : String(raw)).replace(/(?<=[a-z])а|а(?=[a-z])/gi, "a");
+  // Cyrillic "а" typed inside Latin words ("Jumа") breaks day matching, and so do Latin look-alikes typed inside
+  // Cyrillic ones: Ipoteka bank writes "Cб-Вс" with a Latin C, which read as Sunday only.
+  const text = (Array.isArray(raw) ? raw.join("; ") : String(raw))
+    .replace(/(?<=[a-z])а|а(?=[a-z])/gi, "a")
+    .replace(/[ACEOPXaceopx](?=[Ѐ-ӿ])|(?<=[Ѐ-ӿ])[ACEOPXaceopx]/g, (c) => "АСЕОРХасеорх"["ACEOPXaceopx".indexOf(c)])
+    // Garant bank: "09-00-17:00" (a dash for the colon of the first time).
+    .replace(/\b(\d{1,2})-(\d{2})(?=\s*-\s*\d)/g, "$1:$2");
   if (!text.trim()) return null;
   if (!TIME_RE.test(text) && /uzluksiz/i.test(text)) return "24/7";
   if (/круглосуточ|24\s*\/\s*7|kecha-kunduz/i.test(text)) return "24/7";
 
-  // Split into rules at line breaks / semicolons; "lunch" lines are ignored.
-  // "Du-Ju 09:00-18:00, Tushlik 13:00-14:00": the lunch clause becomes its own (ignored) part.
-  const parts = text.replace(/,\s*(?=tushlik|обед|перерыв)/gi, ";").split(/[\n;|]+/).map((p) => p.trim()).filter((p) => p && !/обед|tushlik|перерыв/i.test(p));
+  // Split into rules at line breaks / semicolons; "lunch" parts are ignored. Also split inside a line:
+  //   "Du-Ju 09:00-18:00, Tushlik 13:00-14:00" and "9:00 dan 18:00 gacha Tushlik: ... Dam olish kunlari: ..."
+  //   (Trastbank) -> the lunch and the days-off clauses become their own parts;
+  //   "Пон-Пят 8:00-20:00, Суб: 9:00-13:00" (Hamkorbank) -> a comma between a time and a day name with a time starts
+  //   a new rule ("Пн, Вт, Ср 9:00-18:00" stays one).
+  const parts = text
+    .replace(/[,\s]+(?=tushlik|обед|перерыв|dam olish kun)/gi, ";")
+    .replace(new RegExp(`(?<=\\d)\\s*,\\s*(?=(?:${DAY_WORDS.map(([w]) => w).join("|")})\\.?\\s*:?\\s*(?:с\\s*|c\\s*)?\\d)`, "giu"), ";")
+    .split(/[\n;|]+/).map((p) => p.trim()).filter((p) => p && !/обед|tushlik|перерыв/i.test(p));
   const rules = [];
-  let offDays = null;
+  let offDays = null, pendingDays = null;
   for (const p of parts) {
     const t = p.match(TIME_RE);
     if (!t) {
       // "Dam olish kunlari: shanba, yakshanba" -> remember the days off.
-      if (/dam olish|выходн/i.test(p)) offDays = daysIn(p.replace(/dam olish kunlari|выходные дни|выходные/i, ""));
+      if (/dam olish|выходн/i.test(p)) offDays = daysIn(p.replace(/dam olish kunlari|dam olish kuni|выходные дни|выходные/i, ""));
+      // "Dushanba-juma kunlari" on one line and "soat 09:00 dan 18:00 gacha" on the next: the days of the next time.
+      else pendingDays = daysIn(p) || pendingDays;
       continue;
     }
     const rest = p.slice(0, t.index) + " " + p.slice(t.index + t[0].length);
@@ -124,8 +137,9 @@ export function normalizeHours(raw) {
       const off = daysIn(rest.replace(offWord, " "));
       days = off ? [0, 1, 2, 3, 4, 5, 6].filter((d) => !off.includes(d)) : null;
     } else {
-      days = daysIn(rest);
+      days = daysIn(rest) || pendingDays;
     }
+    pendingDays = null;
     rules.push({ days, time: `${pad(t[1], t[2])}-${pad(t[3], t[4])}` });
   }
   if (!rules.length) return null;
