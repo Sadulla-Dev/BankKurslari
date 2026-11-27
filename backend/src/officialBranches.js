@@ -93,6 +93,25 @@ function rangeLabel(days) {
   return sorted.map((d) => DAYS[d]).join(",");
 }
 
+/** Per-day times (index 0 = Monday, null = closed) -> OSM rules, consecutive equal days grouped. */
+export function hoursFromWeek(week) {
+  const out = [];
+  for (let d = 0; d < 7; d++) {
+    if (!week[d]) continue;
+    let e = d;
+    while (e + 1 < 7 && week[e + 1] === week[d]) e++;
+    out.push(`${e > d ? `${DAYS[d]}-${DAYS[e]}` : DAYS[d]} ${week[d]}`);
+    d = e;
+  }
+  return out.length ? out.join("; ") : null;
+}
+
+// "9:00 - 17:00" -> "09:00-17:00"; null when no time range is present.
+function timeRange(text) {
+  const t = String(text || "").match(TIME_RE);
+  return t ? `${pad(t[1], t[2])}-${pad(t[3], t[4])}` : null;
+}
+
 /** Best effort; returns null when days or times cannot be read (the app then shows "hours unknown"). */
 export function normalizeHours(raw) {
   if (raw == null) return null;
@@ -156,6 +175,24 @@ export function normalizeHours(raw) {
 
 /* ---------- importers ---------- */
 
+// Tenge Bank office page (Uzbek version, no language prefix): the "Ish jadvali" block holds three rows,
+// weekdays / Saturday / Sunday, in that order. Their day labels are empty and the highlighted span of
+// each row carries an unrelated note (lunch break), so only the row position gives the days.
+// "Вых" = day off. Other row counts are not guessed at.
+async function tengeHours(path) {
+  const $ = cheerio.load(await get(`https://tengebank.uz${path}`));
+  const head = $("div").filter((_, el) => $(el).children().length === 0 && $(el).text().trim() === "Ish jadvali").first();
+  const rows = head.next().children("div").map((_, el) => {
+    const r = $(el).clone();
+    r.find("span").remove();
+    return r.text().trim();
+  }).get();
+  if (rows.length !== 3) return null;
+  const [weekdays, sat, sun] = rows.map(timeRange);
+  if (!weekdays) return null;
+  return hoursFromWeek([weekdays, weekdays, weekdays, weekdays, weekdays, sat, sun]);
+}
+
 const importers = {
   async "Anorbank"() {
     const j = await getJson("https://anorbank.uz/api/locations.php?lang=uz");
@@ -172,13 +209,18 @@ const importers = {
   },
 
   async "Tenge Bank"() {
+    // The list's "works" field is always empty; the hours live on each office page (/map/inner/{id}).
     const out = [];
     for (const kind of ["branch", "universal_cash"]) {
       for (let page = 1; page <= 10; page++) {
         const j = await getJson(`https://tengebank.uz/uz/api/map_new/${kind}?city=&page=${page}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
         });
-        for (const x of j.data || []) out.push(item("Tenge Bank", x.title, x.address, x.works, x.coords?.[0], x.coords?.[1], "tengebank.uz"));
+        for (const x of j.data || []) {
+          const it = item("Tenge Bank", x.title, x.address, x.works, x.coords?.[0], x.coords?.[1], "tengebank.uz");
+          if (it && !it.hours && x.url) it.hours = await tengeHours(x.url).catch(() => null);
+          out.push(it);
+        }
         if (page >= (j.pages || 1)) break;
       }
     }
@@ -221,6 +263,7 @@ const importers = {
   },
 
   async "Universal bank"() {
+    // No hours anywhere on universalbank.uz (checked 2026-11): "content" holds only name, address and phone.
     const j = await getJson("https://universalbank.uz/api/locations?pagination[pageSize]=1000&locale=uz");
     return (j.data || []).map(({ attributes: a = {} }) => {
       const addr = (String(a.content || "").match(/Manzil:\s*([^\r\n]+)/i) || [])[1];
@@ -282,6 +325,37 @@ const importers = {
     return out;
   }
 };
+
+// Ipak Yuli names differ between the map feed and the offices table ("Shaxrisabz filiali" / "Shahrisabz",
+// "Bosh ofis" / "Amaliyot boshqarmasi", "Umar mintaqaviy filiali" / "Samarqand, Umar MF"): lowercase letters
+// only, x read as h; the feed name as a whole must contain the first word of the table name.
+const ipakLetters = (s) => s.normalize("NFKD").replace(/[^a-z]/g, "").replace(/x/g, "h");
+const ipakKey = (name) => ipakLetters(String(name || "").toLowerCase().replace(/filiali|\bbxm\b|\bem\b/g, " "));
+
+async function ipakOfficeTimes() {
+  const $ = cheerio.load(await get("https://ipakyulibank.uz/offices"));
+  return $("table tbody tr").map((_, tr) => {
+    const td = $(tr).find("td");
+    const first = ipakLetters(td.eq(1).text().toLowerCase().trim().split(/\s+/)[0] || "");
+    return { key: first === "bosh" ? "amaliyot" : first, time: timeRange(td.eq(3).text()) };
+  }).get().filter((r) => r.key && r.time);
+}
+
+// Saturday hours from the bank's own news "Ipak Yuli Bank filiallarining bir qismi yaxshilangan ish jadvaliga
+// o'tmoqda" (ipakyulibank.uz/news/yaxshilangan-ish-jadvali-ipak-yuli-bank, updates of 2026-03-02 .. 2026-08-03).
+// Branches not named there get Mon-Fri only (Saturday not published). center: service centres (BXM / EM) of the
+// "ec" feed, whose weekday time also comes from that news (they are not in the offices table).
+const IPAK_SATURDAY = [
+  ...["amaliyot", "yakkasaroy", "mirzo", "mirobod", "chilonzor", "namangan", "qarshi", "buhoro", "umar", "fargona", "shahrisabz"]
+    .map((key) => ({ key, time: "10:00-16:00" })),
+  ...["romitan", "jondor", "gijduvon", "hoja", "kaftarhona", "yakkabog", "chiroqchi"]
+    .map((key) => ({ key, center: true, weekdays: "09:00-17:00", time: "10:00-14:00" }))
+];
+
+function ipakHours(key, weekdays) {
+  const sat = IPAK_SATURDAY.find((s) => !s.center && key.includes(s.key));
+  return sat ? `Mo-Fr ${weekdays}; Sa ${sat.time}` : `Mo-Fr ${weekdays}`;
+}
 
 const unescape = (h) => String(h || "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -359,9 +433,24 @@ Object.assign(importers, {
   async "Ipak Yuli Bank"() {
     // Same feed the bank's own Yandex-map page (api.ipakyulibank.uz/uz/branches-on-map) reads; "banks" = branches,
     // "ec" = express centers (mini-banks), both keyed by id. "atm" is excluded.
+    // The feed has no hours. Weekday times: the table on ipakyulibank.uz/offices (time only, no days; the
+    // bank's schedule news states that time is for Mon-Fri). Saturdays: IPAK_SATURDAY below.
     const j = await getJson("https://api.ipakyulibank.uz/site/get-map-content");
-    const rows = [...Object.values(j.banks || {}), ...Object.values(j.ec || {})];
-    return rows.map((x) => item("Ipak Yuli Bank", x.name, x.address, null, x.x, x.y, "ipakyulibank.uz"));
+    const times = await ipakOfficeTimes().catch(() => []);
+    const branches = Object.values(j.banks || {}).map((x) => {
+      const it = item("Ipak Yuli Bank", x.name, x.address, null, x.x, x.y, "ipakyulibank.uz");
+      const key = ipakKey(x.name);
+      const hit = times.find((t) => key.includes(t.key));
+      if (it && hit) it.hours = ipakHours(key, hit.time);
+      return it;
+    });
+    const centers = Object.values(j.ec || {}).map((x) => {
+      const it = item("Ipak Yuli Bank", x.name, x.address, null, x.x, x.y, "ipakyulibank.uz");
+      const sat = IPAK_SATURDAY.find((s) => s.center && ipakKey(x.name).includes(s.key));
+      if (it && sat) it.hours = `Mo-Fr ${sat.weekdays}; Sa ${sat.time}`;
+      return it;
+    });
+    return [...branches, ...centers];
   },
 
   async BRB() {
@@ -369,14 +458,58 @@ Object.assign(importers, {
     // script (fetch(`/api/locations/${type}_${lang}`)) and probing type names ("branches", not "offices").
     const rows = await getJson("https://brb.uz/api/locations/branches_uz");
     return rows.map((x) => item("BRB", x.title, x.address, x.hours, x.coords?.[0], x.coords?.[1], "brb.uz"));
+  },
+
+  async "Davr bank"() {
+    // Feed of abbdavr-bank.uz/uz/map (davrbank.uz redirects there). Times are per office; weekdays unless
+    // work_on_weekend, round the clock when day_and_night.
+    const j = await getJson("https://abbdavr-bank.uz/api/product/api/atm-branch?type=BRANCH");
+    return (j.data || []).map((x) => {
+      const it = item("Davr bank", x.city, x.address, null, x.latitude, x.longitude, "abbdavr-bank.uz");
+      const time = timeRange(`${x.start_time}-${x.end_time}`);
+      if (it) it.hours = x.day_and_night ? "24/7" : time ? `${x.work_on_weekend ? "Mo-Su" : "Mo-Fr"} ${time}` : null;
+      return it;
+    });
+  },
+
+  async Octobank() {
+    // One office (the head office) on octobank.uz/kontaktlar: map pin + a Monday..Sunday list, days off without a time.
+    const $ = cheerio.load(await get("https://octobank.uz/kontaktlar"));
+    const pin = $("[data-coordinates]").first();
+    const [lat, lng] = String(pin.attr("data-coordinates") || "").split(",");
+    // toArray(): cheerio's .map() would drop the null (closed) days and shift the week.
+    const week = $(".career_05_date_items").first().children().toArray().map((el) => timeRange($(el).find(".career_05_date_item_paragraph").text()));
+    const addr = $(".career_05_date").first().prev().text().replace(/^\s*Manzil\s*/, "").replace(/,\s*$/, "");
+    const it = item("Octobank", clean(pin.attr("data-description")) || "Octobank", addr, null, lat, lng, "octobank.uz");
+    if (it && week.length === 7) it.hours = hoursFromWeek(week);
+    return [it];
+  },
+
+  async Mybank() {
+    // my-bank.uz/uz/contact (Next.js): the office list is the "dataList" prop inside the page's flight data.
+    const html = await get("https://my-bank.uz/uz/contact");
+    const flight = [...html.matchAll(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g)].map((m) => JSON.parse(`"${m[1]}"`)).join("");
+    const at = flight.indexOf('"dataList":');
+    if (at < 0) throw new Error("Mybank: dataList not found");
+    let depth = 0;
+    let end = at + 11;
+    for (; end < flight.length; end++) {
+      if (flight[end] === "[") depth++;
+      else if (flight[end] === "]" && --depth === 0) break;
+    }
+    const list = JSON.parse(flight.slice(at + 11, end + 1));
+    const field = (x, title) => (x.values || []).find((v) => v.title === title)?.content;
+    return list.filter((x) => x.type === "BRANCH")
+      .map((x) => item("Mybank", x.name, field(x, "Manzil"), field(x, "Ish vaqti"), x.latitude, x.longitude, "my-bank.uz"));
   }
 });
 
-/** Runs every importer; returns { branches, report } where report lists per-bank counts or errors. */
-export async function fetchOfficialBranches() {
+/** Runs every importer (or only the named banks); returns { branches, report } where report lists per-bank counts or errors. */
+export async function fetchOfficialBranches({ only } = {}) {
   const report = {};
   const all = [];
   for (const [bank, run] of Object.entries(importers)) {
+    if (only && !only.includes(bank)) continue;
     try {
       const got = (await run()).filter(Boolean);
       // De-duplicate identical coordinates within a bank.
