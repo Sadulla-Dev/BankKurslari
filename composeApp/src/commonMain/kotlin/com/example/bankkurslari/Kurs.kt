@@ -888,7 +888,7 @@ fun KursScreen(
                         item(key = "weekend") {
                             WeekendCard(
                                 weekend = weekend, ranked = ranked, ru = ru, best = ranked.firstOrNull(), hasAmount = hasAmount, sell = sell,
-                                onBank = { sheetBank = it },
+                                onBank = { onShowWeekendOnMap() },
                                 onShowOnMap = onShowWeekendOnMap,
                                 modifier = Modifier.animateItem().rise(entrance, 5)
                             )
@@ -1375,7 +1375,7 @@ private fun WeekendCard(
                 else -> pick(LocalLang.current, "${wb.offices} ta filial ochiq", "открыто отделений: ${wb.offices}", "${wb.offices} open")
             }
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = rb != null, role = Role.Button) { onBank(name) }.padding(vertical = 6.dp),
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(role = Role.Button) { onBank(name) }.padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -1387,7 +1387,7 @@ private fun WeekendCard(
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         rb?.let { kRateFmt(it.perUnit, ru) + " " + kSom(ru) } ?: "—",
-                        style = VsType.BodyMedium, color = if (i == 0 && rb != null) VsEmerald else VsInk, maxLines = 1
+                        style = VsType.BodyMedium, color = if (rb != null && best != null && lossOf(rb, best, hasAmount) == 0L) VsEmerald else VsInk, maxLines = 1
                     )
                     // Against the best bank of the whole list (open this weekend or not), as in the list below.
                     if (rb != null && best != null) {

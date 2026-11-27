@@ -172,9 +172,8 @@ const loadWeekend = () => S.wk ? Promise.resolve(S.wk) : once("wk", async () => 
       if (l.status === "all") allBanks.set(bankKey(l.bank), l);
     }
   }
-  // Thursday (once the list is out) to Sunday: the home card; on Saturday and Sunday also without a list.
-  const weekendNow = now.getUTCDay() === 6 || now.getUTCDay() === 0;
-  return (S.wk = { listed, listedBanks, allBanks, days: fresh ? d.days : null, show: fresh || weekendNow });
+  // Always shown: this weekend's lists while they are current, otherwise the checked banks' usual weekend hours.
+  return (S.wk = { listed, listedBanks, allBanks, days: fresh ? d.days : null, show: true });
 });
 /** This weekend's hours on the bank's list ({ Sa?, Su? }, "" = hours not given), or null. */
 const wkListed = (b) => S.wk?.listed.get(wkKey(b.bank, b.lat, b.lng)) || null;
@@ -242,7 +241,7 @@ function renderWeekend() {
   setText("wkTitle", t.title);
   setText("wkSub", S.wk.days ? t.sub(wkRange(S.wk.days)) : t.usual);
   setText("wkMapL", t.map);
-  $("wkRows").innerHTML = shown.map((r, i) => `<li${r.rate != null ? ` data-bank="${esc(r.name)}"` : ""}>${badgeHTML(r.name, i === 0 && r.rate != null ? "accent" : "")}<span class="wk-n"><b>${esc(r.name)}</b><small>${esc(r.w.all ? t.all : t.count(r.w.n))}</small></span><span class="wk-r${i === 0 && r.rate != null ? " hi" : ""}">${r.rate != null ? `<span>${rateFmt(r.rate)} <small>${esc(L().som)}</small></span>${wkGap(r.rate)}` : "—"}</span></li>`).join("");
+  $("wkRows").innerHTML = shown.map((r, i) => `<li data-bank="${esc(r.name)}">${badgeHTML(r.name, i === 0 && r.rate != null ? "accent" : "")}<span class="wk-n"><b>${esc(r.name)}</b><small>${esc(r.w.all ? t.all : t.count(r.w.n))}</small></span><span class="wk-r${r.rate != null && top != null && Math.abs(r.rate - top) * S.amount < 0.5 ? " hi" : ""}">${r.rate != null ? `<span>${rateFmt(r.rate)} <small>${esc(L().som)}</small></span>${wkGap(r.rate)}` : "—"}</span></li>`).join("");
   const more = $("wkMore");
   more.hidden = rows.length <= WK_PREVIEW + 1;
   more.textContent = S.wkAll ? t.less : t.more(rows.length);
@@ -1732,7 +1731,23 @@ function bind() {
   $("mapOnlyClear").addEventListener("click", () => setMapOnly(null));
   $("mapWeekend").addEventListener("click", () => loadWeekend().catch(() => null).then(() => setWeekendOnly(!S.wkOnly)));
   $("wkMore").addEventListener("click", () => { S.wkAll = !S.wkAll; renderWeekend(); });
-  $("wkRows").addEventListener("click", (e) => { const li = e.target.closest("li[data-bank]"); if (li) openSheet(li.dataset.bank); });
+  // "Ko'p so'raladigan summalar" (/100-dollar-necha-som, /ru/100-usd-v-sumah, /en/100-usd-to-uzs): on this page they
+  // fill the calculator at the top instead of opening the amount page (the links stay for search engines and other pages).
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest?.("a[href]");
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    const m = /^\/(?:uzc\/|ru\/|en\/)?(\d+)-(dollar|yevro|rubl|usd|eur|rub)-(?:necha-som|v-sumah|to-uzs)$/.exec(new URL(a.href, location.href).pathname);
+    if (!m) return;
+    e.preventDefault();
+    const cur = { dollar: "USD", usd: "USD", yevro: "EUR", eur: "EUR", rubl: "RUB", rub: "RUB" }[m[2]];
+    if (S.mode !== "sell") setMode("sell");
+    setCur(cur);
+    setAmount(Number(m[1]));
+    if (S.view !== "rates") location.hash = "#/";
+    scrollTo(0, 0); // straight to the calculator: a smooth scroll can stall in some browsers and leave you at the bottom
+    window.qkEvent?.("amount_link");
+  });
+  $("wkRows").addEventListener("click", (e) => { if (e.target.closest("li")) { window.qkEvent?.("weekend_map"); location.hash = "#/xarita?dam-olish"; } });
   $("wkMap").addEventListener("click", () => window.qkEvent?.("weekend_map"));
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
   $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); closeReport(); });

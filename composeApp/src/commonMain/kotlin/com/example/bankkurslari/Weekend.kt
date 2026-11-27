@@ -2,7 +2,6 @@ package com.example.bankkurslari
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.JsonArray
 import kotlin.math.roundToLong
@@ -111,14 +110,13 @@ private fun span(s: HoursSchedule, day: Int): String? {
 }
 
 /**
- * The weekend index, or null when there is nothing to show: from Thursday, once this weekend's list is out, until the
- * end of Sunday; on Saturday and Sunday also without a list (usual hours of the checked banks only).
+ * The weekend index, or null when no bank is known to open on a weekend. While this weekend's list is out (Thursday or
+ * Friday to Sunday) it counts the offices on the banks' own lists; the rest of the week, the branches whose usual hours
+ * include Saturday or Sunday (the checked banks only), so the Kurs card and the map filter are always there.
  */
 fun buildWeekendIndex(data: WeekendData?, branches: List<OsmBranch>, today: LocalDate = tashkentToday()): WeekendIndex? {
     val todayIso = today.toString()
     val listDays = data?.days?.takeIf { it.second >= todayIso }
-    val weekendNow = today.dayOfWeek == DayOfWeek.SATURDAY || today.dayOfWeek == DayOfWeek.SUNDAY
-    if (listDays == null && !weekendNow) return null
     val useList = listDays != null && data.officesCurrent
     val points = HashMap<String, WeekendOpen>()
     val listCount = HashMap<String, Int>()     // bankKey -> offices on its list
