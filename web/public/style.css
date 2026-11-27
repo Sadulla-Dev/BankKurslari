@@ -268,11 +268,11 @@ p { margin: 0; }
 .bn small { display: block; font-size: 12px; color: var(--ink-2); max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hi { color: var(--accent); font-weight: 700; }
 .get b { font-weight: 700; display: block; }
-.get small { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
-.get small.best { color: var(--accent); font-weight: 600; }
-.get small.warn { color: var(--warn); font-weight: 600; }
+.get small { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); }
+.get small.best { color: var(--accent); font-weight: 700; }
+.get small.warn { color: var(--warn); font-weight: 700; font-feature-settings: "tnum"; }
 /* Length = how far from the best, against the worst offer in the list. */
-.gap { display: inline-block; width: 28px; height: 4px; border-radius: 2px; background: var(--fill); position: relative; overflow: hidden; flex: none; }
+.gap { display: inline-block; width: 34px; height: 5px; border-radius: 2px; background: var(--fill); position: relative; overflow: hidden; flex: none; }
 .gap::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--w) * 100%); border-radius: inherit; background: var(--ink-3); opacity: .55; }
 .get small.warn .gap::after { background: var(--warn-bar); opacity: 1; }
 .c-m { display: none; }
@@ -787,6 +787,10 @@ body.v-map .foot { display: none; }
 .wk-r { font-weight: 600; font-feature-settings: "tnum"; white-space: nowrap; }
 .wk-r small { font-weight: 400; color: var(--ink-2); }
 .wk-r.hi { color: var(--accent); }
+.wk-r { display: flex; flex-direction: column; align-items: flex-end; }
+.wk-r em { font-style: normal; font-size: 13px; font-weight: 700; }
+.wk-r em.warn { color: var(--warn); }
+.wk-r em.best { color: var(--accent); }
 .wk-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: 14px; }
 .wk-more { border: 0; background: none; padding: 8px 0; color: var(--accent); font-weight: 500; font-size: 14px; }
 .wk-more[hidden] + .wk-page { margin-left: 0; }

@@ -226,6 +226,7 @@ function renderWeekend() {
   if (!banks.size || !S.rates[S.cur]) { card.hidden = true; return; }
   const t = L().wkCard;
   const list = ranked(S.rates[S.cur]);
+  const top = list[0]?.rate;
   const used = new Set(), rows = [];
   for (const r of list) {
     const k = [...banks.keys()].find((bk) => !used.has(bk) && keysMatch(bk, bankKey(r.bank)));
@@ -233,10 +234,15 @@ function renderWeekend() {
   }
   for (const [k, w] of banks) if (!used.has(k)) rows.push({ name: w.bank, w, rate: null });
   const shown = S.wkAll || rows.length <= WK_PREVIEW + 1 ? rows : rows.slice(0, WK_PREVIEW);
+  // Against the best bank of the whole table (open this weekend or not), for the user's amount, as in the table.
+  const wkGap = (rate) => {
+    const diff = top == null ? 0 : Math.abs(rate - top) * S.amount;
+    return diff < 0.5 ? `<em class="best">${esc(L().best)}</em>` : `<em class="warn">${esc((S.mode === "sell" ? L().less : L().more)(group(diff)))}</em>`;
+  };
   setText("wkTitle", t.title);
   setText("wkSub", S.wk.days ? t.sub(wkRange(S.wk.days)) : t.usual);
   setText("wkMapL", t.map);
-  $("wkRows").innerHTML = shown.map((r, i) => `<li${r.rate != null ? ` data-bank="${esc(r.name)}"` : ""}>${badgeHTML(r.name, i === 0 && r.rate != null ? "accent" : "")}<span class="wk-n"><b>${esc(r.name)}</b><small>${esc(r.w.all ? t.all : t.count(r.w.n))}</small></span><span class="wk-r${i === 0 && r.rate != null ? " hi" : ""}">${r.rate != null ? `${rateFmt(r.rate)} <small>${esc(L().som)}</small>` : "—"}</span></li>`).join("");
+  $("wkRows").innerHTML = shown.map((r, i) => `<li${r.rate != null ? ` data-bank="${esc(r.name)}"` : ""}>${badgeHTML(r.name, i === 0 && r.rate != null ? "accent" : "")}<span class="wk-n"><b>${esc(r.name)}</b><small>${esc(r.w.all ? t.all : t.count(r.w.n))}</small></span><span class="wk-r${i === 0 && r.rate != null ? " hi" : ""}">${r.rate != null ? `<span>${rateFmt(r.rate)} <small>${esc(L().som)}</small></span>${wkGap(r.rate)}` : "—"}</span></li>`).join("");
   const more = $("wkMore");
   more.hidden = rows.length <= WK_PREVIEW + 1;
   more.textContent = S.wkAll ? t.less : t.more(rows.length);
@@ -656,14 +662,14 @@ function renderTable() {
   }[S.sort];
   rows.sort(by);
   if (!rows.length) { $("tbody").innerHTML = `<tr><td colspan="5" class="empty">${esc(t.noMatch)}</td></tr>`; return; }
-  // The difference from the best, in so'm for the user's amount, with a bar so the list is seen rather than read.
-  // Neutral unless it is bigger than a trip (WORTH): a 500 so'm difference is not a warning.
+  // The difference from the best, in so'm for the user's amount, with a bar so the list is seen rather than read. On
+  // every row and in the warning colour: what the user loses at that bank is the point of the comparison.
   const gapCell = (diff) => diff < 0.5
     ? `<small class="best">${esc(t.best)}</small>`
-    : `<small class="${diff >= WORTH ? "warn" : ""}"><i class="gap" style="--w:${Math.max(0.08, diff / maxGap).toFixed(3)}"></i>${esc((S.mode === "sell" ? t.less : t.more)(group(diff)))}</small>`;
+    : `<small class="warn"><i class="gap" style="--w:${Math.max(0.08, diff / maxGap).toFixed(3)}"></i>${esc((S.mode === "sell" ? t.less : t.more)(group(diff)))}</small>`;
   const kmCell = (km) => (S.user ? `<td class="num c-km">${km != null ? t.km(kmFmt(km)) : "—"}</td>` : "");
   // Rank by rate, shared by banks with the same rate. In rate order a run of equal rates reads as one block: the line
-  // between its rows is dropped (class "tie-next") and the gap to the best is said once, on its first row.
+  // between its rows is dropped (class "tie-next"). The gap to the best is on every row, so no bank looks like a best.
   const ranks = ranksOf(list);
   const byRate = S.sort === "best" && !q;
   const bankRow = (b, i) => {
@@ -671,8 +677,7 @@ function renderTable() {
     const isBest = diff < 0.5;
     const rank = ranks.get(b.bank);
     const tieNext = byRate && rows[i + 1] && ranks.get(rows[i + 1].bank) === rank;
-    const tiePrev = byRate && i > 0 && ranks.get(rows[i - 1].bank) === rank;
-    const gap = tiePrev && !isBest ? "<small>&nbsp;</small>" : gapCell(diff);
+    const gap = gapCell(diff);
     const sub = b.nb?.km != null ? t.away(kmFmt(b.nb.km)) : cleanAddr(b.nb?.address || b.branch?.address);
     return `<tr data-bank="${esc(b.bank)}" class="${[isBest ? "top1" : "", tieNext ? "tie-next" : ""].join(" ").trim()}">
       <td class="c-bank"><span class="bn"><span class="rk" title="${esc(t.rank(rank))}">${rank}</span>${badgeHTML(b.bank, isBest ? "accent" : "")}<span><button type="button" class="bn-name"><b>${esc(b.bank)}</b></button><small>${esc(sub)}</small></span></span></td>

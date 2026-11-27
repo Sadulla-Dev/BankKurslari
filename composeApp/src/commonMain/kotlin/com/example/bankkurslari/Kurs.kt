@@ -811,7 +811,7 @@ fun KursScreen(
                     if (weekend != null) {
                         item(key = "weekend") {
                             WeekendCard(
-                                weekend = weekend, ranked = ranked, ru = ru,
+                                weekend = weekend, ranked = ranked, ru = ru, best = ranked.firstOrNull(), hasAmount = hasAmount, sell = sell,
                                 onBank = { sheetBank = it },
                                 onShowOnMap = onShowWeekendOnMap,
                                 modifier = Modifier.animateItem().rise(entrance, 3)
@@ -1205,7 +1205,6 @@ private fun BankListRow(
     val haptic = LocalHapticFeedback.current
     val shown = if (hasAmount) item.total else item.perUnit.toLong()
     val loss = if (best != null) abs(lossOf(item, best, hasAmount)) else 0L
-    val lessText = if (loss <= 0L) null else if (sell) kDelta(-loss) else kDelta(loss)
     val spokenLess = if (loss <= 0L) null else if (sell)
         pick(lang, "${kGroup(loss)} kam", "на ${kGroup(loss)} меньше", "${kGroup(loss)} less")
     else pick(lang, "${kGroup(loss)} koʻp", "на ${kGroup(loss)} больше", "${kGroup(loss)} more")
@@ -1263,10 +1262,12 @@ private fun BankListRow(
             val valueAlpha by animateFloatAsState(if (fx.measuring) 0.4f else 1f, tween(Motion.MEDIUM), label = "valA")
             Text(kGroup(shown), style = VsType.Value, color = valueColor, textAlign = TextAlign.End, maxLines = 1, softWrap = false, modifier = Modifier.graphicsLayer { alpha = valueAlpha })
             // Always one line tall, so a row never changes height when the gap appears or disappears.
+            // What the user loses at this bank against the best: on every row, in the warning colour, so it is seen.
+            // In words ("5 000 kam", "5 000 qimmat"); a bank level with the best says so instead of leaving a blank.
             Text(
-                lessText ?: NBSP.toString(),
-                style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 13.sp),
-                color = VsInkSoft, textAlign = TextAlign.End, maxLines = 1, softWrap = false
+                spokenLess ?: if (best != null) tr("eng yaxshi", "лучший", "best") else NBSP.toString(),
+                style = VsType.Meta.copy(fontFamily = VsType.Value.fontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                color = if (spokenLess != null) VsRoseText else VsEmerald, textAlign = TextAlign.End, maxLines = 1, softWrap = false
             )
         }
     }
@@ -1344,7 +1345,7 @@ private const val WEEKEND_PREVIEW = 5
  */
 @Composable
 private fun WeekendCard(
-    weekend: WeekendIndex, ranked: List<RankedBank>, ru: Boolean,
+    weekend: WeekendIndex, ranked: List<RankedBank>, ru: Boolean, best: RankedBank?, hasAmount: Boolean, sell: Boolean,
     onBank: (String) -> Unit, onShowOnMap: () -> Unit, modifier: Modifier = Modifier
 ) {
     var all by rememberSaveable { mutableStateOf(false) }
@@ -1383,10 +1384,23 @@ private fun WeekendCard(
                     Text(name, style = VsType.BodyMedium, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(count, style = VsType.Meta, color = VsInkSoft, maxLines = 1)
                 }
-                Text(
-                    rb?.let { kRateFmt(it.perUnit, ru) + " " + kSom(ru) } ?: "—",
-                    style = VsType.BodyMedium, color = if (i == 0 && rb != null) VsEmerald else VsInk, maxLines = 1
-                )
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        rb?.let { kRateFmt(it.perUnit, ru) + " " + kSom(ru) } ?: "—",
+                        style = VsType.BodyMedium, color = if (i == 0 && rb != null) VsEmerald else VsInk, maxLines = 1
+                    )
+                    // Against the best bank of the whole list (open this weekend or not), as in the list below.
+                    if (rb != null && best != null) {
+                        val loss = abs(lossOf(rb, best, hasAmount))
+                        Text(
+                            if (loss <= 0L) tr("eng yaxshi", "лучший", "best")
+                            else if (sell) pick(LocalLang.current, "${kGroup(loss)} kam", "на ${kGroup(loss)} меньше", "${kGroup(loss)} less")
+                            else pick(LocalLang.current, "${kGroup(loss)} qimmat", "на ${kGroup(loss)} дороже", "${kGroup(loss)} more"),
+                            style = VsType.Meta.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                            color = if (loss <= 0L) VsEmerald else VsRoseText, maxLines = 1
+                        )
+                    }
+                }
             }
         }
         if (rows.size > WEEKEND_PREVIEW + 1) {
