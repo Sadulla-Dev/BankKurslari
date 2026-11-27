@@ -109,6 +109,7 @@ actual fun BankMapView(
     showMyLocation: Boolean,
     active: Boolean,
     onPinTap: (MapPin) -> Unit,
+    onGroupTap: (List<MapPin>) -> Unit,
     onController: (MapController) -> Unit,
     onTileFailure: (Boolean) -> Unit
 ) {
@@ -117,6 +118,7 @@ actual fun BankMapView(
     // Tight images: taps are hit-tested in code, so pins never swallow pan / pinch gestures.
     val renderer = rememberPinRenderer(touchPadding = false)
     val tapPin by rememberUpdatedState(onPinTap)
+    val tapGroup by rememberUpdatedState(onGroupTap)
     val scope = rememberCoroutineScope()
 
     val mapState = rememberMapState(
@@ -180,8 +182,7 @@ actual fun BankMapView(
         val group = spec.cluster
         when {
             group != null -> {
-                val open = clusterTapTarget(group, mapState.cameraPosition.zoom)
-                if (open != null) tapPin(open) else scope.launch {
+                if (!clusterCanSplit(group, mapState.cameraPosition.zoom)) tapGroup(group) else scope.launch {
                     val pad = DpPadding(64.dp, 64.dp, 64.dp, 64.dp)
                     runCatching {
                         val cam = mapState.cameraForBounds(

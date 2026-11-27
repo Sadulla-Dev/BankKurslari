@@ -342,12 +342,13 @@ fun hitTestMarkers(
 }
 
 /**
- * What tapping a cluster does: zoom in while that can still split it, otherwise open its best pin.
- * Branches in one building never split (same coordinates), and past street level a further zoom only looks broken.
+ * Whether tapping a cluster can still split it by zooming in. Branches in one building never split (same coordinates),
+ * and past street level a further zoom only looks broken: then the tap lists the cluster's pins to choose from
+ * (onGroupTap), instead of opening one of them and hiding the others (a building with three banks showed one).
  */
-fun clusterTapTarget(group: List<MapPin>, zoom: Double): MapPin? {
+fun clusterCanSplit(group: List<MapPin>, zoom: Double): Boolean {
     val sameSpot = group.maxOf { it.lat } - group.minOf { it.lat } < 1e-4 && group.maxOf { it.lng } - group.minOf { it.lng } < 1e-4
-    return if (sameSpot || zoom >= 16.5) group.first() else null
+    return !sameSpot && zoom < 16.5
 }
 
 /* ---------- marker images (one renderer for both platforms) ---------- */
@@ -549,6 +550,8 @@ expect fun BankMapView(
     showMyLocation: Boolean,
     active: Boolean,
     onPinTap: (MapPin) -> Unit,
+    /** A cluster that zooming cannot split: its pins, to choose one. */
+    onGroupTap: (List<MapPin>) -> Unit,
     onController: (MapController) -> Unit,
     onTileFailure: (Boolean) -> Unit
 )

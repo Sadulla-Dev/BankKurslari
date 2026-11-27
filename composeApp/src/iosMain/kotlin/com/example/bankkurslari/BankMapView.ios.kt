@@ -97,6 +97,7 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
     var sell = true
     var best: Double? = null
     var onPinTap: (MapPin) -> Unit = {}
+    var onGroupTap: (List<MapPin>) -> Unit = {}
     var onTileFailure: (Boolean) -> Unit = {}
     var active = false
     var map: MKMapView? = null
@@ -145,13 +146,12 @@ private class MapState(private val scale: Double) : NSObject(), MKMapViewDelegat
         return v
     }
 
-    /** Pin tap: open the pin; cluster tap: zoom in, or open its best pin when it cannot split further. */
+    /** Pin tap: open the pin; cluster tap: zoom in, or list its pins when it cannot split further. */
     private fun handleTap(mapView: MKMapView, a: PinAnnotation) {
         val group = a.spec.cluster
         when {
             group != null -> {
-                val open = clusterTapTarget(group, mapView.zoomLevel())
-                if (open != null) onPinTap(open) else {
+                if (!clusterCanSplit(group, mapView.zoomLevel())) onGroupTap(group) else {
                     val n = group.maxOf { it.lat }; val s = group.minOf { it.lat }
                     val e = group.maxOf { it.lng }; val w = group.minOf { it.lng }
                     MapKitController(mapView).fitBounds(n, e, s, w, 64, true)
@@ -198,6 +198,7 @@ actual fun BankMapView(
     showMyLocation: Boolean,
     active: Boolean,
     onPinTap: (MapPin) -> Unit,
+    onGroupTap: (List<MapPin>) -> Unit,
     onController: (MapController) -> Unit,
     onTileFailure: (Boolean) -> Unit
 ) {
@@ -207,6 +208,8 @@ actual fun BankMapView(
     val tap by rememberUpdatedState(onPinTap)
     val tile by rememberUpdatedState(onTileFailure)
     state.onPinTap = { tap(it) }
+    val group by rememberUpdatedState(onGroupTap)
+    state.onGroupTap = { group(it) }
     state.onTileFailure = { tile(it) }
 
     DisposableEffect(Unit) { onDispose { state.map?.delegate = null; state.map = null } }

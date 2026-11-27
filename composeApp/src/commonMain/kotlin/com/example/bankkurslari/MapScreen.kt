@@ -133,6 +133,8 @@ fun MapScreen(
     var selectedId by remember { mutableStateOf<String?>(null) }
     var sheetBank by remember { mutableStateOf<RankedBank?>(null) }
     var infoPin by remember { mutableStateOf<MapPin?>(null) }
+    // Pins of one spot (a building with several banks): listed to choose from, as zooming in cannot split them.
+    var groupPins by remember { mutableStateOf<List<MapPin>?>(null) }
     var map by remember { mutableStateOf<MapController?>(null) }
     var hasLocation by remember { mutableStateOf(hasLocationPermission()) }
     var didCenter by remember { mutableStateOf(false) }
@@ -275,6 +277,7 @@ fun MapScreen(
             showMyLocation = hasLocation,
             active = active,
             onPinTap = onPinTap,
+            onGroupTap = { g -> groupPins = g; sheetBank = null; infoPin = null },
             onController = { map = it },
             onTileFailure = { tileFailed = it }
         )
@@ -515,6 +518,13 @@ fun MapScreen(
         )
     }
     infoPin?.let { p -> MapInfoSheet(p, weekend?.atKey(p.bankKey, p.lat, p.lng)) { infoPin = null; selectedId = null } }
+    groupPins?.let { g ->
+        // Best rate first, as in the list; banks without a rate after them.
+        val order = remember(g, ranked) {
+            g.sortedWith(compareBy<MapPin> { it.rb == null }.thenBy { p -> ranked.indexOfFirst { it.rate.bank == p.rb?.rate?.bank }.let { if (it < 0) Int.MAX_VALUE else it } })
+        }
+        MapGroupSheet(order, wk, onPick = { p -> groupPins = null; onPinTap(p) }, onDismiss = { groupPins = null })
+    }
 }
 
 /* ---------- Pieces ---------- */
@@ -641,6 +651,45 @@ private fun MapCityPill(label: String, onClick: () -> Unit) {
         Icon(Icons.Outlined.LocationOn, null, tint = VsInk, modifier = Modifier.size(18.dp))
         Text(label, style = VsType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = androidx.compose.ui.unit.TextUnit(15f, androidx.compose.ui.unit.TextUnitType.Sp)), color = VsInk, maxLines = 1)
         Icon(Icons.Outlined.ExpandMore, null, tint = VsInkSoft, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** The banks at one spot that the map cannot draw apart: one row each (bank, address, rate), a row opens that pin. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MapGroupSheet(pins: List<MapPin>, weekend: WeekendIndex?, onPick: (MapPin) -> Unit, onDismiss: () -> Unit) {
+    val ru = kursIsRu()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = VsCard,
+        shape = VsShape.Tray
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+            Text(
+                pick(LocalLang.current, "Bu joyda ${pins.size} ta bank", "Здесь ${pins.size} банка", "${pins.size} banks here"),
+                style = VsType.Title, color = VsInk
+            )
+            Spacer(Modifier.height(4.dp))
+            pins.forEach { p ->
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button) { onPick(p) }.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    BankTile(p.title, size = 36.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(p.title, style = VsType.BodyMedium, color = VsInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        p.address?.let { Text(it, style = VsType.Meta, color = VsInkSoft, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                        weekend?.atKey(p.bankKey, p.lat, p.lng)?.let { Text(weekendOpenText(it, LocalLang.current), style = VsType.Meta, color = VsEmerald, maxLines = 1) }
+                    }
+                    Text(
+                        p.rb?.let { kRateFmt(it.perUnit, ru) } ?: if (p.kind == MapPinKind.ATM) tr("Bankomat", "Банкомат", "ATM") else "—",
+                        style = VsType.BodyMedium, color = VsInk, maxLines = 1
+                    )
+                }
+            }
+        }
     }
 }
 
