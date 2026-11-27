@@ -159,3 +159,32 @@ Store icon for this release: `store/upload-1.1/icon-512.png` (512×512, 32-bit P
 Upload: `androidApp/build/outputs/bundle/release/androidApp-release.aab` (./gradlew :androidApp:bundleRelease).
 Data safety (new in 1.2): PostHog analytics → "App activity: App interactions", collected, not shared, not linked to
 the user, purpose Analytics; problem reports / feedback → "Messages: Other in-app messages" (optional, App functionality).
+
+## Release notes v1.3 (versionCode 5)
+- uz:
+```
+• Dam olish kunlari ochiq banklar: shanba va yakshanba ishlaydigan banklar va filiallar
+• Xaritada “Dam olish kuni” filtri va filiallarning shanba-yakshanba ish vaqti
+• Har bir bank eng yaxshisidan qancha kam berishi aniq ko‘rinadi
+• Bir binodagi bir nechta bank xaritada ro‘yxat bo‘lib chiqadi
+• Filiallar ish vaqti aniqroq
+```
+- ru:
+```
+• Банки, открытые в выходные: банки и отделения, работающие в субботу и воскресенье
+• Фильтр «Выходные» на карте и часы работы отделений в субботу и воскресенье
+• Видно, насколько каждый банк даёт меньше лучшего
+• Несколько банков в одном здании на карте показываются списком
+• Более точные часы работы отделений
+```
+- en:
+```
+• Banks open on weekends: banks and branches open on Saturday and Sunday
+• “Weekend” filter on the map and branches’ Saturday and Sunday hours
+• See how much less each bank gives than the best one
+• Several banks in one building are listed on the map
+• More accurate branch opening hours
+```
+
+Upload: `androidApp/build/outputs/bundle/release/androidApp-release.aab` (./gradlew :androidApp:bundleRelease).
+Data safety: no change from 1.2 (the weekend list is public data the app downloads; nothing new is collected).
