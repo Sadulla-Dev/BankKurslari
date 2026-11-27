@@ -322,7 +322,7 @@ function logoSlug(name) {
   if (key.includes("mkbank") || key.includes("mikrokredit")) return "mkbank";
   if (key.includes("xalq")) return "xalq-bank";
   if (key.includes("ipakyuli")) return "ipak-yuli";
-  if (key === "brb") return "brb";
+  if (key === "brb" || key.startsWith("biznesnirivojlantirish")) return "brb"; // the Central Bank's lists spell it out
   if (key.includes("asaka")) return "asakabank";
   if (key.includes("davr")) return "davrbank";
   if (key.includes("apex")) return "apexbank";

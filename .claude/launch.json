@@ -4,14 +4,32 @@
     {
       "name": "web",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8788", "-d", "web/public"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8788",
+        "-d",
+        "web/public"
+      ],
       "port": 8788
     },
     {
       "name": "web-dist",
       "runtimeExecutable": "python3",
-      "runtimeArgs": [".claude/serve-dist.py", "8789"],
+      "runtimeArgs": [
+        ".claude/serve-dist.py",
+        "8789"
+      ],
       "port": 8789
+    },
+    {
+      "name": "web-dist-alt",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        ".claude/serve-dist.py",
+        "8792"
+      ],
+      "port": 8792
     }
   ]
 }

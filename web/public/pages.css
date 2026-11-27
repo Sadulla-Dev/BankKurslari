@@ -75,3 +75,12 @@ body.page .seo-copy { padding-top: 12px; }
 .addr-h { margin: 18px 0 6px; font-size: 15px; font-weight: 700; }
 .addr-list { margin: 0 0 8px; padding-left: 18px; font-size: 14px; color: var(--ink-2); overflow-wrap: anywhere; }
 .addr-list li { margin: 3px 0; }
+
+/* Weekend page: branches open on Saturday or Sunday. The address wraps so the two hours columns stay in view. */
+.wk-tbl td { white-space: normal; font-size: 14px; overflow-wrap: anywhere; }
+.wk-tbl td.num { white-space: nowrap; font-weight: 500; }
+.wk-tbl td:first-child { white-space: nowrap; font-weight: 600; }
+@media (max-width: 720px) {
+  .wk-tbl th, .wk-tbl td { padding: 8px 8px !important; font-size: 13px; }
+  .wk-tbl td:first-child { white-space: normal; overflow-wrap: normal; word-break: normal; }
+}
