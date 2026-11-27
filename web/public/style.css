@@ -757,7 +757,14 @@ body.v-map .foot { display: none; }
 .w-nudge b { display: block; font-weight: 600; font-size: 15px; }
 .w-nudge small { color: var(--ink-2); font-size: 13px; }
 .w-nudge .icon-btn { background: none; color: var(--ink-2); }
-.map-only { position: absolute; z-index: 6; top: 14px; left: 16px; right: 16px; margin: 0 auto; width: fit-content; display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); font-weight: 600; font-size: 14px; }
+/* Above the map: the weekend filter and the one-bank pill, centred, wrapping on narrow screens. */
+.map-top { position: absolute; z-index: 6; top: 14px; left: 16px; right: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; pointer-events: none; }
+.map-top > * { pointer-events: auto; }
+.map-wk { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); color: var(--ink); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.map-wk[hidden] { display: none; }
+.map-wk.on { background: var(--accent); color: #fff; }
+.hrs-wk { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--ink); font-size: 14px; }
+.map-only { max-width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); font-weight: 600; font-size: 14px; }
 .map-only[hidden] { display: none; }
 .map-only span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .map-only button { flex: none; border: 0; border-radius: 999px; padding: 8px 12px; background: var(--fill); color: var(--accent); font-weight: 600; font-size: 13px; }

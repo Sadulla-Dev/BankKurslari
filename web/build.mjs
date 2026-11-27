@@ -390,6 +390,11 @@ const W = {
     permLead: (n) => `Bu filiallarning odatiy ish vaqtida shanba yoki yakshanba bor: banklarning o‘z saytlaridagi jadval, haftalik ro‘yxatlari bilan solishtirilgan. Bayram kunlari o‘zgarishi mumkin. Jami ${n} ta filial.`,
     cityH: (c) => `${c.name}dagi filiallar`, otherH: "Boshqa shahar va tumanlar",
     colAddr: "Manzil", colSat: "Shanba", colSun: "Yakshanba", closed: "yopiq",
+    openH: "Shu dam olish kunlari ochiq filiallar",
+    openLead: (n, nb, fresh) => `${fresh ? "Banklarning o‘z ro‘yxatlariga ko‘ra shu shanba yoki yakshanba" : "Oxirgi ro‘yxatlarda"} ${nb} ta bankning ${n} ta filiali ochiq. Ish vaqti ro‘yxatda yozilmagan bo‘lsa, “ochiq” deb ko‘rsatilgan.`,
+    colOffice: "Filial", open: "ochiq", colCount: "Ochiq filiallar", mapLink: "Xaritada ko‘rish",
+    status: { image: "ro‘yxat rasmda", all: "barcha filiallari", regular: "odatdagi ish vaqti", stale: "boshqa sana uchun", none: "o‘qib bo‘lmadi", error: "o‘qib bo‘lmadi", blocked: "o‘qib bo‘lmadi" },
+    unread: (names) => `Bu banklarning ro‘yxatini o‘qib bo‘lmadi, bankning o‘z ro‘yxatidan ko‘ring: ${names}.`,
     faq: (n, names) => [
       ["Shanba kuni banklar ishlaydimi?", `Ha, ayrim banklarning ayrim filiallari. Ro‘yxatni Markaziy bank har hafta e’lon qiladi; oxirgisida ${n} ta bank: ${names}.`],
       ["Yakshanba kuni qaysi banklar ishlaydi?", `Markaziy bankning oxirgi ro‘yxatidagi banklar: ${names}. Qaysi filial ishlashini har bir bankning o‘z ro‘yxatidan ko‘ring.`],
@@ -411,6 +416,11 @@ const W = {
     permLead: (n) => `В обычном графике этих отделений есть суббота или воскресенье: график с сайтов банков, сверенный с их еженедельными списками. В праздники он может меняться. Всего ${n} ${ruPlural(n, "отделение", "отделения", "отделений")}.`,
     cityH: (c) => `Отделения ${c.in}`, otherH: "Другие города и районы",
     colAddr: "Адрес", colSat: "Суббота", colSun: "Воскресенье", closed: "выходной",
+    openH: "Отделения, открытые в эти выходные",
+    openLead: (n, nb, fresh) => `${fresh ? "По спискам самих банков в эту субботу или воскресенье открыты" : "В последних списках —"} ${n} ${ruPlural(n, "отделение", "отделения", "отделений")} ${nb} ${ruPlural(nb, "банка", "банков", "банков")}. Если часы работы в списке не указаны, написано «открыто».`,
+    colOffice: "Отделение", open: "открыто", colCount: "Открытые отделения", mapLink: "Показать на карте",
+    status: { image: "список картинкой", all: "все отделения", regular: "обычный график", stale: "на другую дату", none: "не удалось прочитать", error: "не удалось прочитать", blocked: "не удалось прочитать" },
+    unread: (names) => `Списки этих банков прочитать не удалось, смотрите список самого банка: ${names}.`,
     faq: (n, names) => [
       ["Работают ли банки в субботу?", `Да, отдельные отделения некоторых банков. Список Центральный банк публикует каждую неделю; в последнем ${n} ${ruPlural(n, "банк", "банка", "банков")}: ${names}.`],
       ["Какие банки работают в воскресенье?", `Банки из последнего списка Центрального банка: ${names}. Какие именно отделения, сказано в списке каждого банка.`],
@@ -432,6 +442,11 @@ const W = {
     permLead: (n) => `These branches' usual hours include Saturday or Sunday: the banks' own schedules, checked against their weekly lists. They may change on public holidays. ${n} branches in all.`,
     cityH: (c) => `Branches ${c.in}`, otherH: "Other towns and districts",
     colAddr: "Address", colSat: "Saturday", colSun: "Sunday", closed: "closed",
+    openH: "Branches open this weekend",
+    openLead: (n, nb, fresh) => `${fresh ? "According to the banks' own lists," : "In the latest lists,"} ${n} branches of ${nb} banks are open this Saturday or Sunday. Where a list gives no hours, it says “open”.`,
+    colOffice: "Branch", open: "open", colCount: "Open branches", mapLink: "Show on the map",
+    status: { image: "list is a picture", all: "all branches", regular: "usual hours", stale: "for another date", none: "could not be read", error: "could not be read", blocked: "could not be read" },
+    unread: (names) => `These banks' lists could not be read; see the bank's own list: ${names}.`,
     faq: (n, names) => [
       ["Are banks open on Saturday in Uzbekistan?", `Yes, some branches of some banks. The Central Bank publishes the list every week; the latest has ${n} banks: ${names}.`],
       ["Which banks are open on Sunday?", `The banks on the Central Bank's latest list: ${names}. Each bank's own list says which branches.`],
@@ -566,6 +581,37 @@ const weekendBranches = (() => {
     (out.get(key) || out.set(key, []).get(key)).push({ bank: br.bank, address: cleanAddr(br.address || "") || br.address || "", sat: span[0], sun: span[1] });
   }
   for (const list of out.values()) list.sort((a, b) => a.bank.localeCompare(b.bank) || a.address.localeCompare(b.address));
+  return out;
+})();
+// The offices on the banks' own lists for this weekend (backend/src/weekendBranches.js), by city: a matched point by its
+// position, the rest by the town their address names. Only when they were read for the current Central Bank list.
+const TASHKENT_DISTRICTS = /bektemir|chilonzor|mirobod|mirzo.?ulug.?bek|olmazor|sergeli|shayxontohur|shayhontohur|uchtepa|yakkasaroy|yashnobod|yunusobod|yangihayot|бектемир|чилонзор|миробод|мирзо|олмазор|сергели|шайхонтоҳур|шайхонтохур|учтепа|яккасарой|яшнобод|юнусобод/i;
+/** The city an address names ("Samarqand shahri", "Тошкент ш.", "г. Ташкент", or a Tashkent district alone), else "". */
+const cityOfText = (text) => {
+  const t = text.toLowerCase().replace(/[ʻʼ’‘`']/g, "'").replace(/қ/g, "к").replace(/ҳ/g, "х").replace(/q/g, "k");
+  const town = /^\s*(sh\.|shahr|shahar|shaxar|ш\.|шахр|шахар|city)/;
+  for (const c of CITIES) {
+    const names = [c.uz, uzCyrillic(c.uz), c.en].map((n) => n.toLowerCase().replace(/[ʻʼ’‘`']/g, "'").replace(/қ/g, "к").replace(/ҳ/g, "х").replace(/q/g, "k"));
+    for (const n of names) {
+      for (let i = t.indexOf(n); i >= 0; i = t.indexOf(n, i + 1)) if (town.test(t.slice(i + n.length)) || /г\.\s*$/.test(t.slice(Math.max(0, i - 4), i))) return c.slug;
+    }
+  }
+  return TASHKENT_DISTRICTS.test(t) && !/viloyat|вилоят/.test(t) ? "toshkent" : "";
+};
+const weekendOpen = (() => {
+  const out = new Map(); // city slug | "" -> [{ bank, name, parent, address, sat, sun, point }]
+  if (!weekend || weekend.branchesListUrl !== weekend.listUrl) return out;
+  for (const e of weekend.weekendBranches || []) {
+    let key = "";
+    if (e.point) {
+      let best = null;
+      for (const c of CITIES) { const d = kmTo(c, e.point); if (d <= c.km && (!best || d < best.d)) best = { c, d }; }
+      key = best?.c.slug || "";
+    } else key = cityOfText(`${e.address} ${e.region || ""}`);
+    const day = (d) => (e.open?.[d] == null ? null : e.open[d]);
+    (out.get(key) || out.set(key, []).get(key)).push({ bank: e.bank, name: e.name || "", parent: e.parent || "", address: e.address || "", sat: day("Sa"), sun: day("Su"), point: e.point || null });
+  }
+  for (const list of out.values()) list.sort((a, b) => a.bank.localeCompare(b.bank) || a.name.localeCompare(b.name) || a.address.localeCompare(b.address));
   return out;
 })();
 
@@ -840,6 +886,25 @@ function weekendPage(lang, allNames) {
   const perm = [...CITIES.filter((c) => weekendBranches.has(c.slug)).map((c) => [w.cityH(cityName(lang, c)), weekendBranches.get(c.slug)]),
     ...(weekendBranches.has("") ? [[w.otherH, weekendBranches.get("")]] : [])];
   const permCount = perm.reduce((n, [, list]) => n + list.length, 0);
+  // The banks' own lists: offices open this weekend, by city; how many per bank; the lists that could not be read.
+  const open = [...CITIES.filter((c) => weekendOpen.has(c.slug)).map((c) => [w.cityH(cityName(lang, c)), weekendOpen.get(c.slug)]),
+    ...(weekendOpen.has("") ? [[w.otherH, weekendOpen.get("")]] : [])];
+  const openAll = open.flatMap(([, list]) => list);
+  const lists = new Map((weekend.branchesListUrl === weekend.listUrl ? weekend.branchLists || [] : []).map((l) => [l.url, l]));
+  const siteName = (bank) => known.get(bankSlug(bank)) || bank;
+  const dayCell = (v) => (v == null ? `<span class="muted">${esc(w.closed)}</span>` : v ? esc(v) : esc(w.open));
+  const openTable = (list) => `<div class="tbl-scroll"><table class="tbl page-tbl wk-tbl wk-open">
+    <thead><tr><th>${esc(w.colBank)}</th><th>${esc(w.colOffice)}</th><th>${esc(w.colAddr)}</th><th>${esc(w.colSat)}</th><th>${esc(w.colSun)}</th></tr></thead>
+    <tbody>${list.map((b) => `<tr><td>${esc(siteName(b.bank))}</td><td>${esc(b.name || b.parent || "—")}${b.parent && b.name ? `<br><small class="muted">${esc(b.parent)}</small>` : ""}</td><td>${esc(b.address || "—")}</td><td class="num">${dayCell(b.sat)}</td><td class="num">${dayCell(b.sun)}</td></tr>`).join("")}</tbody>
+  </table></div>`;
+  const countCell = (b) => {
+    const l = lists.get(b.url);
+    if (!l) return "—";
+    if (l.count) return String(l.count);
+    return `<span class="muted">${esc(w.status[l.status] || "—")}</span>`;
+  };
+  const unread = rows.filter((b) => ["none", "error", "blocked", "image"].includes(lists.get(b.url)?.status));
+  const banksOpen = new Set(openAll.map((b) => b.bank)).size;
   const permTable = (list) => `<div class="tbl-scroll"><table class="tbl page-tbl wk-tbl">
     <thead><tr><th>${esc(w.colBank)}</th><th>${esc(w.colAddr)}</th><th>${esc(w.colSat)}</th><th>${esc(w.colSun)}</th></tr></thead>
     <tbody>${list.map((b) => `<tr><td>${esc(b.bank)}</td><td>${esc(b.address)}</td><td class="num">${b.sat ? esc(b.sat) : `<span class="muted">${esc(w.closed)}</span>`}</td><td class="num">${b.sun ? esc(b.sun) : `<span class="muted">${esc(w.closed)}</span>`}</td></tr>`).join("")}</tbody>
@@ -853,14 +918,20 @@ function weekendPage(lang, allNames) {
     <p>${esc(w.lead(rows.length, fresh))}</p>
   </div>
   <div class="tbl-scroll"><table class="tbl page-tbl">
-    <thead><tr><th>${esc(w.colBank)}</th><th class="num">${esc(x.colBuy)}</th><th class="num">${esc(x.colSell)}</th><th>${esc(w.colList)}</th></tr></thead>
-    <tbody>${rows.map((b) => `<tr><td>${nameCell(b)}</td><td class="num">${cell(b.r?.buy)}</td><td class="num">${cell(b.r?.sell)}</td><td><a href="${esc(b.url)}" rel="noopener nofollow" target="_blank">${esc(w.listLink)}</a></td></tr>`).join("")}</tbody>
+    <thead><tr><th>${esc(w.colBank)}</th><th class="num">${esc(x.colBuy)}</th><th class="num">${esc(x.colSell)}</th>${lists.size ? `<th class="num">${esc(w.colCount)}</th>` : ""}<th>${esc(w.colList)}</th></tr></thead>
+    <tbody>${rows.map((b) => `<tr><td>${nameCell(b)}</td><td class="num">${cell(b.r?.buy)}</td><td class="num">${cell(b.r?.sell)}</td>${lists.size ? `<td class="num">${countCell(b)}</td>` : ""}<td><a href="${esc(b.url)}" rel="noopener nofollow" target="_blank">${esc(w.listLink)}</a></td></tr>`).join("")}</tbody>
   </table></div>
   <div class="page-text">
     <p class="muted">${esc(w.callNote)} ${esc(w.atmNote)}</p>
     <p class="muted"><a href="${esc(weekend.postUrl)}" rel="noopener" target="_blank">${esc(w.source)}</a></p>
   </div>
 </div>
+${openAll.length ? `<div class="card page-card" id="ochiq">
+  <div class="page-text"><h2>${esc(w.openH)}</h2><p>${esc(w.openLead(openAll.length, banksOpen, fresh))}</p>
+    ${openAll.some((b) => b.point) ? `<p><a class="btn btn-accent btn-sm" href="${home}#/xarita?dam-olish">${esc(w.mapLink)}</a></p>` : ""}
+    ${unread.length ? `<p class="muted">${esc(w.unread(unread.map((b) => b.name).join(", ")))}</p>` : ""}</div>
+  ${open.map(([h, list]) => `<div class="page-text"><h3 class="addr-h">${esc(h)}</h3></div>${openTable(list)}`).join("\n  ")}
+</div>` : ""}
 ${permCount ? `<div class="card page-card">
   <div class="page-text"><h2>${esc(w.permH)}</h2><p>${esc(w.permLead(permCount))}</p></div>
   ${perm.map(([h, list]) => `<div class="page-text"><h3 class="addr-h">${esc(h)}</h3></div>${permTable(list)}`).join("\n  ")}

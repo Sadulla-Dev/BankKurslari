@@ -39,6 +39,15 @@ Ish vaqti olinmaydigan banklar (sabab):
 
 OSM ma’lumoti ODbL 1.0 litsenziyasida: manbani ko‘rsatish va hosila bazaga tegishli share-alike talablarini bajarish kerak. Shu sabab OSM koordinatalarini hozir bank.uz bazasiga ko‘r-ko‘rona qo‘shish tavsiya qilinmaydi; avval alohida OSM dataset/end-point va ilovada manba atributsiyasini saqlash kerak. Yandex xaritasidagi pinlarni ruxsatsiz ko‘chirib olish yoki yashirin ichki endpointlarini ishlatish barqaror va ruxsatli manba emas.
 
+## Dam olish kunlari ochiq filiallar (`src/weekend.js` → `src/weekendLists.js` → `src/weekendBranches.js`)
+
+- Markaziy bank har hafta (payshanba/juma kechqurun) Telegram kanalida banklar ro‘yxatini e’lon qiladi; har bir bank o‘z ro‘yxatiga havola beradi. `api/weekend.json` → `banks`.
+- Har bir bankning ro‘yxati kod bilan o‘qiladi, sun’iy intellektsiz: HTML jadval (Agrobank, Xalq banki, Turonbank, Infinbank, SQB), xlsx (Ipoteka, BRB), matnli PDF (Hamkorbank, Mikrokreditbank, Asakabank — `back.asakabank.uz/news/v1/detail/<slug>/` orqali, NBU), matn (Garant, Tenge, Asia Alliance, Orient Finans, Apex, Universal, Poytaxt, Hayot — `api.hayotbank.uz`, Saderat). Bank qayerda e’lon qilishi `weekendLists.js` → `BANKS`da.
+- Rasm ko‘rinishidagi ro‘yxat (Trastbank, 2026-11) o‘qilmaydi: sahifada “ro‘yxat rasmda” deb, havola bilan ko‘rsatiladi. Bot tekshiruvi (Hamkorbank ba’zan) chetlab o‘tilmaydi.
+- Sanalar tekshiriladi: bank sahifasi boshqa hafta uchun bo‘lsa (Infinbank, Saderat bir sahifani har hafta yangilaydi) — `stale`, filiallari olinmaydi.
+- Filial xaritadagi nuqtaga faqat ishonchli moslikda bog‘lanadi: bir bank, bir shahar/tuman, bir ko‘cha va uy raqami yoki filial nomi, keyingi nomzoddan aniq ustunlik. Boshqa uy raqami, boshqa ko‘cha yoki boshqa halqa yo‘li (TXAY / Katta / Kichik halqa) — moslik emas. Mos kelmaganlar xaritaga qo‘yilmaydi, faqat sahifada bank yozgan manzil bilan ro‘yxatda turadi.
+- `api/weekend.json`: `branchLists` (har bank: `status` ok/stale/none/image/blocked/error/all/regular, `count`, `matched`), `weekendBranches` (`name`, `parent`, `address`, `region`, `open: { Sa?, Su? }` — `""` = ish vaqti yozilmagan, `point: { lat, lng }` yoki `null`). Ro‘yxatlar dam olish o‘tguncha har 3 soatda qayta o‘qiladi; o‘qilmagan ro‘yxat egasiga bir marta xabar qilinadi.
+
 ## Keyingi qamrovni oshirish tartibi
 
 - Importer hisobotidagi banklar soni, muvaffaqiyat/xato holati va eng oxirgi muvaffaqiyatli yangilanish vaqtini kuzatish.

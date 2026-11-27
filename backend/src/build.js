@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { createAlerts, flushAlerts } from "./alerts.js";
 import { fetchBankSites, SITE_CURRENCIES, BANK_SITE_COUNT } from "./bankSites.js";
 import { getWeekendBanks } from "./weekend.js";
+import { getWeekendBranches } from "./weekendBranches.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.SITE_DIR || join(ROOT, "worker", "public");
@@ -196,9 +197,6 @@ await step("bank watch", async () => {
   if (ageH > (usd?.source === "bank-sites" ? 8 : 3)) alerts.add("stale:USD", `Kurslar ${Number.isFinite(ageH) ? Math.round(ageH) + " soat" : "uzoq vaqt"}dan beri yangilanmadi (bank.uz javob bermayapti yoki bloklagan bo'lishi mumkin)`);
 });
 await step("cbu all", async () => put("api/cbu/all.json", await api.getCbuFull()));
-// Every run, not only the full ones: the Central Bank posts the list on Thursday or Friday evening, and the site should
-// have it within the hour. On failure the previous file stays (it carries its own dates).
-await step("weekend banks", async () => put("api/weekend.json", { updatedAt: now(), ...(await getWeekendBanks()) }));
 await step("gold", async () => put("api/gold.json", await api.getGold({ force: true })));
 
 if (mode === "full") {
@@ -219,6 +217,42 @@ if (mode === "full") {
     await put("api/atms.json", { updatedAt: now(), count: atms.length, atms });
   });
 }
+
+/* ---------- weekend: the banks open this weekend (src/weekend.js), then their offices (src/weekendBranches.js) ---------- */
+
+// Every run, not only the full ones: the Central Bank posts the list on Thursday or Friday evening, and the site should
+// have it within the hour. On failure the previous file stays (it carries its own dates). The offices read last time
+// for the same list are carried over until they are read again.
+const BRANCH_FIELDS = ["branchesListUrl", "branchesCheckedAt", "branchLists", "weekendBranches"];
+await step("weekend banks", async () => {
+  const prev = await readPrevious("api/weekend.json");
+  const list = await getWeekendBanks();
+  const kept = prev?.branchesListUrl === list.listUrl ? Object.fromEntries(BRANCH_FIELDS.filter((k) => k in prev).map((k) => [k, prev[k]])) : {};
+  await put("api/weekend.json", { updatedAt: now(), ...list, ...kept });
+});
+// Each bank's own list, read again every 3 hours until the weekend is over (a new list is read at once): the banks put
+// their lists up from Thursday to Saturday morning and sometimes correct them.
+await step("weekend branches", async () => {
+  const w = await readPrevious("api/weekend.json");
+  if (!w?.banks?.length || !w.days) return;
+  const today = new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);
+  const age = Date.now() - Date.parse(w.branchesCheckedAt || 0);
+  if (w.days[1] >= today && !(w.branchesListUrl === w.listUrl && age < 3 * 3600e3)) {
+    const branches = (await readPrevious("api/branches.json"))?.branches || [];
+    if (branches.length < 500) throw new Error(`only ${branches.length} branches to match the offices with`);
+    const previous = w.branchesListUrl === w.listUrl ? { listUrl: w.listUrl, lists: w.branchLists, entries: w.weekendBranches, branchesCheckedAt: w.branchesCheckedAt } : null;
+    const { lists, entries } = await getWeekendBranches(w, branches, { previous });
+    Object.assign(w, { branchesListUrl: w.listUrl, branchesCheckedAt: now(), branchLists: lists, weekendBranches: entries });
+    await put("api/weekend.json", w);
+    console.log(`weekend branches: ${entries.length} offices of ${lists.filter((l) => l.count).length} banks, ${entries.filter((e) => e.point).length} on the map`);
+  }
+  // A list that could not be read is told once (and once when it is fixed), for as long as it is the latest list.
+  if (w.branchesListUrl === w.listUrl) {
+    for (const l of w.branchLists || []) {
+      if (["none", "error", "blocked"].includes(l.status)) alerts.add(`weekend:${l.name}`, `Dam olish kunlari ro'yxati o'qilmadi: ${l.name} (${l.note || l.status}) ${l.url}`, { remind: false });
+    }
+  }
+});
 
 const runUrl = process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : "";
 await flushAlerts(alerts, join(STATE, "alerts.json"), { runUrl }); // before the manifest, so the state is carried over

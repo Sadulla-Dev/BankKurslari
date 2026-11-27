@@ -49,7 +49,8 @@ const S = {
   rates: {}, history: {}, bankHist: {},
   branches: null, user: null,
   range: 1, sheetBank: null, histGold: false, gold: null, goldHist: null,
-  map: null, markers: [], meMarker: null, hl: null, only: null
+  map: null, markers: [], meMarker: null, hl: null, only: null,
+  wk: null, wkOnly: false // the weekend filter: offices on this weekend's bank lists, by branch (see loadWeekend)
 };
 const L = () => T[S.lang];
 const $ = (id) => document.getElementById(id);
@@ -152,6 +153,37 @@ const loadBranches = () => S.branches ? Promise.resolve(S.branches) : once("br",
   return S.branches;
 });
 
+/* ---------- weekend: branches open on Saturday or Sunday ---------- */
+
+// /api/weekend carries the offices on the banks' own lists for the coming weekend, each tied to its /api/branches point
+// (backend/src/weekendBranches.js). Used only while that weekend is ahead; branches whose usual hours include the
+// weekend count too.
+const wkKey = (bank, lat, lng) => `${bankKey(bank)}|${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+const loadWeekend = () => S.wk ? Promise.resolve(S.wk) : once("wk", async () => {
+  const d = await getJSON("/api/weekend");
+  const today = new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);
+  const listed = new Map();
+  if (d.branchesListUrl === d.listUrl && d.days?.[1] >= today) {
+    for (const e of d.weekendBranches || []) if (e.point) listed.set(wkKey(e.bank, e.point.lat, e.point.lng), e.open || {});
+  }
+  return (S.wk = { listed });
+});
+/** This weekend's hours on the bank's list ({ Sa?, Su? }, "" = hours not given), or null. */
+const wkListed = (b) => S.wk?.listed.get(wkKey(b.bank, b.lat, b.lng)) || null;
+function wkOpen(b) {
+  if (wkListed(b)) return true;
+  const sch = parseHours(b.hours);
+  return !!sch && (sch.always || !!sch.days[5] || !!sch.days[6]);
+}
+function setWeekendOnly(on) {
+  S.wkOnly = on;
+  const chip = $("mapWeekend");
+  chip.classList.toggle("on", on);
+  chip.setAttribute("aria-pressed", String(on));
+  closeClusterPopup();
+  renderMap();
+}
+
 const branchCache = new Map();
 function branchesOf(bank) {
   if (!S.branches) return [];
@@ -171,10 +203,10 @@ function branchesOf(bank) {
   return list;
 }
 /** Nearest branch to [from]; without a location, the one nearest central Tashkent (km stays null then). */
-function nearestBranch(bank, from) {
+function nearestBranch(bank, from, only) {
   const ref = from || TASHKENT;
-  const list = branchesOf(bank.bank);
-  if (!list.length) return bank.branch?.lat ? { ...bank.branch, km: from ? distKm(from, [bank.branch.lat, bank.branch.lng]) : null } : null;
+  const list = only ? branchesOf(bank.bank).filter(only) : branchesOf(bank.bank);
+  if (!list.length) return !only && bank.branch?.lat ? { ...bank.branch, km: from ? distKm(from, [bank.branch.lat, bank.branch.lng]) : null } : null;
   let best = null, bd = Infinity;
   for (const b of list) { const d = distKm(ref, [b.lat, b.lng]); if (d < bd) { bd = d; best = b; } }
   return { ...best, km: from ? bd : null };
@@ -215,6 +247,8 @@ function route() {
   document.body.className = "v-" + S.view;
   document.querySelectorAll(".tabs-nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === S.view));
   if (S.view === "map") {
+    if (/[?&]dam-olish\b/.test(location.hash)) { S.wkOnly = true; loadWeekend().then(() => { $("mapWeekend").classList.add("on"); $("mapWeekend").setAttribute("aria-pressed", "true"); renderMapWhenReady(); }).catch(() => {}); }
+    else loadWeekend().catch(() => {});
     refreshMapData();
     ensureMap().then(() => { syncMapTheme(); renderMapWhenReady(); }).catch((error) => console.error("Map initialization failed:", error));
   }
@@ -619,7 +653,7 @@ function renderSheet(bank, list) {
   const best = list[0];
   $("shBadge").outerHTML = badgeHTML(bank.bank, bank.rate === best.rate ? "accent" : "").replace("class=\"badge", "id=\"shBadge\" class=\"badge");
   setText("shName", bank.bank);
-  const nb = nearestBranch(bank, S.user);
+  const nb = (S.wkOnly && nearestBranch(bank, S.user, wkOpen)) || nearestBranch(bank, S.user);
   setText("shSub", nb?.km != null ? t.away(kmFmt(nb.km)) : cleanAddr(nb?.address));
   setText("shTotal", group(bank.rate * S.amount));
   setText("shFor", t.forAmt(group(S.amount), unit(S.cur, S.amount)));
@@ -647,6 +681,8 @@ function renderSheet(bank, list) {
     if (!sch) { sch = parseHours(usualHours(bank.bank)); usual = !!sch; }
     const phone = nb?.phone || branchesOf(bank.bank).find((b) => b.phone)?.phone;
     let html = "";
+    const listed = nb && wkListed(nb);
+    if (listed) html += `<p class="hrs-wk">${esc(h.wk([5, 6].map((i) => { const v = listed[i === 5 ? "Sa" : "Su"]; return `${h.days[i]} ${v == null ? h.wkClosed : v || h.wkOpen}`; }).join(" · ")))}</p>`;
     if (!sch) html += `<p class="hrs-status">${h.unknown}</p>`;
     else {
       const st = openState(sch);
@@ -1104,7 +1140,8 @@ function renderMap() {
   for (const bank of list) {
     if (S.only && bank.bank !== S.only) continue;
     let brs = branchesOf(bank.bank);
-    if (!brs.length && bank.branch?.lat) brs = [bank.branch];
+    if (S.wkOnly) brs = brs.filter(wkOpen);
+    else if (!brs.length && bank.branch?.lat) brs = [bank.branch];
     for (const b of brs) {
       if (bounds.contains([b.lng, b.lat])) cands.push({ bank, b });
       if (cands.length >= MAX_MAP_CANDS) break bankLoop;
@@ -1146,8 +1183,10 @@ function renderMap() {
 
   // Side list: every bank with its branch nearest to you (or to the map centre).
   const best = list[0];
-  $("sideList").innerHTML = list.map((bank) => {
-    const nb = nearestBranch(bank, ref);
+  const only = S.wkOnly ? wkOpen : null;
+  $("mapWeekend").hidden = !S.branches;
+  $("sideList").innerHTML = list.filter((bank) => !only || nearestBranch(bank, ref, only)).map((bank) => {
+    const nb = nearestBranch(bank, ref, only);
     const diff = Math.abs(bank.rate - best.rate);
     const isBest = diff < 0.005;
     const sub = [S.user && nb ? t.km(kmFmt(distKm(S.user, [nb.lat, nb.lng]))) : "", nb ? addrParts(nb.address)[0] : ""].filter(Boolean).join(" · ");
@@ -1166,7 +1205,7 @@ function renderMap() {
   const top = inView.length ? inView.reduce((a, b) => ((S.mode === "sell" ? b.rate > a.rate : b.rate < a.rate) ? b : a)) : null;
   const card = $("mapCard");
   if (!top) { card.hidden = true; return; }
-  const nb = nearestBranch(top, ref);
+  const nb = nearestBranch(top, ref, only);
   card.hidden = false;
   $("mcBadge").outerHTML = badgeHTML(top.bank).replace("class=\"badge", "id=\"mcBadge\" class=\"badge");
   setText("mcName", top.bank);
@@ -1623,6 +1662,7 @@ function bind() {
     setMapOnly(it.dataset.bank, it.dataset.lat ? [+it.dataset.lat, +it.dataset.lng] : null);
   });
   $("mapOnlyClear").addEventListener("click", () => setMapOnly(null));
+  $("mapWeekend").addEventListener("click", () => loadWeekend().catch(() => null).then(() => setWeekendOnly(!S.wkOnly)));
   $("goldChart").addEventListener("click", () => { S.histGold = true; });
   $("scrim").addEventListener("click", () => { closeSheet(); closeAll(); closeReport(); });
   $("shClose").addEventListener("click", closeSheet);

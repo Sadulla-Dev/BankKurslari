@@ -220,7 +220,10 @@
     </aside>
     <div class="map-main">
       <div id="mapgl" aria-label="Map"></div>
-      <div class="map-only" id="mapOnly" hidden><span id="mapOnlyName"></span><button type="button" id="mapOnlyClear" data-i18n="allBanks">Barcha banklar</button></div>
+      <div class="map-top">
+        <button type="button" class="map-wk" id="mapWeekend" aria-pressed="false" hidden><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span data-i18n="wkChip">Dam olish kuni ochiq</span></button>
+        <div class="map-only" id="mapOnly" hidden><span id="mapOnlyName"></span><button type="button" id="mapOnlyClear" data-i18n="allBanks">Barcha banklar</button></div>
+      </div>
       <button class="fab" id="locateBtn" type="button" aria-label="My location">
         <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 1.8v3M10 15.2v3M1.8 10h3M15.2 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>

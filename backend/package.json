@@ -13,7 +13,8 @@
   "dependencies": {
     "cheerio": "^1.1.2",
     "express": "^5.1.0",
-    "playwright-core": "^1.49.1"
+    "playwright-core": "^1.49.1",
+    "unpdf": "^2.2.3"
   },
   "engines": {
     "node": ">=20"
