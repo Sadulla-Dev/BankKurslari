@@ -124,7 +124,11 @@ export function normalizeHours(raw) {
     .replace(/\b(\d{1,2})-(\d{2})(?=\s*-\s*\d)/g, "$1:$2");
   if (!text.trim()) return null;
   if (!TIME_RE.test(text) && /uzluksiz/i.test(text)) return "24/7";
-  if (/круглосуточ|24\s*\/\s*7|kecha-kunduz/i.test(text)) return "24/7";
+  if (/круглосуточ|24\s*\/\s*7|kecha-kunduz/i.test(text)) {
+    // "Dush - Juma 24/7" (Xalq banki, Olot BXM): around the clock on the named days only, not the weekend.
+    const named = [...text.matchAll(dayWordRe)].length ? daysIn(text) : null;
+    return named && named.length < 7 ? `${rangeLabel(named)} 00:00-24:00` : "24/7";
+  }
 
   // Split into rules at line breaks / semicolons; "lunch" parts are ignored. Also split inside a line:
   //   "Du-Ju 09:00-18:00, Tushlik 13:00-14:00" and "9:00 dan 18:00 gacha Tushlik: ... Dam olish kunlari: ..."
@@ -505,6 +509,37 @@ Object.assign(importers, {
 });
 
 /** Runs every importer (or only the named banks); returns { branches, report } where report lists per-bank counts or errors. */
+/* ---------- weekend hours the banks' own branch lists get wrong ---------- */
+
+// Checked against the banks' own weekend lists (the ones the Central Bank links every week, 2026-11-27):
+//   Ipoteka bank: every branch page says "Сб-Вс: 9:00-17:00", but the bank's weekly xlsx for 21-22 Nov opens about 30
+//     cash desks with their own hours (09:00-13:00, 10:00-16:00 ...), mostly on Saturday only.
+//   BRB: 27 branch pages say "Shanba 9:00-16:00", but the bank's monthly xlsx had 9 of them closed on 7, 14 and 21 Nov
+//     and opened others that the branch pages do not mark.
+// Showing those weekend hours would send people to closed doors, so only the weekday part is kept. Which offices open
+// on a given weekend comes from the weekly lists (backend/src/weekend.js) instead.
+export const WEEKEND_FROM_WEEKLY_LIST_ONLY = new Set(["Ipoteka bank", "BRB"]);
+
+/** "Mo-Fr 09:00-17:00; Sa-Su 09:00-17:00" -> "Mo-Fr 09:00-17:00"; "Mo-Sa 09:00-17:00" -> "Mo-Fr 09:00-17:00"; null when nothing is left. */
+export function weekdaysOnly(hours) {
+  if (!hours) return null;
+  if (hours.trim() === "24/7") return "Mo-Fr 00:00-24:00";
+  const out = [];
+  for (const rule of hours.split(";").map((r) => r.trim()).filter(Boolean)) {
+    const m = rule.match(/^(\S+)\s+(.+)$/);
+    if (!m) return null;
+    const days = new Set();
+    for (const part of m[1].split(",")) {
+      const [a, b = a] = part.split("-").map((d) => DAYS.indexOf(d));
+      if (a < 0 || b < 0) return null;
+      for (let d = a; ; d = (d + 1) % 7) { days.add(d); if (d === b) break; }
+    }
+    const weekdays = [...days].filter((d) => d < 5);
+    if (weekdays.length) out.push(`${rangeLabel(weekdays)} ${m[2]}`);
+  }
+  return out.length ? out.join("; ") : null;
+}
+
 export async function fetchOfficialBranches({ only } = {}) {
   const report = {};
   const all = [];
@@ -512,6 +547,7 @@ export async function fetchOfficialBranches({ only } = {}) {
     if (only && !only.includes(bank)) continue;
     try {
       const got = (await run()).filter(Boolean);
+      if (WEEKEND_FROM_WEEKLY_LIST_ONLY.has(bank)) for (const b of got) b.hours = weekdaysOnly(b.hours);
       // De-duplicate identical coordinates within a bank.
       const seen = new Set();
       const uniq = got.filter((b) => {

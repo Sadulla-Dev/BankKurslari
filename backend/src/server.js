@@ -3,7 +3,7 @@ import express from "express";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
-import { fetchOfficialBranches } from "./officialBranches.js";
+import { fetchOfficialBranches, weekdaysOnly, WEEKEND_FROM_WEEKLY_LIST_ONLY } from "./officialBranches.js";
 
 // DATA_DIR may point elsewhere (the static-site builder keeps state in a temp dir); static datasets stay in the repo.
 const REPO_DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
@@ -847,6 +847,11 @@ async function getBranches({ force = false } = {}) {
     const removed = (await loadStatic("removed-branches.json")) || [];
     const combined = withoutRemoved([...mergeOfficial(staticBranches, await getOfficialBranches()), ...manual], removed);
     const merged = withBankPhones(dedupeBranches(combined), staticBranches, centres);
+    // Banks whose branch pages claim weekend hours their own weekly lists contradict (officialBranches.js): whatever
+    // source a point came from (a cached official list, Yandex, OSM), no weekend hours for them.
+    for (const b of merged) {
+      if (b.hours && [...WEEKEND_FROM_WEEKLY_LIST_ONLY].some((bank) => branchBankKey(bank) === branchBankKey(b.bank))) b.hours = weekdaysOnly(b.hours);
+    }
     cachedBranches = { cachedAt: Date.now(), branches: merged };
     return merged;
   }

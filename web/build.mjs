@@ -378,8 +378,8 @@ const W = {
   uz: {
     link: "Dam olish kunlari ishlaydigan banklar", h1: "Dam olish kunlari ishlaydigan banklar",
     title: (range) => (range ? `Dam olish kunlari ishlaydigan banklar — ${range} | Qulay Kurs` : "Dam olish kunlari ishlaydigan banklar | Qulay Kurs"),
-    desc: (range, n, names) => `${range} shanba va yakshanba kunlari ${n} ta bank valyuta ayirboshlash va pul o‘tkazmalari shoxobchalarini ochadi: ${names}. Markaziy bank ro‘yxati, filiallar va dollar kursi.`,
-    sub: (range, posted) => `Shanba va yakshanba, ${range} · Markaziy bank ro‘yxati, ${posted}`,
+    desc: (range, n, names) => `${range ? `${range} shanba va yakshanba kunlari` : "Dam olish kunlari"} ${n} ta bank valyuta ayirboshlash va pul o‘tkazmalari shoxobchalarini ochadi: ${names}. Markaziy bank ro‘yxati, filiallar va dollar kursi.`,
+    sub: (range, posted) => `${range ? `Shanba va yakshanba, ${range} · ` : ""}Markaziy bank ro‘yxati, ${posted}`,
     stale: (range) => `Bu ro‘yxat ${range} uchun edi. Keyingi dam olish kunlari ro‘yxatini Markaziy bank odatda payshanba yoki juma kuni kechqurun e’lon qiladi, sahifa o‘zi yangilanadi.`,
     lead: (n, fresh) => `${fresh ? `Bu dam olish kunlari ${n} ta bankning ayrim filiallari ochiq` : `Oxirgi ro‘yxatda ${n} ta bank bor`}: ularda valyuta ayirboshlash va xalqaro pul o‘tkazmalarini olish mumkin. Banklar har hafta almashadi, qaysi filial ishlashini bankning o‘z ro‘yxatidan ko‘ring.`,
     colBank: "Bank", colList: "Filiallar ro‘yxati", listLink: "Ro‘yxat ↗",
@@ -387,7 +387,7 @@ const W = {
     callNote: "Ish vaqti filialga qarab farq qiladi. Borishdan oldin filialga yoki bankning call-markaziga qo‘ng‘iroq qilib aniqlang.",
     source: "Manba: Markaziy bankning Telegram kanali",
     permH: "Shanba yoki yakshanba doim ishlaydigan filiallar",
-    permLead: (n) => `Bu filiallarning odatiy ish vaqtida shanba yoki yakshanba bor (banklarning o‘z saytlaridan). Jami ${n} ta filial.`,
+    permLead: (n) => `Bu filiallarning odatiy ish vaqtida shanba yoki yakshanba bor: banklarning o‘z saytlaridagi jadval, haftalik ro‘yxatlari bilan solishtirilgan. Bayram kunlari o‘zgarishi mumkin. Jami ${n} ta filial.`,
     cityH: (c) => `${c.name}dagi filiallar`, otherH: "Boshqa shahar va tumanlar",
     colAddr: "Manzil", colSat: "Shanba", colSun: "Yakshanba", closed: "yopiq",
     faq: (n, names) => [
@@ -399,8 +399,8 @@ const W = {
   ru: {
     link: "Банки, работающие в выходные", h1: "Банки, работающие в выходные",
     title: (range) => (range ? `Банки, работающие в выходные — ${range} | Qulay Kurs` : "Банки, работающие в выходные | Qulay Kurs"),
-    desc: (range, n, names) => `В субботу и воскресенье, ${range}, ${n} ${ruPlural(n, "банк открывает", "банка открывают", "банков открывают")} пункты обмена валюты и выдачи переводов: ${names}. Список ЦБ, отделения и курс доллара.`,
-    sub: (range, posted) => `Суббота и воскресенье, ${range} · список Центрального банка от ${posted}`,
+    desc: (range, n, names) => `${range ? `В субботу и воскресенье, ${range},` : "В выходные"} ${n} ${ruPlural(n, "банк открывает", "банка открывают", "банков открывают")} пункты обмена валюты и выдачи переводов: ${names}. Список ЦБ, отделения и курс доллара.`,
+    sub: (range, posted) => `${range ? `Суббота и воскресенье, ${range} · с` : "С"}писок Центрального банка от ${posted}`,
     stale: (range) => `Этот список был на ${range}. Список на следующие выходные ЦБ обычно публикует в четверг или пятницу вечером, страница обновится сама.`,
     lead: (n, fresh) => `${fresh ? "В эти выходные открыты" : "В последнем списке —"} отдельные отделения ${n} ${ruPlural(n, "банка", "банков", "банков")}: в них можно обменять валюту и получить международный перевод. Банки меняются каждую неделю, какие именно отделения работают, сказано в списке самого банка.`,
     colBank: "Банк", colList: "Список отделений", listLink: "Список ↗",
@@ -408,7 +408,7 @@ const W = {
     callNote: "Часы работы зависят от отделения. Перед визитом позвоните в отделение или в колл-центр банка.",
     source: "Источник: Telegram-канал Центрального банка",
     permH: "Отделения, которые всегда работают в субботу или воскресенье",
-    permLead: (n) => `В обычном графике этих отделений есть суббота или воскресенье (по данным сайтов банков). Всего ${n} ${ruPlural(n, "отделение", "отделения", "отделений")}.`,
+    permLead: (n) => `В обычном графике этих отделений есть суббота или воскресенье: график с сайтов банков, сверенный с их еженедельными списками. В праздники он может меняться. Всего ${n} ${ruPlural(n, "отделение", "отделения", "отделений")}.`,
     cityH: (c) => `Отделения ${c.in}`, otherH: "Другие города и районы",
     colAddr: "Адрес", colSat: "Суббота", colSun: "Воскресенье", closed: "выходной",
     faq: (n, names) => [
@@ -420,8 +420,8 @@ const W = {
   en: {
     link: "Banks open on weekends", h1: "Banks open on weekends in Uzbekistan",
     title: (range) => (range ? `Banks open this weekend, ${range} | Qulay Kurs` : "Banks open on weekends in Uzbekistan | Qulay Kurs"),
-    desc: (range, n, names) => `On Saturday and Sunday, ${range}, ${n} banks open currency exchange and money transfer offices: ${names}. The Central Bank's list, branches and the dollar rate.`,
-    sub: (range, posted) => `Saturday and Sunday, ${range} · Central Bank list of ${posted}`,
+    desc: (range, n, names) => `${range ? `On Saturday and Sunday, ${range},` : "On weekends"} ${n} banks open currency exchange and money transfer offices: ${names}. The Central Bank's list, branches and the dollar rate.`,
+    sub: (range, posted) => `${range ? `Saturday and Sunday, ${range} · ` : ""}Central Bank list of ${posted}`,
     stale: (range) => `This list was for ${range}. The Central Bank usually publishes the next weekend's list on Thursday or Friday evening; this page updates by itself.`,
     lead: (n, fresh) => `${fresh ? "This weekend some" : "In the latest list, some"} branches of ${n} banks are open for currency exchange and international money transfers. The banks change every week; each bank's own list says which branches.`,
     colBank: "Bank", colList: "Branch list", listLink: "List ↗",
@@ -429,7 +429,7 @@ const W = {
     callNote: "Hours vary by branch. Call the branch or the bank's call centre before you go.",
     source: "Source: the Central Bank's Telegram channel",
     permH: "Branches that always open on Saturday or Sunday",
-    permLead: (n) => `These branches' usual hours include Saturday or Sunday (from the banks' own websites). ${n} branches in all.`,
+    permLead: (n) => `These branches' usual hours include Saturday or Sunday: the banks' own schedules, checked against their weekly lists. They may change on public holidays. ${n} branches in all.`,
     cityH: (c) => `Branches ${c.in}`, otherH: "Other towns and districts",
     colAddr: "Address", colSat: "Saturday", colSun: "Sunday", closed: "closed",
     faq: (n, names) => [
@@ -549,10 +549,15 @@ const cities = CITIES.filter((c) => cityBranches[c.slug]);
 const kmTo = (a, b) => 6371 * Math.hypot(((b.lng - a.lng) * Math.PI / 180) * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180), ((b.lat - a.lat) * Math.PI / 180));
 // The weekend page: the Central Bank's list (needed for the page at all) and the branches open on a weekend day by their
 // usual hours, by city (nearest centre within its radius; the rest under "other").
-const weekend = await get("/api/weekend").then((d) => (d.banks?.length >= 3 && d.days?.length === 2 ? d : null)).catch(skip("weekend banks"));
+const weekend = await get("/api/weekend").then((d) => (d.banks?.length >= 3 && (d.days == null || d.days.length === 2) ? d : null)).catch(skip("weekend banks"));
+// Banks whose weekend hours on their branch pages were checked against their own weekly lists (2026-11-27, see
+// backend/src/officialBranches.js for the two that failed). The page says "checked", so a bank that starts publishing
+// weekend hours is not listed until someone has compared them the same way.
+const WEEKEND_HOURS_CHECKED = new Set(["anorbank", "asia-alliance", "hamkorbank", "hayot-bank", "ipak-yuli", "tenge-bank", "orient-finans"]);
 const weekendBranches = (() => {
   const out = new Map(); // city slug | "" -> [{ bank, address, sat, sun }]
   for (const br of branchData?.branches || []) {
+    if (!WEEKEND_HOURS_CHECKED.has(bankSlug(br.bank))) continue;
     const span = weekendSpans(br.hours);
     if (!span || !(span[0] || span[1]) || !(br.lat && br.lng)) continue;
     let best = null;
@@ -820,9 +825,10 @@ ${appPromo(lang, "city")}
 // list of open offices) with their dollar rates, then the branches whose usual hours include Saturday or Sunday.
 function weekendPage(lang, allNames) {
   const x = X[lang], w = W[lang], url = weekendUrl(lang), home = curUrl(lang, "USD");
-  const range = dayRange(weekend.days, lang);
+  // No dates when the API could not tell which days the list is for (a holiday list, or posted mid-week).
+  const range = weekend.days ? dayRange(weekend.days, lang) : "";
   const today = new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);
-  const fresh = weekend.days[1] >= today;
+  const fresh = weekend.days ? weekend.days[1] >= today : Date.now() - Date.parse(weekend.publishedAt) < 4 * 86400e3;
   const posted = when(weekend.publishedAt, lang).date;
   const usd = new Map(rates.USD.banks.map((b) => [bankSlug(b.bank), b]));
   // The site's own spelling of each bank ("Trastbank", not the list's "Trast bank"); banks it has no page for keep theirs.
@@ -843,7 +849,7 @@ function weekendPage(lang, allNames) {
 <div class="card page-card">
   <div class="page-head"><div><h1>${esc(w.h1)}</h1><p class="muted">${esc(w.sub(range, posted))}</p></div></div>
   <div class="page-text">
-    ${fresh ? "" : `<p><b>${esc(w.stale(range))}</b></p>`}
+    ${fresh || !range ? "" : `<p><b>${esc(w.stale(range))}</b></p>`}
     <p>${esc(w.lead(rows.length, fresh))}</p>
   </div>
   <div class="tbl-scroll"><table class="tbl page-tbl">

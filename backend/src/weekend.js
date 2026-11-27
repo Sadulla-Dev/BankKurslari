@@ -60,16 +60,23 @@ function bankLinks(content) {
 // Tashkent is UTC+5 all year.
 const tashkentDate = (ms) => new Date(ms + 5 * 3600 * 1000).toISOString().slice(0, 10);
 
-/** Saturday and Sunday on or after the day the list was posted (a list posted on Sunday is for that Sunday). */
-function weekendAfter(iso) {
+/**
+ * Saturday and Sunday the list is for: the weekend right after it was posted. The weekly list goes up on Thursday or
+ * Friday evening (a list posted on Saturday or Sunday is for that same weekend). Posted on another day, or a holiday
+ * list ("Bayram ..."), it may be for other dates: null then, and the site shows the list without dates rather than
+ * guessing them.
+ */
+export function weekendAfter(iso, slug) {
+  if (/^bayram/i.test(slug)) return null;
   const day = new Date(`${tashkentDate(Date.parse(iso))}T00:00:00Z`);
   const dow = day.getUTCDay(); // 0 Sunday … 6 Saturday
+  if (dow >= 1 && dow <= 3) return null;
   const sat = day.getTime() + (dow === 0 ? -1 : 6 - dow) * 86400000;
   return [sat, sat + 86400000].map((ms) => new Date(ms).toISOString().slice(0, 10));
 }
 
 /**
- * { title, publishedAt, postUrl, listUrl, days: ["YYYY-MM-DD" Saturday, Sunday], banks: [{ name, url }] }.
+ * { title, publishedAt, postUrl, listUrl, days: ["YYYY-MM-DD" Saturday, Sunday] | null, banks: [{ name, url }] }.
  * Throws when no list is found among the channel's recent posts or the list has too few banks, so the build keeps the
  * previous file.
  */
@@ -89,7 +96,7 @@ export async function getWeekendBanks() {
     publishedAt: post.at,
     postUrl: `https://t.me/${CHANNEL}/${post.id}`,
     listUrl: post.listUrl,
-    days: weekendAfter(post.at),
+    days: weekendAfter(post.at, decodeURIComponent(path)),
     banks,
   };
 }
