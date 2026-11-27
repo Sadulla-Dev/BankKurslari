@@ -391,7 +391,7 @@ const W = {
     cityH: (c) => `${c.name}dagi filiallar`, otherH: "Boshqa shahar va tumanlar",
     colAddr: "Manzil", colSat: "Shanba", colSun: "Yakshanba", closed: "yopiq",
     openH: "Shu dam olish kunlari ochiq filiallar",
-    openLead: (n, nb, fresh) => `${fresh ? "Banklarning o‘z ro‘yxatlariga ko‘ra shu shanba yoki yakshanba" : "Oxirgi ro‘yxatlarda"} ${nb} ta bankning ${n} ta filiali ochiq. Ish vaqti ro‘yxatda yozilmagan bo‘lsa, “ochiq” deb ko‘rsatilgan.`,
+    openLead: (n, nb) => `Banklarning o‘z ro‘yxatlariga ko‘ra shu shanba yoki yakshanba ${nb} ta bankning ${n} ta filiali ochiq. Ish vaqti ro‘yxatda yozilmagan bo‘lsa, “ochiq” deb ko‘rsatilgan.`,
     colOffice: "Filial", open: "ochiq", colCount: "Ochiq filiallar", mapLink: "Xaritada ko‘rish",
     status: { image: "ro‘yxat rasmda", all: "barcha filiallari", regular: "odatdagi ish vaqti", stale: "boshqa sana uchun", none: "o‘qib bo‘lmadi", error: "o‘qib bo‘lmadi", blocked: "o‘qib bo‘lmadi" },
     unread: (names) => `Bu banklarning ro‘yxatini o‘qib bo‘lmadi, bankning o‘z ro‘yxatidan ko‘ring: ${names}.`,
@@ -417,7 +417,7 @@ const W = {
     cityH: (c) => `Отделения ${c.in}`, otherH: "Другие города и районы",
     colAddr: "Адрес", colSat: "Суббота", colSun: "Воскресенье", closed: "выходной",
     openH: "Отделения, открытые в эти выходные",
-    openLead: (n, nb, fresh) => `${fresh ? "По спискам самих банков в эту субботу или воскресенье открыты" : "В последних списках —"} ${n} ${ruPlural(n, "отделение", "отделения", "отделений")} ${nb} ${ruPlural(nb, "банка", "банков", "банков")}. Если часы работы в списке не указаны, написано «открыто».`,
+    openLead: (n, nb) => `По спискам самих банков в эту субботу или воскресенье открыты ${n} ${ruPlural(n, "отделение", "отделения", "отделений")} ${nb} ${ruPlural(nb, "банка", "банков", "банков")}. Если часы работы в списке не указаны, написано «открыто».`,
     colOffice: "Отделение", open: "открыто", colCount: "Открытые отделения", mapLink: "Показать на карте",
     status: { image: "список картинкой", all: "все отделения", regular: "обычный график", stale: "на другую дату", none: "не удалось прочитать", error: "не удалось прочитать", blocked: "не удалось прочитать" },
     unread: (names) => `Списки этих банков прочитать не удалось, смотрите список самого банка: ${names}.`,
@@ -443,7 +443,7 @@ const W = {
     cityH: (c) => `Branches ${c.in}`, otherH: "Other towns and districts",
     colAddr: "Address", colSat: "Saturday", colSun: "Sunday", closed: "closed",
     openH: "Branches open this weekend",
-    openLead: (n, nb, fresh) => `${fresh ? "According to the banks' own lists," : "In the latest lists,"} ${n} branches of ${nb} banks are open this Saturday or Sunday. Where a list gives no hours, it says “open”.`,
+    openLead: (n, nb) => `According to the banks' own lists, ${n} branches of ${nb} banks are open this Saturday or Sunday. Where a list gives no hours, it says “open”.`,
     colOffice: "Branch", open: "open", colCount: "Open branches", mapLink: "Show on the map",
     status: { image: "list is a picture", all: "all branches", regular: "usual hours", stale: "for another date", none: "could not be read", error: "could not be read", blocked: "could not be read" },
     unread: (names) => `These banks' lists could not be read; see the bank's own list: ${names}.`,
@@ -595,6 +595,8 @@ const cityOfText = (text) => {
   }
   return TASHKENT_DISTRICTS.test(t) && !/viloyat|вилоят/.test(t) ? "toshkent" : "";
 };
+const pointKey = (bank, p) => `${bank.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")}|${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
+const pointAddress = new Map((branchData?.branches || []).filter((b) => b.lat && b.lng && b.address).map((b) => [pointKey(b.bank, b), cleanAddr(b.address) || b.address]));
 const weekendOpen = (() => {
   const out = new Map(); // city slug | "" -> [{ bank, name, parent, address, sat, sun, point }]
   if (!weekend || weekend.branchesListUrl !== weekend.listUrl) return out;
@@ -606,7 +608,9 @@ const weekendOpen = (() => {
       key = best?.c.slug || "";
     } else key = cityOfText(`${e.address} ${e.region || ""}`);
     const day = (d) => (e.open?.[d] == null ? null : e.open[d]);
-    (out.get(key) || out.set(key, []).get(key)).push({ bank: e.bank, name: e.name || "", parent: e.parent || "", address: e.address || "", sat: day("Sa"), sun: day("Su"), point: e.point || null });
+    // No address on the list (BRB's xlsx has names only): the matched point's own address.
+    const address = e.address || (e.point ? pointAddress.get(pointKey(e.bank, e.point)) : "") || "";
+    (out.get(key) || out.set(key, []).get(key)).push({ bank: e.bank, name: e.name || "", parent: e.parent || "", address, sat: day("Sa"), sun: day("Su"), point: e.point || null });
   }
   for (const list of out.values()) list.sort((a, b) => a.bank.localeCompare(b.bank) || a.name.localeCompare(b.name) || a.address.localeCompare(b.address));
   return out;
@@ -884,10 +888,11 @@ function weekendPage(lang, allNames) {
     ...(weekendBranches.has("") ? [[w.otherH, weekendBranches.get("")]] : [])];
   const permCount = perm.reduce((n, [, list]) => n + list.length, 0);
   // The banks' own lists: offices open this weekend, by city; how many per bank; the lists that could not be read.
-  const open = [...CITIES.filter((c) => weekendOpen.has(c.slug)).map((c) => [w.cityH(cityName(lang, c)), weekendOpen.get(c.slug)]),
+  // Only while that weekend is ahead (as the map's filter, app.js loadWeekend): last weekend's offices are not "open".
+  const open = !fresh ? [] : [...CITIES.filter((c) => weekendOpen.has(c.slug)).map((c) => [w.cityH(cityName(lang, c)), weekendOpen.get(c.slug)]),
     ...(weekendOpen.has("") ? [[w.otherH, weekendOpen.get("")]] : [])];
   const openAll = open.flatMap(([, list]) => list);
-  const lists = new Map((weekend.branchesListUrl === weekend.listUrl ? weekend.branchLists || [] : []).map((l) => [l.url, l]));
+  const lists = new Map((fresh && weekend.branchesListUrl === weekend.listUrl ? weekend.branchLists || [] : []).map((l) => [l.url, l]));
   const siteName = (bank) => known.get(bankSlug(bank)) || bank;
   const dayCell = (v) => (v == null ? `<span class="muted">${esc(w.closed)}</span>` : v ? esc(v) : esc(w.open));
   const openTable = (list) => `<div class="tbl-scroll"><table class="tbl page-tbl wk-tbl wk-open">
@@ -924,7 +929,7 @@ function weekendPage(lang, allNames) {
   </div>
 </div>
 ${openAll.length ? `<div class="card page-card" id="ochiq">
-  <div class="page-text"><h2>${esc(w.openH)}</h2><p>${esc(w.openLead(openAll.length, banksOpen, fresh))}</p>
+  <div class="page-text"><h2>${esc(w.openH)}</h2><p>${esc(w.openLead(openAll.length, banksOpen))}</p>
     ${openAll.some((b) => b.point) ? `<p><a class="btn btn-accent btn-sm" href="${home}#/xarita?dam-olish">${esc(w.mapLink)}</a></p>` : ""}
     ${unread.length ? `<p class="muted">${esc(w.unread(unread.map((b) => b.name).join(", ")))}</p>` : ""}</div>
   ${open.map(([h, list]) => `<div class="page-text"><h3 class="addr-h">${esc(h)}</h3></div>${openTable(list)}`).join("\n  ")}
