@@ -49,9 +49,9 @@ export function tokens(s) {
   for (const re of [STREET_AFTER, STREET_BEFORE]) for (const m of t.matchAll(re)) if (!STOP.has(m[1]) && !places.has(m[1])) streets.add(m[1]);
   const afterStreet = /\b(?:kochasi|kuchasi|kocha|koch|kuch|prospekti|ul)\s+(?:[a-z]+\s+){0,3}?(\d+[a-z]?)(?:\/\d+)?\b/.exec(t);
   const nums = t.split(" ").filter((w) => /^\d+[a-z]?(\/\d+)?$/.test(w) && !/^\d{6}$/.test(w));
-  const house = afterStreet?.[1] || (streets.size ? nums.at(-1) : null) || null;
+  const house = afterStreet?.[1] || nums.at(-1) || null;
   // Tashkent has three ring roads: TKAD/TXAY (the outer one), Katta halqa yo‘li and Kichik halqa yo‘li.
-  const ring = /\bkichik halka\b/.test(t) ? "small" : /\bkatta halka\b/.test(t) ? "big" : /\b(tkad|thay|tkay|halka avtomobil)\b/.test(t) ? "outer" : null;
+  const ring = /\bkichik halka\b/.test(t) ? "small" : /\bkatta halka\b/.test(t) ? "big" : /\b(tkad|thay|tkay|thy|halka avtomobil)\b/.test(t) ? "outer" : null;
   return { words, numbers, places, streets, house, ring };
 }
 const houseNo = (h) => (h ? Number.parseInt(h, 10) : null);
@@ -73,6 +73,8 @@ export function matchEntries(entries, points) {
   const df = new Map();
   for (const x of P) for (const w of new Set([...x.addr.words, ...x.name.words])) df.set(w, (df.get(w) || 0) + 1);
   const idf = (w) => Math.log((P.length + 1) / ((df.get(w) || 0) + 0.5));
+  // Town and district names (as any of the bank's addresses use them) are never street evidence.
+  const townWords = new Set(P.flatMap((x) => [...x.addr.places]));
   return entries.map((e) => {
     const addr = tokens(e.address || "");
     const name = tokens(`${e.name || ""} ${e.parent || ""}`);
@@ -88,7 +90,9 @@ export function matchEntries(entries, points) {
       if (addr.house && x.addr.house && houseNo(addr.house) !== houseNo(x.addr.house)) continue;
       if (addr.ring && x.addr.ring && addr.ring !== x.addr.ring) continue;
       let score = 0, street = 0, nameHit = 0;
-      for (const w of addr.words) if (x.addr.words.has(w) || x.name.words.has(w)) { score += idf(w); if (!places.has(w)) street++; }
+      // Street evidence: the street the row names, when it names one ("Semenchi ko‘chasi" is not matched by "Bekobod").
+      for (const w of addr.words) if (x.addr.words.has(w) || x.name.words.has(w)) { score += idf(w); if (addr.streets.size ? addr.streets.has(w) : !places.has(w) && !townWords.has(w)) street++; }
+      if (addr.ring && addr.ring === x.addr.ring) { street++; score += 1; } // the same ring road is a street
       const house = [...addr.numbers].some((n) => x.addr.numbers.has(n));
       if (house && street) score += 2;
       for (const w of name.words) if (x.name.words.has(w)) { score += idf(w); nameHit++; }

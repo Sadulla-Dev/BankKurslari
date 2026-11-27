@@ -59,6 +59,7 @@ test("page defaults: the weekend's days and hours, not the posting date or the w
   assert.equal(pageContext("ISH GRAFIGI: Dushanba — juma: 9:00 dan 17:00 gacha\nShanba kunlari ochiq bo'lgan filiallar", DAYS).hours, "");
   assert.equal(pageContext("2026-yil 28 noyabr kuni valyuta ayirboshlash shoxobchasi ishlaydi", DAYS).stale, true); // Saderat, a week early
   assert.equal(pageContext("05.11.2026 10:35\nShanba kuni ham odatdagi tartibda", DAYS).standing, true); // Universal
+  assert.equal(pageContext("Shanba kunlari ochiq bo'lgan filiallar\nSönggi yangilaniş sanasi: 21.10.2026 15:09", DAYS).stale, false); // SQB
 });
 
 /* ---------- tables ---------- */
@@ -94,6 +95,18 @@ test("Xalq banki: no header row, columns told by their contents", () => {
     ["Xonobod BXM", "Andijon viloyati", { Sa: "" }],
     ["Payshanba BXM", "Buxoro viloyati", { Su: "" }],
   ]);
+});
+
+test("a document about another weekend gives nothing, even with Shanba/Yakshanba in its rows (Agrobank's old PDF)", async () => {
+  const old = pageContext("Dam olish kunlarida faoliyat yurituvchi shoxobchalar ro‘yxati (7-8-noyabr)", DAYS);
+  assert.equal(old.stale, true);
+  const html = `<div class="ab-page__text"><p>Mijozlar uchun 7-8-noyabr kunlari ayrim bank xizmatlari markazlarimiz faoliyat yuritadi.</p>
+    <table><tr><td>№</td><td>Filial nomi</td><td>Manzil</td><td>Ish kuni</td></tr><tr><td>1</td><td>Ulug‘nor filiali</td><td>Ulug‘nor tumani, Mustaqillik ko‘chasi, 1-uy</td><td>Shanba</td></tr></table>
+    <p>Paxtaobod filiali (Paxtaobod tumani, A.Temur ko‘chasi, 8-uy) shanba kuni ishlaydi.</p></div>`;
+  const r = htmlEntries(html, "https://agrobank.uz/uz/x", DAYS, { root: ".ab-page__text" });
+  assert.deepEqual([r.entries, r.stale], [[], true]);
+  // The same table under this weekend's dates is read.
+  assert.equal(htmlEntries(html.replace("7-8-noyabr", "21-22-noyabr"), "https://agrobank.uz/uz/x", DAYS, { root: ".ab-page__text" }).entries.length, 1);
 });
 
 test("Turonbank: names and a date column; Infinbank: a table for another weekend is stale", () => {
@@ -205,9 +218,13 @@ test("Tenge bank: 'Name (address)' with brackets inside, one office on Saturday 
 });
 
 test("Orient Finans, Hayot, Universal, Apex: the other ways banks write it", () => {
-  assert.deepEqual(brief(proseEntries(["«Sergeli» BXO — soat 10:00 dan 16:00 gacha, 21-noyabr kuni;", "City Mall SKMdagi BXO — soat 10:00 dan 22:00 gacha 21 va 22-noyabr kunlari;"], ctx())), [
+  assert.deepEqual(brief(proseEntries([
+    "«Sergeli» BXO — soat 10:00 dan 16:00 gacha, 21-noyabr kuni;", "City Mall SKMdagi BXO — soat 10:00 dan 22:00 gacha 21 va 22-noyabr kunlari;",
+    "Samarqand shahri aeroportidagi chakana amaliyotlar kassasi valyuta ayirboshlash xizmatini 24/7 rejimida ko‘rsatadi.",
+  ], ctx())), [
     ["«Sergeli» BXO", "", { Sa: "10:00–16:00" }],
     ["City Mall SKMdagi BXO", "", { Sa: "10:00–22:00", Su: "10:00–22:00" }],
+    ["Samarqand shahri aeroportidagi chakana amaliyotlar kassasi", "", { Sa: "00:00–24:00", Su: "00:00–24:00" }],
   ]);
   assert.deepEqual(brief(proseEntries(["“O’zbekiston” mehmonxonasi manzili: Toshkent shahri, Mahtumquli ko‘chasi, 45"], ctx(["Sa", "Su"], "00:00–24:00"))), [
     ["“O’zbekiston” mehmonxonasi", "Toshkent shahri, Mahtumquli ko‘chasi, 45", { Sa: "00:00–24:00", Su: "00:00–24:00" }],

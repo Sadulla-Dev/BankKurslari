@@ -229,11 +229,14 @@ function columnRole(h, days) {
   if (/^\s*(№|#|n|t\/r)\s*$/.test(t) || /^№/.test(t.trim())) return { role: "num" };
   if (/manzil|adres|address/.test(t)) return { role: "address", strong: true };
   if (/^\s*(tuman|rayon|район|district)\s*$/.test(t)) return { role: "district" };
+  if (/bank nomi|^bank$/.test(t.trim())) return { role: "bank" };
+  // "Viloyat filiallar nomlari" (NBU) names offices, though it says "viloyat".
+  if (/\bnom(i|lari)\b|nazvan|naimen/.test(t)) return { role: "name", strong: true };
   if (/viloyat|hudud|region|oblast|respublika|joylashgan/.test(t)) return { role: "region" };
-  if (/raqam|nomer|номер|\bid\b|kod\b/.test(t)) return { role: "skip" };
+  if (/raqam|nomer|номер|\bid\b|\bkod/.test(t)) return { role: "skip" };
   const dw = dayWords(h);
   if (dw.size === 1) return { role: "day", day: [...dw][0] };
-  if (/vaqt|vremya|время|grafik|soat|chasy|часы/.test(t)) return { role: "hours" };
+  if (/vaqt|vremya|время|grafik|soat|chasy|часы|tartib/.test(t)) return { role: "hours" };
   if (/(?<![a-z])ish kun|^kunlari$|^kuni$|dni rab/.test(t)) return { role: "daysList" };
   if (/bank nomi|bank$|^bank\b/.test(t.trim())) return { role: "bank" };
   if (/nomi|filial|bxm|bxo|kassa|bo'lim|bo'linma|infratuzilma|ofis|markaz|tarmoq|naimen|nazvan|punkt|vash|vash$/.test(t)) return { role: "name", strong: /nomi|bxm|kassa|bo'linma|infratuzilma|nazvan|tarmoq/.test(t) };
@@ -247,6 +250,7 @@ function contentRole(cells, days) {
   if (!vals.length) return { role: "unknown" };
   const share = (fn) => vals.filter(fn).length / vals.length;
   if (share(isNum) > 0.8) return { role: "num" };
+  if (share((v) => hoursIn(v) && !dayWords(v).size) > 0.6) return { role: "hours" };
   if (share((v) => dayWords(v).size || CLOSED_WORDS.test(latin(v)) || OPEN_WORDS.test(latin(v)) || hoursIn(v)) > 0.7) {
     const dates = new Set(vals.flatMap((v) => [...datesIn(v, days[0])]));
     return dates.size ? { role: "service" } : { role: "daysList" };
@@ -520,7 +524,8 @@ export function proseEntries(lines, ctx) {
     const set = new Set();
     if (ds.has(days[0])) set.add("Sa");
     if (ds.has(days[1])) set.add("Su");
-    if (!set.size && !ds.size) for (const d of dayWords(s)) set.add(d);
+    // A bare "shanba" counts only on a page that is not about another weekend.
+    if (!set.size && !ds.size && !ctx.stale) for (const d of dayWords(s)) set.add(d);
     return { set, other: ds.size > 0 && !set.size };
   };
   const push = (name, address, rest, raw) => {
@@ -543,6 +548,10 @@ export function proseEntries(lines, ctx) {
     if (par && isAddress(par.inside) && par.before.trim().length >= 2 && par.before.length < 150) { push(par.before, par.inside, par.after, raw); continue; }
     const dash = /^(.{2,80}?)\s+[—–-]\s+(.*)$/.exec(s);
     if (dash && isOffice(dash[1]) && (hoursIn(dash[2]) || datesIn(dash[2], days[0]).size)) { push(dash[1], "", dash[2], raw); continue; }
+    // A desk named by where it is, with its own hours: "Samarqand shahri aeroportidagi chakana amaliyotlar kassasi
+    // valyuta ayirboshlash xizmatini 24/7 rejimida ko‘rsatadi" (Orient Finans).
+    const desk = /^(.{3,90}?dagi\b.{0,60}?\b(?:kassasi|shoxobchasi|shaxobchasi))\b/i.exec(s);
+    if (desk && hoursIn(s)) { push(desk[1], "", s.slice(desk[0].length), raw); continue; }
     // An office line, its address on the next line, then its hours (Apex: «Офис продаж "MEGA"» / «г. Ташкент, ...»).
     const next = L[i + 1]?.s || "";
     if (isOffice(s) && s.length < 80 && !isAddress(s) && isAddress(next) && !isOffice(next)) {
@@ -594,8 +603,13 @@ export function weekendSpans(hours) {
 const WEEKDAYS = /dushanba|seshanba|chorshanba|payshanba|\bjuma\b|\bdu\s*[-–—]\s*ju|ish kunlari|ponedel|\bpn\s*[-–—]|budn|mo-fr|monday|weekday|\bpon\b/;
 /** The page's own defaults: which weekend days it is about, its hours, and whether it is about another weekend. */
 export function pageContext(text, days) {
-  // Lines that are only a date (and time): when the page was posted, not when it is open.
-  const body = text.split("\n").filter((l) => latin(l).replace(/(?<![\d])\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}:\d{2}|\d{4}|yangilandi|updated|обновлено|e'lon qilingan|noy|nov|ноя/g, "").replace(/[^a-z]/g, "").length >= 3).join("\n");
+  // When the page was posted or updated is not when it is open: a date with a clock time ("21.10.2026 15:09"), and
+  // lines that are only a date or a "updated:" label with one ("Sönggi yangilaniş sanasi: 21.10.2026", SQB).
+  const body = text.split("\n")
+    .map((l) => l.replace(/(?<![\d.\/])\d{1,2}[./]\d{1,2}[./]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?/g, " "))
+    .filter((l) => !/yangilan|updated|обновл|e'lon qilingan|published/.test(latin(l)))
+    .filter((l) => latin(l).replace(/(?<![\d])\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{1,2}:\d{2}|\d{4}|noy|nov|ноя/g, "").replace(/[^a-z]/g, "").length >= 3)
+    .join("\n");
   const dates = datesIn(body, days[0]);
   const open = new Set();
   if (dates.has(days[0])) open.add("Sa");
@@ -647,6 +661,17 @@ export function readHtml(html, baseUrl, rootSel) {
 }
 
 /** Entries of one document (already downloaded). */
+/**
+ * tableEntries under the document's own dates: a document that names only other days (Agrobank's PDF next to its
+ * 21–22 November table was the 7–8 November list) gives nothing, unless the table itself has this weekend's dates.
+ */
+function datedEntries(grid, ctx) {
+  const r = tableEntries(grid, ctx);
+  if (!ctx.stale) return r;
+  const thisWeekend = grid.some((row) => row.some((v) => [...datesIn(v, ctx.days[0])].some((d) => ctx.days.includes(d))));
+  return thisWeekend ? r : { entries: [], stale: true };
+}
+
 export async function entriesOf(doc, days, conf = {}) {
   const kind = kindOf(doc);
   if (kind === "pdf") {
@@ -655,7 +680,7 @@ export async function entriesOf(doc, days, conf = {}) {
     if (!text.trim()) return { kind, entries: [], image: true };
     const lines = pages.flatMap((p) => pdfLines(p.items));
     const ctx = pageContext(lines.filter((l) => l.items.length <= 2 && l.text.length > 25).map((l) => l.text).join("\n"), days);
-    const { entries, stale } = tableEntries(pdfGrid(pages), ctx);
+    const { entries, stale } = datedEntries(pdfGrid(pages), ctx);
     return { kind, entries, stale: stale || (!entries.length && ctx.stale), text };
   }
   if (kind === "xlsx") {
@@ -663,7 +688,7 @@ export async function entriesOf(doc, days, conf = {}) {
     const text = grid.map((r) => [...new Set(r)].join(" ")).join("\n");
     // Defaults from the title lines (one text per row), not from the table's own cells.
     const ctx = pageContext(grid.filter((r) => new Set(r.filter((v) => v.trim())).size === 1).map((r) => r.find((v) => v.trim())).join("\n"), days);
-    const { entries, stale } = tableEntries(grid, ctx);
+    const { entries, stale } = datedEntries(grid, ctx);
     return { kind, entries, stale: stale || (!entries.length && ctx.stale), text };
   }
   if (kind === "image") return { kind, entries: [], image: true };
@@ -677,7 +702,7 @@ export function htmlEntries(html, url, days, conf = {}) {
   let stale = false;
   for (const t of page.tables) {
     const tctx = t.heading ? { ...ctx, ...(() => { const c = pageContext(t.heading, days); return c.open.size ? { open: c.open } : {}; })() } : ctx;
-    const r = tableEntries(t.grid, tctx);
+    const r = datedEntries(t.grid, tctx);
     entries.push(...r.entries);
     stale ||= r.stale;
   }

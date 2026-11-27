@@ -301,6 +301,11 @@ function initials(name) {
   const words = s.split(/\s+/).filter(Boolean);
   return (words.length > 1 ? words[0][0] + words[1][0] : s.slice(0, 2)).toUpperCase();
 }
+// Banks whose weekend hours on their branch pages were checked against their own weekly lists (2026-11-27, see
+// backend/src/officialBranches.js for the two that failed). Only these count as "always open on weekends" on the
+// weekend page and in the map's weekend filter; a bank that starts publishing weekend hours is left out until someone
+// has compared them the same way. Slugs as logoSlug gives them.
+const WEEKEND_HOURS_CHECKED = new Set(["anorbank", "asia-alliance", "hamkorbank", "hayot-bank", "ipak-yuli", "tenge-bank", "orient-finans"]);
 function logoSlug(name) {
   const key = bankKey(name);
   if (key.includes("anor")) return "anorbank";

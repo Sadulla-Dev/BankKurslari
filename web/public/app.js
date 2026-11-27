@@ -156,8 +156,8 @@ const loadBranches = () => S.branches ? Promise.resolve(S.branches) : once("br",
 /* ---------- weekend: branches open on Saturday or Sunday ---------- */
 
 // /api/weekend carries the offices on the banks' own lists for the coming weekend, each tied to its /api/branches point
-// (backend/src/weekendBranches.js). Used only while that weekend is ahead; branches whose usual hours include the
-// weekend count too.
+// (backend/src/weekendBranches.js). Used only while that weekend is ahead. Branches whose usual hours include the
+// weekend count too, for the banks whose hours were checked against their lists (WEEKEND_HOURS_CHECKED, shared.js).
 const wkKey = (bank, lat, lng) => `${bankKey(bank)}|${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
 const loadWeekend = () => S.wk ? Promise.resolve(S.wk) : once("wk", async () => {
   const d = await getJSON("/api/weekend");
@@ -172,6 +172,7 @@ const loadWeekend = () => S.wk ? Promise.resolve(S.wk) : once("wk", async () => 
 const wkListed = (b) => S.wk?.listed.get(wkKey(b.bank, b.lat, b.lng)) || null;
 function wkOpen(b) {
   if (wkListed(b)) return true;
+  if (!WEEKEND_HOURS_CHECKED.has(logoSlug(b.bank))) return false;
   const sch = parseHours(b.hours);
   return !!sch && (sch.always || !!sch.days[5] || !!sch.days[6]);
 }

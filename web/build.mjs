@@ -44,8 +44,8 @@ const VERIFY = [["google-site-verification", process.env.GOOGLE_SITE_VERIFICATIO
 /* ---------- shared with the browser app ---------- */
 
 const shared = vm.createContext({});
-vm.runInContext((await readFile(join(PUBLIC, "shared.js"), "utf8")) + "\n;globalThis.out = { T, WORTH, logoSlug, shortName, cleanAddr, uzCyrillic, uzCyrillicTexts };", shared);
-const { T, WORTH, logoSlug, shortName, cleanAddr, uzCyrillic, uzCyrillicTexts } = shared.out;
+vm.runInContext((await readFile(join(PUBLIC, "shared.js"), "utf8")) + "\n;globalThis.out = { T, WORTH, logoSlug, shortName, cleanAddr, uzCyrillic, uzCyrillicTexts, WEEKEND_HOURS_CHECKED };", shared);
+const { T, WORTH, logoSlug, shortName, cleanAddr, uzCyrillic, uzCyrillicTexts, WEEKEND_HOURS_CHECKED } = shared.out;
 
 /* ---------- addresses of pages ---------- */
 
@@ -565,10 +565,7 @@ const kmTo = (a, b) => 6371 * Math.hypot(((b.lng - a.lng) * Math.PI / 180) * Mat
 // The weekend page: the Central Bank's list (needed for the page at all) and the branches open on a weekend day by their
 // usual hours, by city (nearest centre within its radius; the rest under "other").
 const weekend = await get("/api/weekend").then((d) => (d.banks?.length >= 3 && (d.days == null || d.days.length === 2) ? d : null)).catch(skip("weekend banks"));
-// Banks whose weekend hours on their branch pages were checked against their own weekly lists (2026-11-27, see
-// backend/src/officialBranches.js for the two that failed). The page says "checked", so a bank that starts publishing
-// weekend hours is not listed until someone has compared them the same way.
-const WEEKEND_HOURS_CHECKED = new Set(["anorbank", "asia-alliance", "hamkorbank", "hayot-bank", "ipak-yuli", "tenge-bank", "orient-finans"]);
+// WEEKEND_HOURS_CHECKED (shared.js): the banks whose usual weekend hours were checked against their weekly lists.
 const weekendBranches = (() => {
   const out = new Map(); // city slug | "" -> [{ bank, address, sat, sun }]
   for (const br of branchData?.branches || []) {
